@@ -23,7 +23,12 @@ Runner (`tests/run.mjs`) otomatis:
 | `03-sesi-server` | Timer server, simpan otomatis, waktu habis, bagian berwaktu, aksi pengawas, ganti password |
 | `04-role` | Akses ADMIN / PENGAWAS / PESERTA, kelola akun |
 | `05-data-diri` | Data diri & foto peserta oleh admin |
-| `06-lms` | LMS: role GURU, kelas & mapel, materi, tugas & nilai, upload, diskusi, ujian per kelas, backup |
+| `06-lms` | LMS: role GURU, kelas & mapel, materi, tugas & nilai, upload & akses lampiran, rekap nilai, agenda tugas, tugas per siswa, banyak lampiran, revisi, tolak terlambat, ZIP, salin tugas, notifikasi, diskusi, ujian per kelas, backup |
+| `07-kuis` | Kuis per mapel: soal PG/BS/isian/esai, akses, percobaan & batas waktu server, nilai otomatis & esai, nilai ulang, rekap, notifikasi, backup |
+| `08-presensi` | Presensi: pertemuan, presensi mandiri dengan kode, batas percobaan kode, isian guru H/I/S/A, rekap, akses, backup |
+| `09-topik-jadwal` | Topik (buat, urut, pindah, hapus), terbit terjadwal materi & tugas, progres siswa, backup |
+| `10-kalender-nilai` | Kalender (rentang, isi per peran), rubrik tugas, bobot nilai akhir & KKM |
+| `11-ujian-manual` | Ujian offline / nilai manual: isi nilai, umumkan, rekap, kalender, notifikasi, akses, backup |
 | `beban` | Login, mulai, simpan, submit serentak (hanya dengan `--beban`) |
 
 Setiap baris hasil diawali `PASS` atau `FAIL`; runner keluar dengan kode 1 bila ada yang gagal.

@@ -1,13 +1,17 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { verifyLmsSession, aksesMapel, teks, lampiranValid, linkValid } from '@/lib/lms';
+import { verifyLmsSession, aksesMapel, teks, lampiranValid, linkValid, jadwalTerbit, topikValid } from '@/lib/lms';
 import { createAuditLog, getAuditIP } from '@/lib/audit-log';
 
-function dataMateri(body: Record<string, unknown>) {
+async function dataMateri(body: Record<string, unknown>, mapelId: number) {
   const judul = teks(body.judul, 200);
   if (!judul) return { error: 'Judul materi wajib diisi' } as const;
   if (body.linkVideo && !linkValid(body.linkVideo)) return { error: 'Link video harus diawali http:// atau https://' } as const;
   if (body.lampiran && !lampiranValid(body.lampiran)) return { error: 'Lampiran tidak valid' } as const;
+  const terbitPada = jadwalTerbit(body.terbitPada);
+  if (terbitPada === undefined) return { error: 'Jadwal terbit tidak valid' } as const;
+  const topikId = await topikValid(body.topikId, mapelId);
+  if (topikId === undefined) return { error: 'Topik tidak ditemukan di mapel ini' } as const;
   return {
     data: {
       judul,
@@ -16,6 +20,8 @@ function dataMateri(body: Record<string, unknown>) {
       lampiran: body.lampiran ? String(body.lampiran) : '',
       namaLampiran: body.lampiran ? teks(body.namaLampiran, 200) : '',
       terbit: body.terbit !== false,
+      terbitPada,
+      topikId,
     },
   } as const;
 }
@@ -28,7 +34,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const akses = await aksesMapel(auth.user, Number(body.mapelId));
     if (akses?.peran !== 'kelola') return NextResponse.json({ message: 'Tidak memiliki akses ke mapel ini' }, { status: 403 });
-    const hasil = dataMateri(body);
+    const hasil = await dataMateri(body, akses.mapel.id);
     if ('error' in hasil) return NextResponse.json({ message: hasil.error }, { status: 400 });
 
     const materi = await prisma.materi.create({ data: { ...hasil.data, mapelId: akses.mapel.id } });
@@ -50,7 +56,7 @@ export async function PUT(request: Request) {
     if (!lama) return NextResponse.json({ message: 'Materi tidak ditemukan' }, { status: 404 });
     const akses = await aksesMapel(auth.user, lama.mapelId);
     if (akses?.peran !== 'kelola') return NextResponse.json({ message: 'Tidak memiliki akses ke mapel ini' }, { status: 403 });
-    const hasil = dataMateri(body);
+    const hasil = await dataMateri(body, akses.mapel.id);
     if ('error' in hasil) return NextResponse.json({ message: hasil.error }, { status: 400 });
 
     const materi = await prisma.materi.update({ where: { id: lama.id }, data: hasil.data });

@@ -2,24 +2,47 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
 import {
-    LmsNav, Diskusi, FormMateri, FormTugas, IsiTeks, kirim, fmtTanggal, fmtWaktu, statusTugas, warnaMapel, inputClass,
+    LmsNav, Diskusi, FormMateri, FormTugas, IsiTeks, LabelTerbit, kirim, fmtTanggal, fmtWaktu, statusTugas, warnaMapel, inputClass,
 } from "@/components/lms/ui";
+import { RekapNilai } from "@/components/lms/RekapNilai";
+import { FormKuis } from "@/components/lms/kuis";
+import { Presensi } from "@/components/lms/Presensi";
+import { TabTopik } from "@/components/lms/Topik";
+import { UjianManual } from "@/components/lms/UjianManual";
 
 interface DataMapel {
     peran: "kelola" | "siswa";
     mapel: { id: number; nama: string; deskripsi: string; kelas: { id: number; nama: string }; guru: { id: number; nama: string } | null };
     jumlahSiswa: number;
+    jumlahUjianManual: number;
     siswa: { id: number; nomorPeserta: string; nama: string }[];
+    topik: { id: number; judul: string; deskripsi: string }[];
+    progres: { userId: number; materi: number; tugas: number; tugasTotal: number; kuis: number; persen: number | null }[];
+    jumlahMateriTampil?: number; jumlahKuisTampil?: number;
     pengumuman: { id: number; judul: string; isi: string; createdAt: string; penulis: string; jumlahKomentar: number }[];
-    materi: { id: number; judul: string; terbit: boolean; createdAt: string; adaLampiran: boolean; adaVideo: boolean; jumlahKomentar: number; jumlahDibaca?: number; sudahDibaca: boolean }[];
-    tugas: { id: number; judul: string; terbit: boolean; tenggat: string | null; nilaiMaks: number; createdAt: string; jumlahKumpul?: number; pengumpulanSaya?: { dikumpulkanAt: string; nilai: number | null } | null }[];
+    materi: { id: number; judul: string; terbit: boolean; terbitPada?: string | null; topikId: number | null; createdAt: string; adaLampiran: boolean; adaVideo: boolean; jumlahKomentar: number; jumlahDibaca?: number; sudahDibaca: boolean }[];
+    tugas: { id: number; judul: string; terbit: boolean; terbitPada?: string | null; topikId: number | null; tenggat: string | null; nilaiMaks: number; createdAt: string; terimaTerlambat: boolean; jumlahKumpul?: number; jumlahDitugaskan?: number | null; pengumpulanSaya?: { dikumpulkanAt: string; nilai: number | null; status: string } | null }[];
+    kuis: {
+        id: number; judul: string; terbit: boolean; topikId: number | null; mulai: string | null; selesai: string | null; durasiMenit: number; maksPercobaan: number; jumlahSoal: number;
+        status: "draf" | "belum" | "buka" | "tutup"; jumlahSelesai?: number; perluDinilai?: number;
+        saya?: { jumlah: number; sedang: boolean; terbaik: { nilai: number; perluDinilai: boolean } | null };
+    }[];
     ujian: { id: number; nama: string; isActive: boolean; durasiMenit: number; jadwalMulai: string | null; jadwalSelesai: string | null; nilaiSaya?: number | null }[];
 }
 
-type Tab = "beranda" | "materi" | "tugas" | "ujian" | "anggota";
+type Tab = "beranda" | "topik" | "materi" | "tugas" | "kuis" | "ujian" | "presensi" | "nilai" | "anggota";
+const TAB: Tab[] = ["beranda", "topik", "materi", "tugas", "kuis", "ujian", "presensi", "nilai", "anggota"];
+
+/** Tab awal & kode presensi dari URL (?tab=presensi&kode=XXXX, mis. dari QR presensi). */
+function paramAwal() {
+    if (typeof window === "undefined") return { tab: "beranda" as Tab, kode: "" };
+    const q = new URLSearchParams(window.location.search);
+    const tab = q.get("tab") as Tab;
+    return { tab: TAB.includes(tab) ? tab : "beranda", kode: q.get("kode") ?? "" };
+}
 
 async function muat(id: string) {
     const res = await fetch(`/api/lms/mapel/${id}`);
@@ -29,11 +52,13 @@ async function muat(id: string) {
 
 export default function HalamanMapel() {
     const { id } = useParams<{ id: string }>();
+    const router = useRouter();
     const { toast } = useToast();
     const [d, setD] = useState<DataMapel | null>(null);
     const [error, setError] = useState("");
-    const [tab, setTab] = useState<Tab>("beranda");
-    const [form, setForm] = useState<"materi" | "tugas" | null>(null);
+    const [awal] = useState(paramAwal);
+    const [tab, setTab] = useState<Tab>(awal.tab);
+    const [form, setForm] = useState<"materi" | "tugas" | "kuis" | null>(null);
     const [pengumuman, setPengumuman] = useState({ judul: "", isi: "" });
     const [bukaDiskusi, setBukaDiskusi] = useState<number | null>(null);
 
@@ -54,9 +79,13 @@ export default function HalamanMapel() {
     const kelola = d.peran === "kelola";
     const tabs: { key: Tab; label: string; n?: number }[] = [
         { key: "beranda", label: "Beranda", n: d.pengumuman.length },
+        { key: "topik", label: "Topik", n: d.topik.length || undefined },
         { key: "materi", label: "Materi", n: d.materi.length },
         { key: "tugas", label: "Tugas", n: d.tugas.length },
-        { key: "ujian", label: "Ujian", n: d.ujian.length },
+        { key: "kuis", label: "Kuis", n: d.kuis.length },
+        { key: "ujian", label: "Ujian", n: d.ujian.length + (d.jumlahUjianManual ?? 0) },
+        { key: "presensi", label: "Presensi" },
+        { key: "nilai", label: "Nilai" },
         ...(kelola ? [{ key: "anggota" as Tab, label: "Anggota", n: d.jumlahSiswa }] : []),
     ];
 
@@ -78,7 +107,7 @@ export default function HalamanMapel() {
     };
 
     const dibaca = d.materi.filter((m) => m.sudahDibaca).length;
-    const tugasSelesai = d.tugas.filter((t) => t.pengumpulanSaya).length;
+    const tugasSelesai = d.tugas.filter((t) => t.pengumpulanSaya && t.pengumpulanSaya.status !== "revisi").length;
 
     return (
         <div className="min-h-screen bg-slate-100 font-sans">
@@ -105,6 +134,7 @@ export default function HalamanMapel() {
                 <div className="max-w-6xl mx-auto px-4 md:px-8 flex gap-1 overflow-x-auto" role="tablist">
                     {tabs.map((t) => (
                         <button key={t.key} role="tab" aria-selected={tab === t.key} onClick={() => setTab(t.key)}
+                            ref={tab === t.key ? (el) => el?.scrollIntoView({ block: "nearest", inline: "nearest" }) : undefined}
                             className={`px-4 py-3 text-sm font-bold border-b-2 whitespace-nowrap ${tab === t.key ? "border-indigo-600 text-indigo-700" : "border-transparent text-slate-500 hover:text-slate-800"}`}>
                             {t.label}{t.n !== undefined && <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600">{t.n}</span>}
                         </button>
@@ -177,6 +207,9 @@ export default function HalamanMapel() {
                     </div>
                 )}
 
+                {/* TOPIK */}
+                {tab === "topik" && <TabTopik mapelId={d.mapel.id} kelola={kelola} d={d} refresh={refresh} />}
+
                 {/* MATERI */}
                 {tab === "materi" && (
                     <section className="space-y-3">
@@ -197,7 +230,7 @@ export default function HalamanMapel() {
                                         {kelola && <span>Dibaca {m.jumlahDibaca}/{d.jumlahSiswa} siswa</span>}
                                     </p>
                                 </Link>
-                                {kelola && !m.terbit && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-200 text-slate-600">Draf</span>}
+                                {kelola && <LabelTerbit terbit={m.terbit} terbitPada={m.terbitPada} />}
                                 {kelola && <button onClick={() => hapus("materi", m.id, m.judul)} className="text-xs text-red-500 hover:text-red-700 font-bold">Hapus</button>}
                             </div>
                         ))}
@@ -219,12 +252,51 @@ export default function HalamanMapel() {
                                         <p className="text-[11px] text-slate-400 flex flex-wrap gap-x-3">
                                             <span>{t.tenggat ? `Tenggat ${fmtWaktu(t.tenggat)}` : "Tanpa tenggat"}</span>
                                             <span>Nilai maks {t.nilaiMaks}</span>
-                                            {kelola && <span>{t.jumlahKumpul}/{d.jumlahSiswa} mengumpulkan</span>}
+                                            {kelola && <span>{t.jumlahKumpul}/{t.jumlahDitugaskan ?? d.jumlahSiswa} mengumpulkan</span>}
+                                            {kelola && t.jumlahDitugaskan != null && <span className="text-violet-600 font-semibold">Untuk {t.jumlahDitugaskan} siswa</span>}
+                                            {t.tenggat && !t.terimaTerlambat && <span className="text-red-500">Tidak menerima terlambat</span>}
                                         </p>
                                     </Link>
                                     {st && <span className={`text-[10px] font-bold px-2 py-1 rounded-full whitespace-nowrap ${st.cls}`}>{st.label}</span>}
-                                    {kelola && !t.terbit && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-200 text-slate-600">Draf</span>}
+                                    {kelola && <LabelTerbit terbit={t.terbit} terbitPada={t.terbitPada} />}
                                     {kelola && <button onClick={() => hapus("tugas", t.id, t.judul)} className="text-xs text-red-500 hover:text-red-700 font-bold">Hapus</button>}
+                                </div>
+                            );
+                        })}
+                    </section>
+                )}
+
+                {/* KUIS */}
+                {tab === "kuis" && (
+                    <section className="space-y-3">
+                        {kelola && <button onClick={() => setForm("kuis")} className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold">+ Buat Kuis</button>}
+                        {d.kuis.length === 0 && <p className="bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-400 italic">Belum ada kuis.</p>}
+                        {d.kuis.map((q) => {
+                            const s = q.saya;
+                            const st = kelola
+                                ? null
+                                : s?.sedang ? { label: "Sedang dikerjakan", cls: "bg-amber-100 text-amber-700" }
+                                : s?.terbaik ? (s.terbaik.perluDinilai ? { label: "Menunggu nilai esai", cls: "bg-fuchsia-100 text-fuchsia-700" } : { label: `Nilai: ${s.terbaik.nilai}`, cls: "bg-emerald-100 text-emerald-700" })
+                                : q.status === "buka" ? { label: "Belum dikerjakan", cls: "bg-slate-200 text-slate-600" }
+                                : q.status === "belum" ? { label: "Belum dibuka", cls: "bg-sky-100 text-sky-700" }
+                                : { label: "Ditutup", cls: "bg-red-100 text-red-700" };
+                            return (
+                                <div key={q.id} className="bg-white rounded-xl border border-slate-200 shadow-sm flex items-center gap-4 p-4">
+                                    <span className="shrink-0 w-10 h-10 rounded-lg bg-fuchsia-100 text-fuchsia-700 font-black flex items-center justify-center">Q</span>
+                                    <Link href={`/kelas/${d.mapel.id}/kuis/${q.id}`} className="flex-1 min-w-0 group">
+                                        <p className="font-bold text-slate-800 group-hover:text-indigo-700 truncate">{q.judul}</p>
+                                        <p className="text-[11px] text-slate-400 flex flex-wrap gap-x-3">
+                                            <span>{q.jumlahSoal} soal</span>
+                                            <span>{q.durasiMenit ? `${q.durasiMenit} menit` : "Tanpa batas waktu"}</span>
+                                            {q.mulai && <span>Dibuka {fmtWaktu(q.mulai)}</span>}
+                                            {q.selesai && <span>Ditutup {fmtWaktu(q.selesai)}</span>}
+                                            {kelola && <span>{q.jumlahSelesai}/{d.jumlahSiswa} selesai</span>}
+                                            {kelola && !!q.perluDinilai && <span className="text-fuchsia-700 font-semibold">{q.perluDinilai} esai perlu dinilai</span>}
+                                        </p>
+                                    </Link>
+                                    {st && <span className={`text-[10px] font-bold px-2 py-1 rounded-full whitespace-nowrap ${st.cls}`}>{st.label}</span>}
+                                    {kelola && !q.terbit && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-200 text-slate-600">Draf</span>}
+                                    {kelola && q.terbit && q.status === "buka" && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">Dibuka</span>}
                                 </div>
                             );
                         })}
@@ -233,13 +305,16 @@ export default function HalamanMapel() {
 
                 {/* UJIAN */}
                 {tab === "ujian" && (
+                    <div className="space-y-8">
+                    <UjianManual mapelId={d.mapel.id} onChange={refresh} />
                     <section className="space-y-3">
+                        {(kelola || d.ujian.length > 0) && <h2 className="text-sm font-bold text-slate-500 uppercase tracking-wider">Ujian CAT (Komputer)</h2>}
                         {kelola && (
                             <p className="text-xs text-slate-500">
-                                Ujian CAT untuk kelas ini dibuat admin di menu <b>Kelola Ujian</b> dengan memilih &quot;Untuk Kelas / Mapel&quot; = {d.mapel.kelas.nama} — {d.mapel.nama}.
+                                Opsional. Ujian CAT untuk kelas ini dibuat admin di menu <b>Kelola Ujian</b> dengan memilih &quot;Untuk Kelas / Mapel&quot; = {d.mapel.kelas.nama} — {d.mapel.nama}.
                             </p>
                         )}
-                        {d.ujian.length === 0 && <p className="bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-400 italic">Belum ada ujian untuk mapel ini.</p>}
+                        {d.ujian.length === 0 && (kelola || !d.jumlahUjianManual) && <p className="bg-white rounded-2xl border border-slate-200 p-6 text-center text-slate-400 italic text-sm">{kelola ? "Belum ada ujian CAT untuk mapel ini." : "Belum ada ujian untuk mapel ini."}</p>}
                         {d.ujian.map((u) => (
                             <div key={u.id} className={`bg-white rounded-xl border shadow-sm p-4 flex flex-col sm:flex-row sm:items-center gap-3 ${u.isActive ? "border-emerald-400" : "border-slate-200"}`}>
                                 <div className="flex-1 min-w-0">
@@ -261,29 +336,71 @@ export default function HalamanMapel() {
                             </div>
                         ))}
                     </section>
+                    </div>
                 )}
 
-                {/* ANGGOTA */}
+                {/* PRESENSI */}
+                {tab === "presensi" && <Presensi mapelId={d.mapel.id} kodeAwal={awal.kode} />}
+
+                {/* NILAI */}
+                {tab === "nilai" && <RekapNilai mapelId={d.mapel.id} />}
+
+                {/* ANGGOTA + progres belajar */}
                 {tab === "anggota" && kelola && (
                     <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                         <div className="px-5 py-3 border-b border-slate-100 text-xs text-slate-500">
-                            Anggota = peserta dengan kelas <b>{d.mapel.kelas.nama}</b> (diatur di menu Peserta).
+                            Anggota = peserta dengan kelas <b>{d.mapel.kelas.nama}</b> (diatur di menu Peserta). Progres = materi dibaca + tugas dikumpulkan + kuis dikerjakan dari semua yang sudah terbit.
                         </div>
                         {d.siswa.length === 0 && <p className="p-8 text-center text-slate-400 italic">Belum ada siswa di kelas ini.</p>}
-                        <ul className="divide-y divide-slate-100">
-                            {d.siswa.map((s, i) => (
-                                <li key={s.id} className="flex items-center gap-3 px-5 py-2.5 text-sm">
-                                    <span className="w-6 text-right text-slate-400 text-xs">{i + 1}</span>
-                                    <span className="font-semibold text-slate-700 flex-1">{s.nama}</span>
-                                    <span className="font-mono text-xs text-slate-500">{s.nomorPeserta}</span>
-                                </li>
-                            ))}
-                        </ul>
+                        {d.siswa.length > 0 && (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead className="bg-slate-50 text-[11px] uppercase text-slate-500">
+                                        <tr>
+                                            <th className="px-3 py-2 text-left w-8">No</th>
+                                            <th className="px-3 py-2 text-left">Nama</th>
+                                            <th className="px-3 py-2 text-center">Materi</th>
+                                            <th className="px-3 py-2 text-center">Tugas</th>
+                                            <th className="px-3 py-2 text-center">Kuis</th>
+                                            <th className="px-3 py-2 text-left min-w-40">Progres</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {d.siswa.map((s, i) => {
+                                            const p = d.progres.find((x) => x.userId === s.id);
+                                            return (
+                                                <tr key={s.id} className="hover:bg-slate-50">
+                                                    <td className="px-3 py-2 text-xs text-slate-400">{i + 1}</td>
+                                                    <td className="px-3 py-2">
+                                                        <p className="font-semibold text-slate-700">{s.nama}</p>
+                                                        <p className="font-mono text-[10px] text-slate-400">{s.nomorPeserta}</p>
+                                                    </td>
+                                                    <td className="px-3 py-2 text-center text-slate-600">{p?.materi ?? 0}/{d.jumlahMateriTampil ?? 0}</td>
+                                                    <td className="px-3 py-2 text-center text-slate-600">{p?.tugas ?? 0}/{p?.tugasTotal ?? 0}</td>
+                                                    <td className="px-3 py-2 text-center text-slate-600">{p?.kuis ?? 0}/{d.jumlahKuisTampil ?? 0}</td>
+                                                    <td className="px-3 py-2">
+                                                        {p?.persen === null || p?.persen === undefined ? <span className="text-xs text-slate-300">–</span> : (
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden">
+                                                                    <div className={`h-full ${p.persen >= 80 ? "bg-emerald-500" : p.persen >= 50 ? "bg-amber-500" : "bg-red-500"}`} style={{ width: `${p.persen}%` }} />
+                                                                </div>
+                                                                <span className="w-10 text-right text-xs font-bold text-slate-700">{p.persen}%</span>
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
                     </section>
                 )}
             </main>
 
             {form === "materi" && <FormMateri mapelId={d.mapel.id} onClose={() => setForm(null)} onSaved={() => { setForm(null); refresh(); }} />}
+            {form === "kuis" && <FormKuis mapelId={d.mapel.id} onClose={() => setForm(null)} onSaved={(kuisId) => router.push(`/kelas/${d.mapel.id}/kuis/${kuisId}`)} />}
             {form === "tugas" && <FormTugas mapelId={d.mapel.id} onClose={() => setForm(null)} onSaved={() => { setForm(null); refresh(); }} />}
         </div>
     );

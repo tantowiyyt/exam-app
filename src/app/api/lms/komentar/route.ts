@@ -10,7 +10,7 @@ function bacaTarget(src: { get(k: string): string | null } | Record<string, unkn
 }
 
 async function cekAkses(user: { id: number; role: string }, target: NonNullable<ReturnType<typeof bacaTarget>>) {
-  const pemilik = await mapelDariTarget(target);
+  const pemilik = await mapelDariTarget(target, user.id);
   if (!pemilik) return null;
   const akses = await aksesMapel(user, pemilik.mapelId);
   if (!akses || (akses.peran === 'siswa' && !pemilik.terbit)) return null;

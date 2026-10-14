@@ -27,7 +27,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 **Repo:** https://github.com/tantowiyyt/exam-app (branch `main`). Database, foto upload, dan `.env` sengaja tidak di-commit.
 
-**Kondisi:** fitur lengkap + LMS (Phase 16), build & lint bersih, `npm run test:e2e` 214 tes lulus, uji beban 150 peserta serentak 0 gagal (sebelum LMS).
+**Kondisi:** fitur lengkap + LMS (Phase 16), build & lint bersih, `npm run test:e2e` 471 tes lulus, uji beban 150 peserta serentak 0 gagal (sebelum LMS).
 Siap untuk **simulasi**, belum untuk ujian sungguhan — selesaikan daftar di bawah dulu.
 
 **Belum dilakukan (oleh pemilik proyek):**
@@ -35,7 +35,9 @@ Siap untuk **simulasi**, belum untuk ujian sungguhan — selesaikan daftar di ba
 2. Ganti password admin lewat menu *Ganti Password* (password lama pernah tertulis di dokumen ini)
 3. Di server: isi `.env` dari `.env.example` (`SESSION_SECRET` acak, `COOKIE_SECURE=false` bila lab via http://IP)
 4. Buat akun pengawas per ruang, isi kelas peserta, isi kop kartu, cetak kartu
-5. LMS: buat akun guru (Kelola Akun → role Guru), kelas & mapel (Admin → LMS → Kelas & Mapel), lalu uji alur materi/tugas dengan guru & siswa sungguhan
+5. LMS: buat akun guru (Kelola Akun → role Guru), kelas & mapel (Admin → LMS → Kelas & Mapel), lalu uji alur materi/tugas/kuis/presensi dengan guru & siswa sungguhan
+
+**Fitur LMS yang belum dibuat (prioritas rendah, hasil perbandingan dengan Moodle/EdLink):** lencana (badges), pesan pribadi, akun orang tua, video conference, koreksi/anotasi PDF langsung di file.
 
 **Keputusan yang sudah diambil:**
 - Penguncian perangkat ala Safe Exam Browser **tidak** dibangun di proyek ini. Pakai Safe Exam Browser resmi bila perlu;
@@ -50,10 +52,14 @@ Siap untuk **simulasi**, belum untuk ujian sungguhan — selesaikan daftar di ba
 - Durasi per bagian hanya berlaku bila SEMUA soal ujian berada di bagian yang punya durasi.
 - Sisa 18 warning lint ringan (`<img>`, unused vars) — tidak ada error.
 - LMS: hanya SATU ujian aktif sekaligus (mesin ujian lama). Ujian per kelas = ujian aktif dibatasi ke kelas mapelnya;
-  ujian beberapa kelas berjalan bersamaan belum didukung (`User.sudahUjian` masih global).
-- LMS: lampiran (`storage/lms`) tidak masuk backup JSON; file bisa dibuka siapa pun yang login asal tahu URL acaknya (UUID).
+  ujian beberapa kelas berjalan bersamaan belum didukung (`User.sudahUjian` masih global). Untuk ulangan harian per kelas pakai **Kuis** (banyak kuis boleh dibuka bersamaan).
+- LMS: lampiran yang belum/tidak lagi tertaut ke materi/tugas/jawaban bisa dibuka siapa pun yang login asal tahu URL acaknya (UUID);
+  lampiran yang tertaut hanya untuk anggota/pengelola mapelnya.
 
-**Backup DB lokal** (di-ignore git): `prisma/dev.db.bak-20261014063026`, `-065253`, `-071034`, `-090459` (sebelum skema LMS) — boleh dihapus bila tidak diperlukan.
+**Backup DB lokal** (di-ignore git): `prisma/dev.db.bak-20261014063026`, `-065253`, `-071034`, `-090459` (sebelum skema LMS), `-115525` (sebelum fitur tugas lanjutan), `-132330` (sebelum kuis), `-134625` (sebelum presensi), `-135714` (sebelum topik & jadwal terbit), `-140714` (sebelum bobot nilai & rubrik) — boleh dihapus bila tidak diperlukan.
+**PERHATIAN:** backup `-115525` s/d `-164000` dibuat dengan menyalin `dev.db` saja padahal perubahan masih di `dev.db-wal`, sehingga isinya SAMA (kondisi 09:29, sebelum kelas/kuis/dst). Backup lengkap yang valid (via `VACUUM INTO`): `-164500` (63 akun, 21 kelas), `-170000` (sebelum 273 mapel), `-173000` (sebelum 630 siswa), `-174500` (sebelum skema ujian offline).
+**Data contoh di dev.db (2026-10-14):** 21 kelas X–XII IPA/IPS/Bahasa, 273 mapel ber-guru, 25 guru + 25 pengawas (`storage/akun-guru-pengawas.csv`), 630 siswa 30/kelas (`storage/akun-siswa.csv`), pembagian mapel di `storage/pembagian-mapel.csv`. Ruang/sesi ujian siswa baru masih kosong.
+Backup berikutnya pakai `VACUUM INTO` / `sqlite3 .backup` (lihat `DEPLOY.md`), **jangan `cp dev.db`**.
 
 ---
 
@@ -75,7 +81,13 @@ Siap untuk **simulasi**, belum untuk ujian sungguhan — selesaikan daftar di ba
 | **AuditLog** | id, userId?, action, target?, details?, ipAddress?, createdAt | Catatan audit sistem |
 | **Kelas / Mapel** | Kelas: nama (unique = User.kelas); Mapel: kelasId, nama, guruId? | LMS — Phase 16 |
 | **Materi / MateriDibaca** | mapelId, judul, isi, linkVideo, lampiran, terbit / (userId, materiId) | LMS |
-| **Tugas / PengumpulanTugas** | mapelId, judul, tenggat, nilaiMaks / tugasId+userId unique, jawaban, lampiran, nilai, catatanGuru | LMS |
+| **Tugas / PengumpulanTugas** | mapelId, judul, tenggat, terimaTerlambat, untukSiswa (",3,7," / ""=semua), nilaiMaks, lampiran+lampiranLain (JSON) / tugasId+userId unique, jawaban, lampiran+lampiranLain, status (dikumpulkan/revisi), nilai, catatanGuru | LMS |
+| **User.notifDibacaAt** | waktu terakhir notifikasi LMS dibuka | LMS |
+| **Kuis / SoalKuis / PercobaanKuis** | Kuis: mapelId, judul, durasiMenit (0=bebas), mulai?, selesai?, maksPercobaan, acakSoal, tampilkanJawaban, terbit / SoalKuis: tipe (pg/bs/isian/esai), opsi (JSON), kunci, pembahasan, bobot, urutan / Percobaan: kuisId+userId+ke unique, jawaban & skorEsai (JSON), skor, nilai (0–100), perluDinilai | LMS kuis |
+| **SesiPresensi / Presensi** | Sesi: mapelId, judul, tanggal, kode (6 karakter), bukaSampai? (presensi mandiri), catatan / Presensi: sesiId+userId unique, status H/I/S/A, mandiri, keterangan, waktu | LMS presensi |
+| **Mapel.bobotTugas/Kuis/Ujian/Presensi, kkm**; `Tugas.rubrik` (JSON [{kriteria,deskripsi,maks}]); `PengumpulanTugas.nilaiRubrik` (JSON number[]) | Bobot semua 0 = rata-rata biasa; rubrik ada = nilaiMaks = jumlah maks | LMS nilai |
+| **UjianManual / NilaiUjianManual** | UjianManual: mapelId, judul, tanggal?, nilaiMaks, keterangan, terbit (nilai diumumkan), diumumkanAt / Nilai: ujianId+userId unique, nilai (Float), catatan | LMS ujian offline |
+| **Topik** + `Materi/Tugas/Kuis.topikId`, `Materi/Tugas.terbitPada` | Topik: mapelId, judul, deskripsi, urutan (topikId tanpa relasi FK; hapus topik = isi jadi tanpa topik). terbitPada = terbit terjadwal | LMS |
 | **Pengumuman / Komentar** | mapelId, judul, isi / isi + salah satu materiId/tugasId/pengumumanId | LMS |
 
 ---
@@ -197,7 +209,35 @@ Ujian CAT kini bagian dari LMS. Anggota kelas = peserta dengan `User.kelas` == `
 | Tugas: tenggat, terlambat ditandai, jawaban terkunci setelah dinilai | `src/app/api/lms/pengumpulan/route.ts` |
 | Ujian bisa ditautkan ke mapel; siswa kelas lain mendapat layar "Ujian bukan untuk kelas Anda" | `src/app/admin/ujian/page.tsx`, `src/app/api/ujian/route.ts`, `src/app/ujian/page.tsx` |
 | Backup/restore memuat tabel LMS (ujian dipulihkan setelah mapel) | `src/app/api/admin/backup/route.ts` |
-| Tes E2E LMS (87 tes) | `tests/e2e/06-lms.mjs` |
+| Rekap nilai per mapel (tab Nilai): tugas + ujian CAT per siswa, rata-rata %, tugas lewat tenggat tanpa kumpul = 0, CSV; siswa hanya nilainya | `src/app/api/lms/mapel/[id]/nilai/route.ts`, `src/components/lms/RekapNilai.tsx` |
+| Beranda `/kelas` siswa: daftar "Tugas yang Harus Dikerjakan" lintas mapel (tenggat terdekat) | `src/app/api/lms/kelas/route.ts`, `src/app/kelas/page.tsx` |
+| Lampiran hanya bisa dibuka anggota mapel (draf: pengelola; jawaban: pemilik & guru) | `src/lib/lms.ts` (`bolehBukaLampiran`), `src/app/api/lms/file/[name]/route.ts` |
+| Backup JSON memuat file lampiran LMS (`lampiranLms`, base64) | `src/app/api/admin/backup/route.ts` |
+| Tugas untuk siswa tertentu (`untukSiswa`); siswa lain tidak melihat/mengumpulkan/berkomentar; rekap nilai = n/a | `src/lib/lms.ts` (`whereTugasSiswa`, `ditugaskan`), `src/app/api/lms/tugas/route.ts` |
+| Maks 5 lampiran per tugas & per jawaban (`berkas: [{url,nama}]`; lampiran pertama tetap di kolom lama) | `src/lib/lms.ts` (`berkasDariBody`, `daftarBerkas`), `src/components/lms/ui.tsx` (`UploadBerkas`) |
+| Opsi "terima terlambat" — bila mati, pengumpulan setelah tenggat ditolak (kecuali revisi) | `src/app/api/lms/pengumpulan/route.ts` |
+| Minta revisi: guru mengembalikan jawaban dengan catatan, siswa kirim ulang; filter penilaian (perlu dinilai/revisi/dinilai/belum kumpul), lompat ke siswa berikutnya | `src/app/api/lms/pengumpulan/route.ts`, `src/app/kelas/[id]/tugas/[tugasId]/page.tsx` |
+| Unduh semua jawaban satu tugas sebagai ZIP (folder per siswa, tanpa dependensi) | `src/app/api/lms/tugas/[id]/zip/route.ts`, `src/lib/zip.ts` |
+| Salin tugas ke mapel lain yang dikelola (sebagai draf) | `src/app/api/lms/tugas/route.ts` (`salinDari`) |
+| Notifikasi (lonceng): siswa — tugas/materi/pengumuman baru, nilai, revisi; guru — pengumpulan baru, komentar. Dihitung dari data 30 hari, dibaca = `User.notifDibacaAt` | `src/app/api/lms/notifikasi/route.ts`, `src/components/lms/Notifikasi.tsx` |
+| Tes E2E LMS (134 tes) | `tests/e2e/06-lms.mjs` |
+| **Kuis per mapel** (terpisah dari mesin ujian CAT, banyak kuis bisa dibuka bersamaan): soal PG/benar-salah/isian/esai, bobot, pembahasan, impor soal dari teks, jadwal buka/tutup, durasi (timer server), beberapa percobaan (nilai tertinggi), acak soal, simpan otomatis, waktu habis = dinilai dari jawaban tersimpan | `src/lib/kuis.ts`, `src/app/api/lms/kuis/**`, `src/components/lms/kuis.tsx`, `src/app/kelas/[id]/kuis/[kuisId]/page.tsx` |
+| Kuis: guru menilai esai, hapus percobaan (kerjakan ulang), ubah kunci = nilai dihitung ulang, CSV; siswa lihat kunci & pembahasan setelah kuis ditutup (bila diizinkan) | `src/app/api/lms/percobaan/[id]/route.ts` |
+| Kuis masuk rekap nilai (nilai tertinggi; ditutup tanpa dikerjakan = 0), agenda siswa, notifikasi (kuis dibuka / esai perlu dinilai), backup | `nilai/route.ts`, `kelas/route.ts`, `notifikasi/route.ts`, `backup/route.ts` |
+| Tes E2E kuis (63 tes) | `tests/e2e/07-kuis.mjs` |
+| **Presensi per pertemuan** (tab Presensi): guru membuat pertemuan & mengisi H/I/S/A (+keterangan), presensi mandiri siswa dengan kode/QR selama waktu yang ditentukan (percobaan kode dibatasi), ganti kode/tutup, rekap % kehadiran (<75% merah) + CSV; notifikasi presensi dibuka; backup | `src/app/api/lms/presensi/route.ts`, `src/components/lms/Presensi.tsx` |
+| Tes E2E presensi (34 tes) | `tests/e2e/08-presensi.mjs` |
+| **Topik** (tab Topik): materi/tugas/kuis dikelompokkan per bab/minggu, urutkan, pindah item, progres siswa per topik | `src/app/api/lms/topik/route.ts`, `src/components/lms/Topik.tsx` |
+| **Terbit terjadwal** materi & tugas (Draf / Terbitkan sekarang / Jadwalkan): sebelum waktunya tidak terlihat, tidak bisa dibuka/dikumpulkan/dikomentari, tidak masuk notifikasi & tidak dihitung 0 di rekap | `src/lib/lms.ts` (`whereTerbit`, `sudahTerbit`), `src/components/lms/ui.tsx` (`PilihTerbit`) |
+| **Progres belajar** per siswa di tab Anggota (materi dibaca, tugas dikumpulkan, kuis dikerjakan, %) | `src/app/api/lms/mapel/[id]/route.ts` (`progres`) |
+| Tes E2E topik, jadwal, progres (38 tes) | `tests/e2e/09-topik-jadwal.mjs` |
+| **Kalender** (`/kelas/kalender`): tenggat tugas, kuis dibuka/ditutup, pertemuan, jadwal ujian mapel, (guru) terbit terjadwal; tanda selesai untuk siswa | `src/app/api/lms/kalender/route.ts`, `src/app/kelas/kalender/page.tsx` |
+| **Bobot nilai akhir** per kategori (tugas/kuis/ujian/presensi) + **KKM** (tuntas/belum) di tab Nilai, CSV ikut komponen | `src/app/api/lms/mapel/[id]/route.ts` (PUT), `nilai/route.ts`, `src/components/lms/RekapNilai.tsx` |
+| **Rubrik penilaian tugas**: kriteria + skor maks, guru mengisi skor per kriteria (nilai = jumlah), siswa melihat rincian; ikut disalin; revisi mengosongkan skor | `src/lib/lms.ts` (`rubrikDariBody`), `pengumpulan/route.ts`, `src/components/lms/ui.tsx` (`TabelRubrik`) |
+| Tes E2E kalender, bobot nilai, rubrik (31 tes) | `tests/e2e/10-kalender-nilai.mjs` |
+| **Ujian offline / nilai manual** (tab Ujian): ujian CAT kini opsional — guru membuat ujian (nama, tanggal, nilai maks), mengisi nilai + catatan per siswa (atau tempel 2 kolom dari Excel: NIS/nama + nilai), lalu **Umumkan**. Sebelum diumumkan siswa hanya melihat jadwalnya. Masuk rekap nilai kategori Ujian (dipersenkan dari nilai maks; tanpa nilai = tidak dihitung), kalender, notifikasi nilai, backup, CSV | `src/app/api/lms/ujian-manual/route.ts`, `src/components/lms/UjianManual.tsx` |
+| Tes E2E ujian offline (44 tes) | `tests/e2e/11-ujian-manual.mjs` |
+| Admin Kelas & Mapel: cari kelas/wali/mapel/guru, filter tingkat, daftar mapel per kelas bisa dibuka-tutup; Ruang Belajar admin/guru: cari & lipat per kelas bila mapel > 12 | `src/app/admin/kelas/page.tsx`, `src/app/kelas/page.tsx` |
 
 Kartu ujian (sesi yang sama): tema warna & model ringkas 4 kartu/A4, QR nomor peserta (`qrcode`), disimpan di `instansi.warnaKartu`/`instansi.modelKartu`.
 
@@ -390,7 +430,7 @@ src/proxy.ts                          # Next.js 16 route protection (dipindah da
 
 ## Build Status
 - `npm run build` passes ✅
-- `npm run test:e2e` (butuh build): 214 tes lulus — lihat `tests/README.md`
+- `npm run test:e2e` (butuh build): 471 tes lulus — lihat `tests/README.md`
 - Deploy: lihat `DEPLOY.md`
 - ±60 routes (halaman statis + API dinamis)
 - `npx eslint src`: 0 error (sisa warning ringan, mis. `<img>`)

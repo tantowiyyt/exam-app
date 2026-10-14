@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
+import { Notifikasi } from "./Notifikasi";
 
 // ---------- util ----------
 
@@ -68,6 +69,8 @@ export function LmsNav({ judul, kembali }: { judul?: string; kembali?: { href: s
                 <Link href="/kelas" className="font-black tracking-wider text-indigo-300 shrink-0">CAT<span className="text-white">·LMS</span></Link>
                 {judul && <span className="text-white/60 text-sm truncate hidden sm:inline">| {judul}</span>}
                 <div className="ml-auto flex items-center gap-2 text-xs">
+                    {me && <Notifikasi />}
+                    {me && <Link href="/kelas/kalender" className="bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg font-bold hidden sm:inline">Kalender</Link>}
                     {kembali && <Link href={kembali.href} className="bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg font-bold">&larr; {kembali.label}</Link>}
                     {me?.role === "ADMIN" && <Link href="/admin" className="bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg font-bold hidden sm:inline">Admin</Link>}
                     {me?.role === "PESERTA" && <Link href="/dashboard" className="bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg font-bold hidden sm:inline">Ujian CAT</Link>}
@@ -188,6 +191,33 @@ export function UploadLampiran({ value, onChange }: { value: { url: string; nama
     );
 }
 
+export type Berkas = { url: string; nama: string };
+export const MAKS_BERKAS = 5;
+
+/** Daftar beberapa lampiran. */
+export function DaftarLampiran({ berkas }: { berkas: Berkas[] }) {
+    if (!berkas.length) return null;
+    return <div className="flex flex-wrap gap-2">{berkas.map((b) => <Lampiran key={b.url} url={b.url} nama={b.nama} />)}</div>;
+}
+
+/** Unggah beberapa lampiran (maks 5). */
+export function UploadBerkas({ value, onChange }: { value: Berkas[]; onChange: (v: Berkas[]) => void }) {
+    return (
+        <div className="space-y-2">
+            {value.map((b) => (
+                <div key={b.url} className="flex flex-wrap items-center gap-2">
+                    <Lampiran url={b.url} nama={b.nama} />
+                    <button type="button" onClick={() => onChange(value.filter((x) => x.url !== b.url))} className="text-xs text-red-600 font-bold">Hapus</button>
+                </div>
+            ))}
+            {value.length < MAKS_BERKAS && (
+                <UploadLampiran value={{ url: "", nama: "" }} onChange={(v) => { if (v.url) onChange([...value, v]); }} />
+            )}
+            {value.length > 0 && <p className="text-[10px] text-slate-400">{value.length}/{MAKS_BERKAS} file</p>}
+        </div>
+    );
+}
+
 // ---------- diskusi ----------
 
 interface Komentar { id: number; isi: string; createdAt: string; penulis: string; peranPenulis: string; bolehHapus: boolean }
@@ -256,10 +286,91 @@ export function Diskusi({ target }: { target: { materiId?: number; tugasId?: num
     );
 }
 
+// ---------- topik & jadwal terbit (dipakai form materi, tugas, kuis) ----------
+
+/** Pilih topik mapel; daftar topik dimuat sendiri. */
+export function PilihTopik({ mapelId, value, onChange }: { mapelId: number; value: number | null | undefined; onChange: (v: number | null) => void }) {
+    const [topik, setTopik] = useState<{ id: number; judul: string }[] | null>(null);
+    useEffect(() => {
+        let ignore = false;
+        fetch(`/api/lms/topik?mapelId=${mapelId}`).then((r) => (r.ok ? r.json() : { topik: [] })).then((d) => { if (!ignore) setTopik(d.topik ?? []); });
+        return () => { ignore = true; };
+    }, [mapelId]);
+    if (!topik?.length) return null;
+    return (
+        <label className="block"><span className={labelClass}>Topik</span>
+            <select value={value ?? ""} onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)} className={inputClass}>
+                <option value="">— Tanpa topik —</option>
+                {topik.map((t) => <option key={t.id} value={t.id}>{t.judul}</option>)}
+            </select>
+        </label>
+    );
+}
+
+/** Centang "Terbitkan" + pilihan jadwal terbit otomatis. */
+export function PilihTerbit({ terbit, terbitPada, onChange }: { terbit: boolean; terbitPada: string | null | undefined; onChange: (v: { terbit: boolean; terbitPada: string | null }) => void }) {
+    const [lokal, setLokal] = useState(toLocalInput(terbitPada));
+    const jadwal = terbit && !!terbitPada;
+    return (
+        <fieldset className="space-y-2">
+            <legend className={labelClass}>Penerbitan</legend>
+            <div className="flex flex-wrap gap-4 text-sm text-slate-700">
+                <label className="flex items-center gap-2"><input type="radio" name="terbit" checked={!terbit} onChange={() => onChange({ terbit: false, terbitPada: null })} /> Draf</label>
+                <label className="flex items-center gap-2"><input type="radio" name="terbit" checked={terbit && !terbitPada} onChange={() => onChange({ terbit: true, terbitPada: null })} /> Terbitkan sekarang</label>
+                <label className="flex items-center gap-2"><input type="radio" name="terbit" checked={jadwal} onChange={() => {
+                    const besok = lokal || toLocalInput(new Date(Date.now() + 86400000).toISOString());
+                    setLokal(besok);
+                    onChange({ terbit: true, terbitPada: new Date(besok).toISOString() });
+                }} /> Jadwalkan</label>
+            </div>
+            {jadwal && (
+                <div>
+                    <input type="datetime-local" value={lokal} required aria-label="Waktu terbit" className={inputClass}
+                        onChange={(e) => { setLokal(e.target.value); if (e.target.value) onChange({ terbit: true, terbitPada: new Date(e.target.value).toISOString() }); }} />
+                    <span className="text-[10px] text-slate-400">Siswa baru bisa melihat & mendapat notifikasi pada waktu ini.</span>
+                </div>
+            )}
+        </fieldset>
+    );
+}
+
+/** Label "Terjadwal ..." untuk daftar pengelola. */
+export function LabelTerbit({ terbit, terbitPada }: { terbit: boolean; terbitPada?: string | null }) {
+    if (!terbit) return <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-200 text-slate-600 whitespace-nowrap">Draf</span>;
+    if (terbitPada && new Date(terbitPada) > new Date()) {
+        return <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-sky-100 text-sky-700 whitespace-nowrap" title="Terbit otomatis">Terjadwal {fmtWaktu(terbitPada)}</span>;
+    }
+    return null;
+}
+
 // ---------- form materi & tugas ----------
 
-export interface MateriData { id?: number; judul: string; isi: string; linkVideo: string; lampiran: string; namaLampiran: string; terbit: boolean }
-export interface TugasData { id?: number; judul: string; deskripsi: string; lampiran: string; namaLampiran: string; tenggat: string | null; nilaiMaks: number; terbit: boolean }
+export interface MateriData { id?: number; judul: string; isi: string; linkVideo: string; lampiran: string; namaLampiran: string; terbit: boolean; terbitPada?: string | null; topikId?: number | null }
+export interface TugasData {
+    id?: number; judul: string; deskripsi: string; berkas: Berkas[]; tenggat: string | null; nilaiMaks: number; terbit: boolean;
+    terimaTerlambat: boolean; untukSiswa: number[]; terbitPada?: string | null; topikId?: number | null; rubrik?: Kriteria[];
+}
+export type Kriteria = { kriteria: string; deskripsi: string; maks: number };
+
+/** Tabel rubrik; nilai = skor per kriteria (opsional). */
+export function TabelRubrik({ rubrik, nilai }: { rubrik: Kriteria[]; nilai?: number[] }) {
+    if (!rubrik.length) return null;
+    return (
+        <div className="rounded-xl border border-slate-200 overflow-hidden">
+            <table className="w-full text-sm">
+                <thead className="bg-slate-50 text-[11px] uppercase text-slate-500"><tr><th className="px-3 py-2 text-left">Kriteria penilaian</th><th className="px-3 py-2 text-center w-24">{nilai?.length ? "Skor" : "Maks"}</th></tr></thead>
+                <tbody className="divide-y divide-slate-100">
+                    {rubrik.map((r, i) => (
+                        <tr key={i}>
+                            <td className="px-3 py-2"><p className="font-semibold text-slate-700">{r.kriteria}</p>{r.deskripsi && <p className="text-[11px] text-slate-500 whitespace-pre-wrap">{r.deskripsi}</p>}</td>
+                            <td className="px-3 py-2 text-center font-bold text-slate-700">{nilai?.length ? `${nilai[i] ?? 0}/${r.maks}` : r.maks}</td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    );
+}
 
 export function FormMateri({ mapelId, awal, onClose, onSaved }: { mapelId: number; awal?: MateriData; onClose: () => void; onSaved: () => void }) {
     const { toast } = useToast();
@@ -290,10 +401,8 @@ export function FormMateri({ mapelId, awal, onClose, onSaved }: { mapelId: numbe
                 <div><span className={labelClass}>Lampiran (opsional)</span>
                     <UploadLampiran value={{ url: f.lampiran, nama: f.namaLampiran }} onChange={(v) => setF({ ...f, lampiran: v.url, namaLampiran: v.nama })} />
                 </div>
-                <label className="flex items-center gap-2 text-sm text-slate-700">
-                    <input type="checkbox" checked={f.terbit} onChange={(e) => setF({ ...f, terbit: e.target.checked })} />
-                    Terbitkan (terlihat oleh siswa)
-                </label>
+                <PilihTopik mapelId={mapelId} value={f.topikId} onChange={(topikId) => setF({ ...f, topikId })} />
+                <PilihTerbit terbit={f.terbit} terbitPada={f.terbitPada} onChange={(v) => setF({ ...f, ...v })} />
                 <div className="flex justify-end gap-2">
                     <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-bold">Batal</button>
                     <button type="submit" disabled={simpan} className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold disabled:opacity-50">{simpan ? "Menyimpan..." : "Simpan"}</button>
@@ -305,14 +414,33 @@ export function FormMateri({ mapelId, awal, onClose, onSaved }: { mapelId: numbe
 
 export function FormTugas({ mapelId, awal, onClose, onSaved }: { mapelId: number; awal?: TugasData; onClose: () => void; onSaved: () => void }) {
     const { toast } = useToast();
-    const [f, setF] = useState<TugasData>(awal ?? { judul: "", deskripsi: "", lampiran: "", namaLampiran: "", tenggat: null, nilaiMaks: 100, terbit: true });
+    const [f, setF] = useState<TugasData>(awal ?? { judul: "", deskripsi: "", berkas: [], tenggat: null, nilaiMaks: 100, terbit: true, terimaTerlambat: true, untukSiswa: [] });
     const [tenggatLokal, setTenggatLokal] = useState(toLocalInput(awal?.tenggat));
     const [simpan, setSimpan] = useState(false);
+    const [tertentu, setTertentu] = useState((awal?.untukSiswa.length ?? 0) > 0);
+    const [siswa, setSiswa] = useState<{ id: number; nama: string; nomorPeserta: string }[] | null>(null);
+
+    // Daftar siswa kelas — dimuat saat memilih "siswa tertentu" (atau langsung bila tugas sudah untuk siswa tertentu)
+    useEffect(() => {
+        if (!tertentu || siswa !== null) return;
+        let ignore = false;
+        fetch(`/api/lms/mapel/${mapelId}`).then((r) => r.json()).then((d) => { if (!ignore) setSiswa(d.siswa ?? []); }).catch(() => { if (!ignore) setSiswa([]); });
+        return () => { ignore = true; };
+    }, [tertentu, siswa, mapelId]);
+
+    const rubrik = f.rubrik ?? [];
+    const pakaiRubrik = rubrik.length > 0;
+    const totalRubrik = rubrik.reduce((a, r) => a + (Number(r.maks) || 0), 0);
+    const ubahKriteria = (i: number, v: Partial<Kriteria>) => setF({ ...f, rubrik: rubrik.map((r, j) => (j === i ? { ...r, ...v } : r)) });
+
+    const toggleSiswa = (id: number) =>
+        setF({ ...f, untukSiswa: f.untukSiswa.includes(id) ? f.untukSiswa.filter((x) => x !== id) : [...f.untukSiswa, id] });
 
     const submit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (tertentu && f.untukSiswa.length === 0) { toast("Pilih minimal satu siswa", "error"); return; }
         setSimpan(true);
-        const body = { ...f, mapelId, tenggat: tenggatLokal ? new Date(tenggatLokal).toISOString() : null };
+        const body = { ...f, untukSiswa: tertentu ? f.untukSiswa : [], mapelId, tenggat: tenggatLokal ? new Date(tenggatLokal).toISOString() : null };
         const { ok, data } = await kirim("/api/lms/tugas", f.id ? "PUT" : "POST", body);
         setSimpan(false);
         if (ok) { toast(f.id ? "Tugas diperbarui" : "Tugas ditambahkan", "success"); onSaved(); } else toast(data.message || "Gagal menyimpan", "error");
@@ -332,16 +460,73 @@ export function FormTugas({ mapelId, awal, onClose, onSaved }: { mapelId: number
                         <input type="datetime-local" value={tenggatLokal} onChange={(e) => setTenggatLokal(e.target.value)} className={inputClass} />
                     </label>
                     <label className="block"><span className={labelClass}>Nilai Maksimal</span>
-                        <input type="number" min={1} max={1000} value={f.nilaiMaks} onChange={(e) => setF({ ...f, nilaiMaks: Number(e.target.value) })} required className={inputClass} />
+                        <input type="number" min={1} max={1000} value={pakaiRubrik ? totalRubrik : f.nilaiMaks} disabled={pakaiRubrik}
+                            onChange={(e) => setF({ ...f, nilaiMaks: Number(e.target.value) })} required className={`${inputClass} disabled:bg-slate-100`} />
+                        {pakaiRubrik && <span className="text-[10px] text-slate-400">Jumlah skor maksimal rubrik</span>}
                     </label>
                 </div>
-                <div><span className={labelClass}>Lampiran soal (opsional)</span>
-                    <UploadLampiran value={{ url: f.lampiran, nama: f.namaLampiran }} onChange={(v) => setF({ ...f, lampiran: v.url, namaLampiran: v.nama })} />
+
+                <fieldset className="space-y-2">
+                    <label className="flex items-center gap-2 text-sm text-slate-700">
+                        <input type="checkbox" checked={pakaiRubrik} onChange={(e) => setF({ ...f, rubrik: e.target.checked ? [{ kriteria: "", deskripsi: "", maks: 25 }] : [] })} />
+                        Nilai dengan rubrik (skor per kriteria, terlihat siswa)
+                    </label>
+                    {pakaiRubrik && (
+                        <div className="space-y-2 border border-slate-200 rounded-lg p-3">
+                            {rubrik.map((r, i) => (
+                                <div key={i} className="grid grid-cols-[1fr_80px_auto] gap-2 items-start">
+                                    <div className="space-y-1">
+                                        <input value={r.kriteria} onChange={(e) => ubahKriteria(i, { kriteria: e.target.value })} required maxLength={200} placeholder={`Kriteria ${i + 1}, mis. Ketepatan isi`} aria-label={`Kriteria ${i + 1}`} className={inputClass} />
+                                        <input value={r.deskripsi} onChange={(e) => ubahKriteria(i, { deskripsi: e.target.value })} maxLength={1000} placeholder="Deskripsi (opsional)" aria-label={`Deskripsi kriteria ${i + 1}`} className={`${inputClass} text-xs`} />
+                                    </div>
+                                    <input type="number" min={1} max={1000} value={r.maks} onChange={(e) => ubahKriteria(i, { maks: Number(e.target.value) })} required aria-label={`Skor maksimal kriteria ${i + 1}`} className={inputClass} />
+                                    <button type="button" onClick={() => setF({ ...f, rubrik: rubrik.filter((_, j) => j !== i) })} aria-label={`Hapus kriteria ${i + 1}`} className="h-9 px-2 text-slate-400 hover:text-red-600">&times;</button>
+                                </div>
+                            ))}
+                            {rubrik.length < 20 && <button type="button" onClick={() => setF({ ...f, rubrik: [...rubrik, { kriteria: "", deskripsi: "", maks: 25 }] })} className="text-xs font-bold text-indigo-600 hover:underline">+ Kriteria</button>}
+                        </div>
+                    )}
+                </fieldset>
+                {tenggatLokal && (
+                    <label className="flex items-center gap-2 text-sm text-slate-700">
+                        <input type="checkbox" checked={f.terimaTerlambat} onChange={(e) => setF({ ...f, terimaTerlambat: e.target.checked })} />
+                        Terima pengumpulan setelah tenggat (ditandai &quot;terlambat&quot;)
+                    </label>
+                )}
+
+                <fieldset>
+                    <legend className={labelClass}>Diberikan kepada</legend>
+                    <div className="flex flex-wrap gap-4 text-sm text-slate-700">
+                        <label className="flex items-center gap-2"><input type="radio" name="untuk" checked={!tertentu} onChange={() => setTertentu(false)} /> Semua siswa kelas</label>
+                        <label className="flex items-center gap-2"><input type="radio" name="untuk" checked={tertentu} onChange={() => setTertentu(true)} /> Siswa tertentu</label>
+                    </div>
+                    {tertentu && (
+                        <div className="mt-2 border border-slate-200 rounded-lg max-h-48 overflow-y-auto">
+                            {siswa === null && <p className="p-3 text-xs text-slate-400">Memuat siswa...</p>}
+                            {siswa?.length === 0 && <p className="p-3 text-xs text-slate-400 italic">Belum ada siswa di kelas ini.</p>}
+                            {siswa && siswa.length > 0 && (
+                                <div className="flex gap-3 px-3 py-2 border-b border-slate-100 text-[11px] font-bold">
+                                    <button type="button" onClick={() => setF({ ...f, untukSiswa: siswa.map((s) => s.id) })} className="text-indigo-600 hover:underline">Pilih semua</button>
+                                    <button type="button" onClick={() => setF({ ...f, untukSiswa: [] })} className="text-slate-500 hover:underline">Kosongkan</button>
+                                    <span className="ml-auto text-slate-500">{f.untukSiswa.length} dipilih</span>
+                                </div>
+                            )}
+                            {siswa?.map((s) => (
+                                <label key={s.id} className="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-slate-50">
+                                    <input type="checkbox" checked={f.untukSiswa.includes(s.id)} onChange={() => toggleSiswa(s.id)} />
+                                    <span className="flex-1">{s.nama}</span>
+                                    <span className="font-mono text-[10px] text-slate-400">{s.nomorPeserta}</span>
+                                </label>
+                            ))}
+                        </div>
+                    )}
+                </fieldset>
+
+                <div><span className={labelClass}>Lampiran soal (opsional, maks {MAKS_BERKAS})</span>
+                    <UploadBerkas value={f.berkas} onChange={(berkas) => setF({ ...f, berkas })} />
                 </div>
-                <label className="flex items-center gap-2 text-sm text-slate-700">
-                    <input type="checkbox" checked={f.terbit} onChange={(e) => setF({ ...f, terbit: e.target.checked })} />
-                    Terbitkan (terlihat oleh siswa)
-                </label>
+                <PilihTopik mapelId={mapelId} value={f.topikId} onChange={(topikId) => setF({ ...f, topikId })} />
+                <PilihTerbit terbit={f.terbit} terbitPada={f.terbitPada} onChange={(v) => setF({ ...f, ...v })} />
                 <div className="flex justify-end gap-2">
                     <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-bold">Batal</button>
                     <button type="submit" disabled={simpan} className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold disabled:opacity-50">{simpan ? "Menyimpan..." : "Simpan"}</button>
@@ -352,8 +537,9 @@ export function FormTugas({ mapelId, awal, onClose, onSaved }: { mapelId: number
 }
 
 /** Status tugas untuk siswa. */
-export function statusTugas(tenggat: string | null, kumpul: { dikumpulkanAt: string; nilai: number | null } | null) {
+export function statusTugas(tenggat: string | null, kumpul: { dikumpulkanAt: string; nilai: number | null; status?: string } | null) {
     if (kumpul?.nilai !== null && kumpul?.nilai !== undefined) return { label: `Dinilai: ${kumpul.nilai}`, cls: "bg-emerald-100 text-emerald-700" };
+    if (kumpul?.status === "revisi") return { label: "Perlu revisi", cls: "bg-orange-100 text-orange-700" };
     if (kumpul) {
         const telat = tenggat && new Date(kumpul.dikumpulkanAt) > new Date(tenggat);
         return telat ? { label: "Dikumpulkan (terlambat)", cls: "bg-amber-100 text-amber-700" } : { label: "Sudah dikumpulkan", cls: "bg-sky-100 text-sky-700" };

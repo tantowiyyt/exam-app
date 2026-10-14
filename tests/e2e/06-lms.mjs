@@ -44,7 +44,7 @@ const guruB = r.body.data.id;
 const K1 = `X-A-${t}`;
 const K2 = `X-B-${t}`;
 const s1Id = (await post('admin', '/api/admin/peserta', { nomorPeserta: `s1-${t}`, nama: 'Siswa Satu', password: 'siswa123', ruang: 'L1', sesi: '1', kelas: K1 })).body.data.id;
-await post('admin', '/api/admin/peserta', { nomorPeserta: `s2-${t}`, nama: 'Siswa Dua', password: 'siswa123', ruang: 'L1', sesi: '1', kelas: K2 });
+const s2Id = (await post('admin', '/api/admin/peserta', { nomorPeserta: `s2-${t}`, nama: 'Siswa Dua', password: 'siswa123', ruang: 'L1', sesi: '1', kelas: K2 })).body.data.id;
 
 r = await req('admin', '/api/admin/kelas');
 ok(r.status === 200 && r.body.kelasBelumDibuat.some((k) => k.nama === K1), 'kelas dari data peserta terdeteksi belum dibuat');
@@ -147,6 +147,7 @@ ok((await post('ga', '/api/lms/tugas', { mapelId: m1, judul: 'x', nilaiMaks: 0 }
 
 r = await req('s1', '/api/lms/kelas');
 ok(r.body.mapel[0].tugasBelum === 1, 'siswa melihat 1 tugas belum dikumpulkan');
+ok(r.body.agenda?.length === 1 && r.body.agenda[0].id === tg1 && r.body.agenda[0].mapel.id === m1, 'tugas belum dikumpulkan tampil di agenda siswa');
 ok((await post('s1', '/api/lms/pengumpulan', { tugasId: tg1 })).status === 400, 'pengumpulan kosong ditolak');
 r = await post('s1', '/api/lms/pengumpulan', { tugasId: tg1, jawaban: 'Jawaban pertama', lampiran: filePdf, namaLampiran: 'tugas saya.pdf' });
 ok(r.status === 200, 'siswa mengumpulkan tugas');
@@ -166,6 +167,102 @@ ok(r.status === 200 && r.body.data.nilai === 90, 'guru memberi nilai');
 r = await req('s1', `/api/lms/tugas/${tg1}`);
 ok(r.body.pengumpulan.nilai === 90 && r.body.pengumpulan.catatanGuru === 'Bagus' && !('daftar' in r.body), 'siswa melihat nilai & catatan, bukan data siswa lain');
 ok((await post('s1', '/api/lms/pengumpulan', { tugasId: tg1, jawaban: 'ubah' })).status === 409, 'jawaban tidak bisa diubah setelah dinilai');
+r = await req('s1', '/api/lms/kelas');
+ok(r.body.agenda.length === 0, 'tugas yang sudah dikumpulkan hilang dari agenda');
+
+// ---------- Akses lampiran ----------
+const tgL = (await post('ga', '/api/lms/tugas', { mapelId: m1, judul: 'Tugas Lampiran' })).body.data.id;
+const fileJwb = (await upload('s1', 'jawaban.pdf', pdf)).body.url;
+await post('s1', '/api/lms/pengumpulan', { tugasId: tgL, jawaban: 'terlampir', lampiran: fileJwb, namaLampiran: 'jawaban.pdf' });
+ok((await req('s1', fileJwb)).status === 200, 'siswa membuka lampiran jawabannya sendiri');
+ok((await req('ga', fileJwb)).status === 200, 'guru pengampu membuka lampiran jawaban siswa');
+ok((await req('gb', fileJwb)).status === 404, 'guru lain tidak bisa membuka lampiran jawaban');
+ok((await req('s2', fileJwb)).status === 404, 'siswa kelas lain tidak bisa membuka lampiran jawaban');
+ok((await req('admin', fileJwb)).status === 200, 'admin membuka semua lampiran');
+await del('ga', `/api/lms/tugas?id=${tgL}`);
+const fileMat = (await upload('ga', 'modul.pdf', pdf)).body.url;
+const matLamp = (await post('ga', '/api/lms/materi', { mapelId: m1, judul: 'Modul', lampiran: fileMat, namaLampiran: 'modul.pdf', terbit: false })).body.data.id;
+ok((await req('s1', fileMat)).status === 404, 'lampiran materi draf tidak bisa dibuka siswa');
+await put('ga', '/api/lms/materi', { id: matLamp, judul: 'Modul', lampiran: fileMat, namaLampiran: 'modul.pdf', terbit: true });
+ok((await req('s1', fileMat)).status === 200, 'lampiran materi terbit bisa dibuka siswa kelasnya');
+ok((await req('s2', fileMat)).status === 404, 'lampiran materi tidak bisa dibuka siswa kelas lain');
+await del('ga', `/api/lms/materi?id=${matLamp}`);
+
+// ---------- Rekap nilai ----------
+await post('ga', '/api/lms/tugas', { mapelId: m1, judul: 'Lewat Tenggat', tenggat: new Date(Date.now() - 86400000).toISOString(), nilaiMaks: 50 });
+r = await req('ga', `/api/lms/mapel/${m1}/nilai`);
+const bS1 = r.body.baris?.find((b) => b.siswa.id === s1Id);
+ok(r.status === 200 && r.body.peran === 'kelola' && r.body.kolom.length === 2 && bS1?.nilai[`t${tg1}`] === 90, 'guru melihat rekap nilai mapel');
+ok(bS1?.rataRata === 45, 'rata-rata = persen nilai, tugas lewat tenggat tanpa kumpul dihitung 0');
+r = await req('s1', `/api/lms/mapel/${m1}/nilai`);
+ok(r.status === 200 && r.body.peran === 'siswa' && r.body.baris.length === 1 && r.body.baris[0].siswa.id === s1Id, 'siswa hanya melihat nilainya sendiri');
+ok((await req('s2', `/api/lms/mapel/${m1}/nilai`)).status === 404, 'siswa kelas lain tidak bisa melihat rekap nilai');
+ok((await req('gb', `/api/lms/mapel/${m1}/nilai`)).status === 404, 'guru lain tidak bisa melihat rekap nilai');
+
+// ---------- Penugasan ke siswa tertentu, banyak lampiran, revisi, terlambat, ZIP, salin, notifikasi ----------
+const s3Id = (await post('admin', '/api/admin/peserta', { nomorPeserta: `s3-${t}`, nama: 'Siswa Tiga', password: 'siswa123', ruang: 'L1', sesi: '1', kelas: K1 })).body.data.id;
+await login('s3', `s3-${t}`, 'siswa123');
+ok((await post('ga', '/api/lms/tugas', { mapelId: m1, judul: 'x', untukSiswa: [s2Id] })).status === 400, 'tugas tidak bisa ditugaskan ke siswa kelas lain');
+r = await post('ga', '/api/lms/tugas', { mapelId: m1, judul: 'Remedial', untukSiswa: [s3Id] });
+ok(r.status === 200 && r.body.data.untukSiswa === `,${s3Id},`, 'guru membuat tugas untuk siswa tertentu');
+const tgS = r.body.data.id;
+ok((await req('s1', `/api/lms/tugas/${tgS}`)).status === 404, 'siswa yang tidak ditugaskan tidak bisa membuka tugas');
+ok((await post('s1', '/api/lms/pengumpulan', { tugasId: tgS, jawaban: 'x' })).status === 404, 'siswa yang tidak ditugaskan tidak bisa mengumpulkan');
+ok((await post('s1', '/api/lms/komentar', { tugasId: tgS, isi: 'x' })).status === 404, 'siswa yang tidak ditugaskan tidak bisa berkomentar');
+ok(!(await req('s1', `/api/lms/mapel/${m1}`)).body.tugas.some((x) => x.id === tgS), 'tugas siswa tertentu tidak tampil untuk siswa lain');
+r = await req('s3', `/api/lms/mapel/${m1}`);
+ok(r.body.tugas.some((x) => x.id === tgS), 'tugas tampil untuk siswa yang ditugaskan');
+r = await req('ga', `/api/lms/tugas/${tgS}`);
+ok(r.body.daftar.length === 1 && r.body.daftar[0].siswa.id === s3Id && r.body.tugas.untukSiswa[0] === s3Id, 'guru hanya melihat siswa yang ditugaskan');
+r = await req('ga', `/api/lms/mapel/${m1}/nilai`);
+ok(r.body.baris.find((b) => b.siswa.id === s1Id)?.nilai[`t${tgS}`] === 'na', 'rekap nilai: tugas yang tidak ditugaskan = n/a');
+
+const f1 = (await upload('s3', 'hal1.pdf', pdf)).body.url;
+const f2 = (await upload('s3', 'hal2.pdf', pdf)).body.url;
+ok((await post('s3', '/api/lms/pengumpulan', { tugasId: tgS, berkas: Array.from({ length: 6 }, (_, i) => ({ url: f1.replace('.pdf', `${i}.pdf`), nama: 'a.pdf' })) })).status === 400, 'lebih dari 5 lampiran ditolak');
+r = await post('s3', '/api/lms/pengumpulan', { tugasId: tgS, jawaban: 'Lihat lampiran', berkas: [{ url: f1, nama: 'hal1.pdf' }, { url: f2, nama: 'hal2.pdf' }] });
+ok(r.status === 200, 'siswa mengumpulkan dengan 2 lampiran');
+const kumpulS = r.body.data.id;
+r = await req('s3', `/api/lms/tugas/${tgS}`);
+ok(r.body.pengumpulan.berkas.length === 2 && r.body.pengumpulan.berkas[1].url === f2, 'kedua lampiran tersimpan');
+ok((await req('ga', f2)).status === 200, 'guru membuka lampiran ke-2');
+ok((await req('s1', f2)).status === 404, 'teman sekelas tidak bisa membuka lampiran jawaban ke-2');
+
+r = await req('ga', `/api/lms/tugas/${tgS}/zip`);
+ok(r.status === 200 && r.type === 'application/zip' && typeof r.body === 'string' && r.body.startsWith('PK'), 'guru mengunduh semua jawaban sebagai ZIP');
+ok((await req('gb', `/api/lms/tugas/${tgS}/zip`)).status === 404 && (await req('s3', `/api/lms/tugas/${tgS}/zip`)).status === 404, 'ZIP hanya untuk pengelola mapel');
+
+r = await req('ga', '/api/lms/notifikasi');
+ok(r.status === 200 && r.body.items.some((n) => n.jenis === 'kumpul' && n.href.endsWith(`/tugas/${tgS}`)), 'guru mendapat notifikasi pengumpulan baru');
+await post('ga', '/api/lms/notifikasi', {});
+ok((await req('ga', '/api/lms/notifikasi')).body.jumlahBaru === 0, 'notifikasi bisa ditandai sudah dibaca');
+
+ok((await put('ga', '/api/lms/pengumpulan', { id: kumpulS, aksi: 'revisi' })).status === 400, 'minta revisi tanpa catatan ditolak');
+r = await put('ga', '/api/lms/pengumpulan', { id: kumpulS, aksi: 'revisi', catatanGuru: 'Halaman 2 buram, foto ulang' });
+ok(r.status === 200 && r.body.data.status === 'revisi' && r.body.data.nilai === null, 'guru mengembalikan jawaban untuk revisi');
+r = await req('s3', '/api/lms/kelas');
+ok(r.body.agenda.some((x) => x.id === tgS && x.revisi), 'tugas revisi muncul di agenda siswa');
+r = await req('s3', '/api/lms/notifikasi');
+ok(r.body.items.some((n) => n.jenis === 'revisi') && r.body.jumlahBaru > 0, 'siswa mendapat notifikasi revisi');
+r = await post('s3', '/api/lms/pengumpulan', { tugasId: tgS, jawaban: 'Sudah diperbaiki', berkas: [{ url: f1, nama: 'hal1.pdf' }] });
+ok(r.status === 200 && r.body.data.status === 'dikumpulkan', 'siswa mengirim ulang setelah revisi');
+r = await put('ga', '/api/lms/pengumpulan', { id: kumpulS, nilai: 80 });
+ok(r.status === 200 && r.body.data.nilai === 80, 'guru menilai hasil revisi');
+r = await req('s3', '/api/lms/notifikasi');
+ok(r.body.items.some((n) => n.jenis === 'nilai' && n.judul.includes('80')), 'siswa mendapat notifikasi nilai');
+
+const kemarin = new Date(Date.now() - 86400000).toISOString();
+r = await post('ga', '/api/lms/tugas', { mapelId: m1, judul: 'Tutup Tepat Waktu', tenggat: kemarin, terimaTerlambat: false });
+ok(r.status === 200 && r.body.data.terimaTerlambat === false, 'guru membuat tugas yang tidak menerima terlambat');
+ok((await post('s1', '/api/lms/pengumpulan', { tugasId: r.body.data.id, jawaban: 'telat' })).status === 409, 'pengumpulan setelah tenggat ditolak');
+const tgTelat = (await post('ga', '/api/lms/tugas', { mapelId: m1, judul: 'Boleh Telat', tenggat: kemarin })).body.data.id;
+ok((await post('s1', '/api/lms/pengumpulan', { tugasId: tgTelat, jawaban: 'telat' })).status === 200, 'pengumpulan terlambat diterima bila diizinkan');
+
+const m3 = (await post('admin', '/api/admin/kelas', { jenis: 'mapel', kelasId: k2.id, nama: 'Matematika', guruId: guruA })).body.data.id;
+ok((await post('ga', '/api/lms/tugas', { salinDari: tgS, mapelIds: [m2] })).status === 403, 'tidak bisa menyalin ke mapel guru lain');
+ok((await post('gb', '/api/lms/tugas', { salinDari: tgS, mapelIds: [m2] })).status === 404, 'guru lain tidak bisa menyalin tugas');
+r = await post('ga', '/api/lms/tugas', { salinDari: tgS, mapelIds: [m3] });
+ok(r.status === 200 && r.body.data.length === 1 && r.body.data[0].mapelId === m3 && r.body.data[0].terbit === false && r.body.data[0].untukSiswa === '', 'guru menyalin tugas ke kelas lain sebagai draf');
 
 // ---------- Pengumuman & diskusi ----------
 ok((await post('s1', '/api/lms/pengumuman', { mapelId: m1, judul: 'x', isi: 'y' })).status === 403, 'siswa tidak bisa membuat pengumuman');
@@ -220,6 +317,7 @@ ok(r.body.kelasSaya === `${K1}-baru` && r.body.mapel.some((m) => m.id === m1), '
 r = await req('admin', '/api/admin/backup');
 ok(r.status === 200 && r.body.data.mapel.some((m) => m.id === m1) && r.body.data.pengumpulanTugas.some((p) => p.id === kumpul)
   && r.body.data.materiDibaca.some((d) => d.materiId === mat1), 'backup memuat data LMS');
+ok(typeof r.body.lampiranLms?.[fileJwb.split('/').pop()] === 'string', 'backup memuat file lampiran LMS');
 
 ok((await del('ga', `/api/lms/tugas?id=${tg1}`)).status === 200, 'guru menghapus tugas beserta pengumpulannya');
 ok((await del('ga', `/api/lms/materi?id=${matDraf}`)).status === 200, 'guru menghapus materi');

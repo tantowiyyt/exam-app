@@ -84,7 +84,7 @@ export default function BackupPage() {
             const res = await fetch("/api/admin/backup", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ data: backup.data, fotos: backup.fotos, replaceAll }),
+                body: JSON.stringify({ data: backup.data, fotos: backup.fotos, lampiranLms: backup.lampiranLms, replaceAll }),
             });
 
             if (res.ok) {

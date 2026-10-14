@@ -1,6 +1,6 @@
 import { readFile } from 'fs/promises';
 import { join } from 'path';
-import { getSession } from '@/lib/session';
+import { verifyLmsSession, bolehBukaLampiran } from '@/lib/lms';
 import { LMS_DIR } from '@/lib/storage';
 
 const TYPES: Record<string, string> = {
@@ -18,15 +18,19 @@ const TYPES: Record<string, string> = {
 // Dibuka langsung di browser; selain ini diunduh
 const INLINE = new Set(['pdf', 'jpg', 'jpeg', 'png']);
 
-// Menyajikan lampiran LMS (nama file acak UUID) untuk pengguna yang login
+// Menyajikan lampiran LMS hanya untuk anggota/pengelola mapel pemiliknya (lihat bolehBukaLampiran)
 export async function GET(_request: Request, ctx: RouteContext<'/api/lms/file/[name]'>) {
-  const session = await getSession();
-  if (!session) return new Response('Tidak terautentikasi', { status: 401 });
+  const auth = await verifyLmsSession();
+  if (!auth.ok) return new Response(auth.message, { status: auth.status });
 
   const { name } = await ctx.params;
   const match = /^[\w-]+\.([a-z0-9]+)$/i.exec(name);
   const ext = match?.[1].toLowerCase();
   if (!ext || !TYPES[ext]) return new Response('Tidak ditemukan', { status: 404 });
+
+  if (!(await bolehBukaLampiran(auth.user, `/api/lms/file/${name}`))) {
+    return new Response('Tidak ditemukan', { status: 404 });
+  }
 
   try {
     const data = await readFile(join(LMS_DIR, name));

@@ -8,36 +8,40 @@ generator client {
 }
 
 model User {
-  id             Int      @id @default(autoincrement())
-  nomorPeserta   String   @unique
-  nama           String
-  password       String
-  role           String   @default("PESERTA") // ADMIN, PENGAWAS, GURU, atau PESERTA
-  foto           String?  // Path foto profil
-  nik            String?  // Nomor Induk Kependudukan
-  tempatLahir    String?
-  tanggalLahir   DateTime?
-  jenisKelamin   String?  // L atau P
-  alamat         String?
-  noHp           String?
-  kelas          String   @default("") // Kelas/rombel peserta, mis. "XII IPA 1"
-  ruang          String   @default("")
-  sesi           String   @default("")
-  tanggalUjian   String?  // Tanggal ujian (YYYY-MM-DD) untuk auto-assign
-  nilai          Int?
-  sudahUjian     Boolean  @default(false)
-  createdAt      DateTime @default(now())
-  jawaban        JawabanUjian[]
-  histori        HistoriUjian[]
-  pelanggaran    Pelanggaran[]
-  activities     UserActivity[]
-  auditLogs      AuditLog[]
-  sesiUjian      SesiUjian[]
-  mapelDiajar    Mapel[]
-  materiDibaca   MateriDibaca[]
-  pengumpulan    PengumpulanTugas[]
-  pengumuman     Pengumuman[]
-  komentar       Komentar[]
+  id               Int                @id @default(autoincrement())
+  nomorPeserta     String             @unique
+  nama             String
+  password         String
+  role             String             @default("PESERTA") // ADMIN, PENGAWAS, GURU, atau PESERTA
+  foto             String? // Path foto profil
+  nik              String? // Nomor Induk Kependudukan
+  tempatLahir      String?
+  tanggalLahir     DateTime?
+  jenisKelamin     String? // L atau P
+  alamat           String?
+  noHp             String?
+  kelas            String             @default("") // Kelas/rombel peserta, mis. "XII IPA 1"
+  ruang            String             @default("")
+  sesi             String             @default("")
+  tanggalUjian     String? // Tanggal ujian (YYYY-MM-DD) untuk auto-assign
+  nilai            Int?
+  sudahUjian       Boolean            @default(false)
+  notifDibacaAt    DateTime? // LMS: notifikasi sebelum waktu ini dianggap sudah dibaca
+  createdAt        DateTime           @default(now())
+  jawaban          JawabanUjian[]
+  histori          HistoriUjian[]
+  pelanggaran      Pelanggaran[]
+  activities       UserActivity[]
+  auditLogs        AuditLog[]
+  sesiUjian        SesiUjian[]
+  mapelDiajar      Mapel[]
+  materiDibaca     MateriDibaca[]
+  pengumpulan      PengumpulanTugas[]
+  pengumuman       Pengumuman[]
+  komentar         Komentar[]
+  percobaanKuis    PercobaanKuis[]
+  presensi         Presensi[]
+  nilaiUjianManual NilaiUjianManual[]
 
   @@index([role])
   @@index([sudahUjian])
@@ -47,21 +51,21 @@ model User {
 }
 
 model Soal {
-  id             Int      @id @default(autoincrement())
-  ujianId        Int?     // null = soal global, ada = soal ujian tertentu
-  bagianId       Int?     // null = tidak ada bagian, ada = bagian ujian tertentu
-  pertanyaan     String
-  opsiA          String
-  opsiB          String
-  opsiC          String
-  opsiD          String
-  jawabanBenar   String
-  mataPelajaran  String   @default("Umum")
-  bobot          Float    @default(1)
-  createdAt      DateTime @default(now())
-  jawaban        JawabanUjian[]
-  ujian          Ujian?   @relation(fields: [ujianId], references: [id])
-  bagian         BagianUjian? @relation(fields: [bagianId], references: [id])
+  id            Int            @id @default(autoincrement())
+  ujianId       Int? // null = soal global, ada = soal ujian tertentu
+  bagianId      Int? // null = tidak ada bagian, ada = bagian ujian tertentu
+  pertanyaan    String
+  opsiA         String
+  opsiB         String
+  opsiC         String
+  opsiD         String
+  jawabanBenar  String
+  mataPelajaran String         @default("Umum")
+  bobot         Float          @default(1)
+  createdAt     DateTime       @default(now())
+  jawaban       JawabanUjian[]
+  ujian         Ujian?         @relation(fields: [ujianId], references: [id])
+  bagian        BagianUjian?   @relation(fields: [bagianId], references: [id])
 
   @@index([mataPelajaran])
   @@index([ujianId])
@@ -69,15 +73,15 @@ model Soal {
 }
 
 model BagianUjian {
-  id             Int      @id @default(autoincrement())
-  ujianId        Int
-  nama           String   // Nama bagian bebas (contoh: "Pengetahuan Dasar", "Tes Skolastik")
-  urutan         Int      @default(1) // Urutan tampil
-  durasiMenit    Int?     // null = gunakan durasi ujian utama
-  batasSoal      Int?     // null = ambil semua soal di bagian ini
-  createdAt      DateTime @default(now())
-  soal           Soal[]
-  ujian          Ujian?   @relation(fields: [ujianId], references: [id])
+  id          Int      @id @default(autoincrement())
+  ujianId     Int
+  nama        String // Nama bagian bebas (contoh: "Pengetahuan Dasar", "Tes Skolastik")
+  urutan      Int      @default(1) // Urutan tampil
+  durasiMenit Int? // null = gunakan durasi ujian utama
+  batasSoal   Int? // null = ambil semua soal di bagian ini
+  createdAt   DateTime @default(now())
+  soal        Soal[]
+  ujian       Ujian?   @relation(fields: [ujianId], references: [id])
 
   @@index([ujianId])
 }
@@ -86,16 +90,16 @@ model JawabanUjian {
   id             Int      @id @default(autoincrement())
   userId         Int
   soalId         Int
-  ujianId        Int?     // null = ujian lama, ada = ujian tertentu
-  jawabanPeserta String?  // 'A','B','C','D' atau null (tidak dijawab)
+  ujianId        Int? // null = ujian lama, ada = ujian tertentu
+  jawabanPeserta String? // 'A','B','C','D' atau null (tidak dijawab)
   jawabanBenar   String
   benar          Boolean
   mataPelajaran  String
   createdAt      DateTime @default(now())
 
-  user           User     @relation(fields: [userId], references: [id])
-  soal           Soal     @relation(fields: [soalId], references: [id])
-  ujian          Ujian?   @relation(fields: [ujianId], references: [id])
+  user  User   @relation(fields: [userId], references: [id])
+  soal  Soal   @relation(fields: [soalId], references: [id])
+  ujian Ujian? @relation(fields: [ujianId], references: [id])
 
   @@unique([userId, soalId])
   @@index([userId])
@@ -105,63 +109,63 @@ model JawabanUjian {
 }
 
 model Ujian {
-  id             Int       @id @default(autoincrement())
-  nama           String    // Nama ujian: "Ujian TIK Semester 1"
-  durasiMenit    Int       @default(60)
-  jadwalMulai    DateTime? // Waktu mulai ujian (null = belum dijadwalkan)
-  jadwalSelesai  DateTime? // Waktu selesai ujian
-  isActive       Boolean   @default(false) // Ujian yang aktif saat ini
-  poolSize       Int?      // Jumlah soal yang diambil dari pool (null = semua soal)
-  mapelId        Int?      // null = ujian umum lintas kelas; ada = ujian milik mapel/kelas tertentu (LMS)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id            Int       @id @default(autoincrement())
+  nama          String // Nama ujian: "Ujian TIK Semester 1"
+  durasiMenit   Int       @default(60)
+  jadwalMulai   DateTime? // Waktu mulai ujian (null = belum dijadwalkan)
+  jadwalSelesai DateTime? // Waktu selesai ujian
+  isActive      Boolean   @default(false) // Ujian yang aktif saat ini
+  poolSize      Int? // Jumlah soal yang diambil dari pool (null = semua soal)
+  mapelId       Int? // null = ujian umum lintas kelas; ada = ujian milik mapel/kelas tertentu (LMS)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  soal           Soal[]
-  jawaban        JawabanUjian[]
-  histori        HistoriUjian[]
-  bagian         BagianUjian[]
-  sesiUjian      SesiUjian[]
-  mapel          Mapel?    @relation(fields: [mapelId], references: [id])
+  soal      Soal[]
+  jawaban   JawabanUjian[]
+  histori   HistoriUjian[]
+  bagian    BagianUjian[]
+  sesiUjian SesiUjian[]
+  mapel     Mapel?         @relation(fields: [mapelId], references: [id])
 
   @@index([isActive])
   @@index([mapelId])
 }
 
 model HistoriUjian {
-  id             Int      @id @default(autoincrement())
-  userId         Int
-  ujianId        Int?     // null = ujian lama, ada = ujian tertentu
-  waktuMulai     DateTime
-  waktuSelesai   DateTime @default(now())
-  totalSoal      Int
-  jumlahBenar    Int
-  jumlahSalah    Int
-  nilaiAkhir     Int
-  skorPerMapel   String?  // JSON string: {"TIK":80,"Matematika":90,...}
-  skorPerBagian  String?  // JSON string: {"Bagian 1":85,"Bagian 2":90,...}
+  id            Int      @id @default(autoincrement())
+  userId        Int
+  ujianId       Int? // null = ujian lama, ada = ujian tertentu
+  waktuMulai    DateTime
+  waktuSelesai  DateTime @default(now())
+  totalSoal     Int
+  jumlahBenar   Int
+  jumlahSalah   Int
+  nilaiAkhir    Int
+  skorPerMapel  String? // JSON string: {"TIK":80,"Matematika":90,...}
+  skorPerBagian String? // JSON string: {"Bagian 1":85,"Bagian 2":90,...}
 
-  user           User     @relation(fields: [userId], references: [id])
-  ujian          Ujian?   @relation(fields: [ujianId], references: [id])
+  user  User   @relation(fields: [userId], references: [id])
+  ujian Ujian? @relation(fields: [ujianId], references: [id])
 
   @@index([userId])
 }
 
 // Sesi pengerjaan ujian di server: waktu mulai resmi, jawaban tersimpan otomatis, tahap bagian
 model SesiUjian {
-  id             Int       @id @default(autoincrement())
-  userId         Int
-  ujianId        Int?
-  waktuMulai     DateTime  @default(now())
-  tambahanMenit  Int       @default(0)  // perpanjangan waktu dari pengawas
-  jawaban        String    @default("{}") // JSON {soalId: "A"}
-  ragu           String    @default("[]") // JSON [soalId]
-  tahap          Int       @default(0)  // indeks bagian aktif (mode bagian berwaktu)
-  tahapMulai     DateTime  @default(now())
-  selesai        Boolean   @default(false)
-  updatedAt      DateTime  @updatedAt
+  id            Int      @id @default(autoincrement())
+  userId        Int
+  ujianId       Int?
+  waktuMulai    DateTime @default(now())
+  tambahanMenit Int      @default(0) // perpanjangan waktu dari pengawas
+  jawaban       String   @default("{}") // JSON {soalId: "A"}
+  ragu          String   @default("[]") // JSON [soalId]
+  tahap         Int      @default(0) // indeks bagian aktif (mode bagian berwaktu)
+  tahapMulai    DateTime @default(now())
+  selesai       Boolean  @default(false)
+  updatedAt     DateTime @updatedAt
 
-  user           User      @relation(fields: [userId], references: [id])
-  ujian          Ujian?    @relation(fields: [ujianId], references: [id])
+  user  User   @relation(fields: [userId], references: [id])
+  ujian Ujian? @relation(fields: [ujianId], references: [id])
 
   @@index([userId, selesai])
   @@index([ujianId])
@@ -169,34 +173,34 @@ model SesiUjian {
 
 // Pengaturan aplikasi (key-value): identitas instansi, penandatangan kartu, dll.
 model PengaturanAplikasi {
-  key            String   @id
-  value          String
-  updatedAt      DateTime @updatedAt
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }
 
 model Pelanggaran {
-  id             Int      @id @default(autoincrement())
-  userId         Int
-  jenis          String   // TAB_SWITCH, PASTE, RIGHT_CLICK, KEYBOARD_SHORTCUT, FULLSCREEN_EXIT
-  keterangan     String?
-  createdAt      DateTime @default(now())
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  jenis      String // TAB_SWITCH, PASTE, RIGHT_CLICK, KEYBOARD_SHORTCUT, FULLSCREEN_EXIT
+  keterangan String?
+  createdAt  DateTime @default(now())
 
-  user           User     @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([createdAt])
 }
 
 model UserActivity {
-  id             Int      @id @default(autoincrement())
-  userId         Int
-  activity       String   // LOGIN, LOGOUT, START_UJIAN, ANSWER_SOAL, SUBMIT_UJIAN, IDLE
-  details        String?  // JSON string untuk detail tambahan
-  ipAddress      String?
-  userAgent      String?
-  createdAt      DateTime @default(now())
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  activity  String // LOGIN, LOGOUT, START_UJIAN, ANSWER_SOAL, SUBMIT_UJIAN, IDLE
+  details   String? // JSON string untuk detail tambahan
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
 
-  user           User     @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([activity])
@@ -204,162 +208,326 @@ model UserActivity {
 }
 
 model IPRule {
-  id             Int      @id @default(autoincrement())
-  ipAddress      String   // IP address atau CIDR (e.g., 192.168.1.0/24)
-  type           String   // WHITELIST atau BLACKLIST
-  keterangan     String?  // Keterangan/rule name
-  createdBy      String?  // Admin yang membuat rule
-  createdAt      DateTime @default(now())
+  id         Int      @id @default(autoincrement())
+  ipAddress  String // IP address atau CIDR (e.g., 192.168.1.0/24)
+  type       String // WHITELIST atau BLACKLIST
+  keterangan String? // Keterangan/rule name
+  createdBy  String? // Admin yang membuat rule
+  createdAt  DateTime @default(now())
 
   @@index([ipAddress])
   @@index([type])
 }
 
 model AuditLog {
-  id             Int      @id @default(autoincrement())
-  userId         Int?
-  action         String   // LOGIN, LOGOUT, CREATE_SOAL, DELETE_SOAL, EDIT_UJIAN, etc.
-  target         String?  // Target yang diubah (e.g., "Soal #123", "Peserta ABC")
-  details        String?  // JSON string untuk detail tambahan
-  ipAddress      String?
-  createdAt      DateTime @default(now())
+  id        Int      @id @default(autoincrement())
+  userId    Int?
+  action    String // LOGIN, LOGOUT, CREATE_SOAL, DELETE_SOAL, EDIT_UJIAN, etc.
+  target    String? // Target yang diubah (e.g., "Soal #123", "Peserta ABC")
+  details   String? // JSON string untuk detail tambahan
+  ipAddress String?
+  createdAt DateTime @default(now())
 
-  user           User?    @relation(fields: [userId], references: [id])
+  user User? @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([action])
   @@index([createdAt])
 }
+
 // ===================== LMS =====================
 // Anggota kelas = peserta dengan User.kelas sama dengan Kelas.nama
 
 model Kelas {
-  id             Int      @id @default(autoincrement())
-  nama           String   @unique // mis. "X IPA 1" — sama dengan User.kelas
-  keterangan     String   @default("")
-  createdAt      DateTime @default(now())
-  mapel          Mapel[]
+  id         Int      @id @default(autoincrement())
+  nama       String   @unique // mis. "X IPA 1" — sama dengan User.kelas
+  keterangan String   @default("")
+  createdAt  DateTime @default(now())
+  mapel      Mapel[]
 }
 
 model Mapel {
-  id             Int      @id @default(autoincrement())
-  kelasId        Int
-  nama           String
-  guruId         Int?
-  deskripsi      String   @default("")
-  createdAt      DateTime @default(now())
+  id            Int      @id @default(autoincrement())
+  kelasId       Int
+  nama          String
+  guruId        Int?
+  deskripsi     String   @default("")
+  // Bobot nilai akhir per kategori (persen relatif). Semua 0 = rata-rata biasa semua nilai.
+  bobotTugas    Int      @default(0)
+  bobotKuis     Int      @default(0)
+  bobotUjian    Int      @default(0)
+  bobotPresensi Int      @default(0)
+  kkm           Int      @default(0) // kriteria ketuntasan minimal (0 = tidak dipakai)
+  createdAt     DateTime @default(now())
 
-  kelas          Kelas    @relation(fields: [kelasId], references: [id])
-  guru           User?    @relation(fields: [guruId], references: [id])
-  materi         Materi[]
-  tugas          Tugas[]
-  pengumuman     Pengumuman[]
-  ujian          Ujian[]
+  kelas        Kelas          @relation(fields: [kelasId], references: [id])
+  guru         User?          @relation(fields: [guruId], references: [id])
+  materi       Materi[]
+  tugas        Tugas[]
+  pengumuman   Pengumuman[]
+  ujian        Ujian[]
+  kuis         Kuis[]
+  sesiPresensi SesiPresensi[]
+  ujianManual  UjianManual[]
+  topik        Topik[]
 
   @@unique([kelasId, nama])
   @@index([guruId])
 }
 
 model Materi {
-  id             Int      @id @default(autoincrement())
-  mapelId        Int
-  judul          String
-  isi            String   @default("")
-  linkVideo      String   @default("")
-  lampiran       String   @default("") // URL /api/lms/file/...
-  namaLampiran   String   @default("")
-  terbit         Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id           Int       @id @default(autoincrement())
+  mapelId      Int
+  judul        String
+  isi          String    @default("")
+  linkVideo    String    @default("")
+  lampiran     String    @default("") // URL /api/lms/file/...
+  namaLampiran String    @default("")
+  terbit       Boolean   @default(true)
+  terbitPada   DateTime? // terbit terjadwal: siswa baru melihat setelah waktu ini
+  topikId      Int? // Topik (bagian/pertemuan) di mapel; null = tanpa topik
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  mapel          Mapel    @relation(fields: [mapelId], references: [id])
-  dibaca         MateriDibaca[]
-  komentar       Komentar[]
+  mapel    Mapel          @relation(fields: [mapelId], references: [id])
+  dibaca   MateriDibaca[]
+  komentar Komentar[]
 
   @@index([mapelId])
 }
 
 model MateriDibaca {
-  userId         Int
-  materiId       Int
-  createdAt      DateTime @default(now())
+  userId    Int
+  materiId  Int
+  createdAt DateTime @default(now())
 
-  user           User     @relation(fields: [userId], references: [id])
-  materi         Materi   @relation(fields: [materiId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+  materi Materi @relation(fields: [materiId], references: [id])
 
   @@id([userId, materiId])
 }
 
 model Tugas {
-  id             Int       @id @default(autoincrement())
-  mapelId        Int
-  judul          String
-  deskripsi      String    @default("")
-  lampiran       String    @default("")
-  namaLampiran   String    @default("")
-  tenggat        DateTime?
-  nilaiMaks      Int       @default(100)
-  terbit         Boolean   @default(true)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id              Int       @id @default(autoincrement())
+  mapelId         Int
+  judul           String
+  deskripsi       String    @default("")
+  lampiran        String    @default("")
+  namaLampiran    String    @default("")
+  lampiranLain    String    @default("[]") // JSON [{url,nama}] — lampiran ke-2 dst.
+  tenggat         DateTime?
+  terimaTerlambat Boolean   @default(true) // false = pengumpulan setelah tenggat ditolak
+  untukSiswa      String    @default("") // "" = semua siswa kelas; ",3,7," = hanya siswa id 3 & 7
+  nilaiMaks       Int       @default(100)
+  rubrik          String    @default("[]") // JSON [{kriteria, deskripsi, maks}] — bila ada, nilaiMaks = jumlah maks
+  terbit          Boolean   @default(true)
+  terbitPada      DateTime? // terbit terjadwal
+  topikId         Int?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  mapel          Mapel     @relation(fields: [mapelId], references: [id])
-  pengumpulan    PengumpulanTugas[]
-  komentar       Komentar[]
+  mapel       Mapel              @relation(fields: [mapelId], references: [id])
+  pengumpulan PengumpulanTugas[]
+  komentar    Komentar[]
 
   @@index([mapelId])
 }
 
 model PengumpulanTugas {
-  id             Int       @id @default(autoincrement())
-  tugasId        Int
-  userId         Int
-  jawaban        String    @default("")
-  lampiran       String    @default("")
-  namaLampiran   String    @default("")
-  dikumpulkanAt  DateTime  @default(now())
-  nilai          Int?
-  catatanGuru    String    @default("")
-  dinilaiAt      DateTime?
+  id            Int       @id @default(autoincrement())
+  tugasId       Int
+  userId        Int
+  jawaban       String    @default("")
+  lampiran      String    @default("")
+  namaLampiran  String    @default("")
+  lampiranLain  String    @default("[]") // JSON [{url,nama}] — lampiran ke-2 dst.
+  status        String    @default("dikumpulkan") // dikumpulkan | revisi (dikembalikan guru untuk diperbaiki)
+  dikumpulkanAt DateTime  @default(now())
+  nilai         Int?
+  nilaiRubrik   String    @default("[]") // JSON number[] — poin per kriteria rubrik
+  catatanGuru   String    @default("")
+  dinilaiAt     DateTime? // waktu dinilai / dikembalikan untuk revisi
 
-  tugas          Tugas     @relation(fields: [tugasId], references: [id])
-  user           User      @relation(fields: [userId], references: [id])
+  tugas Tugas @relation(fields: [tugasId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
 
   @@unique([tugasId, userId])
   @@index([userId])
 }
 
 model Pengumuman {
-  id             Int      @id @default(autoincrement())
-  mapelId        Int
-  userId         Int?     // penulis (null bila akunnya dihapus)
-  judul          String
-  isi            String
-  createdAt      DateTime @default(now())
+  id        Int      @id @default(autoincrement())
+  mapelId   Int
+  userId    Int? // penulis (null bila akunnya dihapus)
+  judul     String
+  isi       String
+  createdAt DateTime @default(now())
 
-  mapel          Mapel    @relation(fields: [mapelId], references: [id])
-  user           User?    @relation(fields: [userId], references: [id])
-  komentar       Komentar[]
+  mapel    Mapel      @relation(fields: [mapelId], references: [id])
+  user     User?      @relation(fields: [userId], references: [id])
+  komentar Komentar[]
 
   @@index([mapelId])
 }
 
 // Diskusi/forum: komentar di materi, tugas, atau pengumuman
 model Komentar {
-  id             Int      @id @default(autoincrement())
-  userId         Int
-  materiId       Int?
-  tugasId        Int?
-  pengumumanId   Int?
-  isi            String
-  createdAt      DateTime @default(now())
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  materiId     Int?
+  tugasId      Int?
+  pengumumanId Int?
+  isi          String
+  createdAt    DateTime @default(now())
 
-  user           User        @relation(fields: [userId], references: [id])
-  materi         Materi?     @relation(fields: [materiId], references: [id])
-  tugas          Tugas?      @relation(fields: [tugasId], references: [id])
-  pengumuman     Pengumuman? @relation(fields: [pengumumanId], references: [id])
+  user       User        @relation(fields: [userId], references: [id])
+  materi     Materi?     @relation(fields: [materiId], references: [id])
+  tugas      Tugas?      @relation(fields: [tugasId], references: [id])
+  pengumuman Pengumuman? @relation(fields: [pengumumanId], references: [id])
 
   @@index([materiId])
   @@index([tugasId])
   @@index([pengumumanId])
+}
+
+// LMS — kuis per mapel (terpisah dari mesin ujian CAT; banyak kuis boleh dibuka bersamaan)
+model Kuis {
+  id               Int       @id @default(autoincrement())
+  mapelId          Int
+  judul            String
+  deskripsi        String    @default("")
+  durasiMenit      Int       @default(0) // 0 = tanpa batas waktu
+  mulai            DateTime? // null = bisa dikerjakan kapan saja setelah terbit
+  selesai          DateTime? // null = tidak ditutup
+  maksPercobaan    Int       @default(1)
+  acakSoal         Boolean   @default(true)
+  tampilkanJawaban Boolean   @default(true) // siswa melihat kunci & pembahasan setelah selesai
+  terbit           Boolean   @default(false)
+  topikId          Int?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  mapel     Mapel           @relation(fields: [mapelId], references: [id])
+  soal      SoalKuis[]
+  percobaan PercobaanKuis[]
+
+  @@index([mapelId])
+}
+
+model SoalKuis {
+  id         Int    @id @default(autoincrement())
+  kuisId     Int
+  urutan     Int    @default(0)
+  tipe       String // pg | bs (benar/salah) | isian | esai
+  pertanyaan String
+  opsi       String @default("[]") // JSON string[] (pg)
+  kunci      String @default("") // pg: indeks opsi; bs: "B"/"S"; isian: jawaban diterima dipisah "|"; esai: kosong
+  pembahasan String @default("")
+  bobot      Int    @default(1)
+
+  kuis Kuis @relation(fields: [kuisId], references: [id])
+
+  @@index([kuisId])
+}
+
+model PercobaanKuis {
+  id           Int       @id @default(autoincrement())
+  kuisId       Int
+  userId       Int
+  ke           Int       @default(1)
+  mulaiAt      DateTime  @default(now())
+  selesaiAt    DateTime?
+  jawaban      String    @default("{}") // JSON {soalId: jawaban}
+  skorEsai     String    @default("{}") // JSON {soalId: poin} — diisi guru
+  skor         Float? // poin diperoleh (esai yang belum dinilai = 0)
+  skorMaks     Float?
+  nilai        Float? // 0–100
+  perluDinilai Boolean   @default(false) // ada jawaban esai yang belum dinilai
+
+  kuis Kuis @relation(fields: [kuisId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([kuisId, userId, ke])
+  @@index([userId])
+}
+
+// LMS — presensi per pertemuan
+model SesiPresensi {
+  id         Int       @id @default(autoincrement())
+  mapelId    Int
+  judul      String // mis. "Pertemuan 3"
+  tanggal    DateTime  @default(now())
+  kode       String // kode presensi mandiri siswa
+  bukaSampai DateTime? // presensi mandiri dibuka sampai waktu ini (null = hanya guru yang mengisi)
+  catatan    String    @default("")
+  createdAt  DateTime  @default(now())
+
+  mapel    Mapel      @relation(fields: [mapelId], references: [id])
+  presensi Presensi[]
+
+  @@index([mapelId])
+}
+
+model Presensi {
+  id         Int      @id @default(autoincrement())
+  sesiId     Int
+  userId     Int
+  status     String // H (hadir) | I (izin) | S (sakit) | A (alpa)
+  mandiri    Boolean  @default(false) // diisi siswa sendiri dengan kode
+  keterangan String   @default("")
+  waktu      DateTime @default(now())
+
+  sesi SesiPresensi @relation(fields: [sesiId], references: [id])
+  user User         @relation(fields: [userId], references: [id])
+
+  @@unique([sesiId, userId])
+  @@index([userId])
+}
+
+// LMS — topik/bagian mapel (mis. "Bab 1" atau "Minggu 1") untuk mengelompokkan materi, tugas, kuis
+// Ujian offline / nilai manual: guru memasukkan nilai ujian yang tidak dikerjakan di CAT (mis. ujian kertas).
+// Masuk rekap nilai sebagai kategori "ujian". Nilai terlihat siswa setelah diumumkan (terbit).
+model UjianManual {
+  id          Int       @id @default(autoincrement())
+  mapelId     Int
+  judul       String // mis. "UTS Ganjil"
+  tanggal     DateTime?
+  nilaiMaks   Int       @default(100)
+  keterangan  String    @default("")
+  terbit      Boolean   @default(false)
+  diumumkanAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  mapel Mapel              @relation(fields: [mapelId], references: [id])
+  nilai NilaiUjianManual[]
+
+  @@index([mapelId])
+}
+
+model NilaiUjianManual {
+  id        Int      @id @default(autoincrement())
+  ujianId   Int
+  userId    Int
+  nilai     Float
+  catatan   String   @default("")
+  updatedAt DateTime @updatedAt
+
+  ujian UjianManual @relation(fields: [ujianId], references: [id])
+  user  User        @relation(fields: [userId], references: [id])
+
+  @@unique([ujianId, userId])
+  @@index([userId])
+}
+
+model Topik {
+  id        Int      @id @default(autoincrement())
+  mapelId   Int
+  judul     String
+  deskripsi String   @default("")
+  urutan    Int      @default(0)
+  createdAt DateTime @default(now())
+
+  mapel Mapel @relation(fields: [mapelId], references: [id])
+
+  @@index([mapelId])
 }

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { verifyLmsSession, aksesMapel } from '@/lib/lms';
+import { verifyLmsSession, aksesMapel, sudahTerbit } from '@/lib/lms';
 
 // Detail materi. Siswa yang membuka otomatis tercatat "sudah dibaca".
 export async function GET(_request: Request, ctx: RouteContext<'/api/lms/materi/[id]'>) {
@@ -10,7 +10,7 @@ export async function GET(_request: Request, ctx: RouteContext<'/api/lms/materi/
   try {
     const materi = await prisma.materi.findUnique({ where: { id: Number((await ctx.params).id) } });
     const akses = materi ? await aksesMapel(auth.user, materi.mapelId) : null;
-    if (!materi || !akses || (akses.peran === 'siswa' && !materi.terbit)) {
+    if (!materi || !akses || (akses.peran === 'siswa' && !sudahTerbit(materi))) {
       return NextResponse.json({ message: 'Materi tidak ditemukan' }, { status: 404 });
     }
 

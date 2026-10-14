@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { readdir, readFile, writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
-import { FOTO_DIR } from '@/lib/storage';
+import { FOTO_DIR, LMS_DIR } from '@/lib/storage';
 import { prisma } from '@/lib/prisma';
 import { verifyAdminSession } from '@/lib/admin-auth';
 import { cache } from '@/lib/cache';
@@ -10,25 +10,41 @@ import { createAuditLog, getAuditIP, AUDIT_ACTIONS } from '@/lib/audit-log';
 type Row = Record<string, unknown> & { id: number };
 
 const FOTO_NAME = /^[\w-]+\.(jpg|jpeg|png|webp)$/i;
+const LMS_NAME = /^[\w-]+\.(pdf|docx?|xlsx?|pptx?|zip|jpe?g|png|txt)$/i;
 
-/** Foto peserta (storage/fotos) sebagai base64 agar ikut dalam file backup. */
-async function bacaFoto(): Promise<Record<string, string>> {
+/** File upload (foto peserta, lampiran LMS) sebagai base64 agar ikut dalam file backup. */
+async function bacaFolder(dir: string, pola: RegExp): Promise<Record<string, string>> {
   const out: Record<string, string> = {};
   try {
-    for (const name of await readdir(FOTO_DIR)) {
-      if (FOTO_NAME.test(name)) out[name] = (await readFile(join(FOTO_DIR, name))).toString('base64');
+    for (const name of await readdir(dir)) {
+      if (pola.test(name)) out[name] = (await readFile(join(dir, name))).toString('base64');
     }
   } catch {
-    // folder belum ada = belum ada foto
+    // folder belum ada = belum ada file
   }
   return out;
+}
+
+/** Tulis kembali file dari backup (hanya nama file yang aman). */
+async function tulisFolder(dir: string, pola: RegExp, files: unknown): Promise<number> {
+  if (!files || typeof files !== 'object') return 0;
+  await mkdir(dir, { recursive: true });
+  let n = 0;
+  for (const [name, b64] of Object.entries(files as Record<string, unknown>)) {
+    if (pola.test(name) && typeof b64 === 'string') {
+      await writeFile(join(dir, name), Buffer.from(b64, 'base64'));
+      n++;
+    }
+  }
+  return n;
 }
 
 // Nama tabel dalam file backup (diisi berurutan sesuai relasi di POST)
 type TableName =
   | 'users' | 'ujian' | 'bagianUjian' | 'soal' | 'jawabanUjian'
   | 'historiUjian' | 'sesiUjian' | 'pelanggaran' | 'userActivity' | 'ipRules' | 'auditLogs'
-  | 'kelas' | 'mapel' | 'materi' | 'tugas' | 'pengumpulanTugas' | 'pengumuman' | 'komentar';
+  | 'kelas' | 'mapel' | 'materi' | 'tugas' | 'pengumpulanTugas' | 'pengumuman' | 'komentar'
+  | 'kuis' | 'soalKuis' | 'percobaanKuis' | 'sesiPresensi' | 'presensi' | 'topik' | 'ujianManual' | 'nilaiUjianManual';
 
 export async function GET(request: Request) {
   const auth = await verifyAdminSession();
@@ -49,7 +65,7 @@ export async function GET(request: Request) {
       prisma.auditLog.findMany({ orderBy: { id: 'asc' } }),
     ]);
     const pengaturanAplikasi = await prisma.pengaturanAplikasi.findMany();
-    // LMS (lampiran file di storage/lms tidak ikut — salin foldernya, lihat DEPLOY.md)
+    // LMS (lampiran file storage/lms ikut sebagai base64 di lampiranLms)
     const [kelas, mapel, materi, materiDibaca, tugas, pengumpulanTugas, pengumuman, komentar] = await Promise.all([
       prisma.kelas.findMany({ orderBy: { id: 'asc' } }),
       prisma.mapel.findMany({ orderBy: { id: 'asc' } }),
@@ -60,14 +76,29 @@ export async function GET(request: Request) {
       prisma.pengumuman.findMany({ orderBy: { id: 'asc' } }),
       prisma.komentar.findMany({ orderBy: { id: 'asc' } }),
     ]);
+    const [kuis, soalKuis, percobaanKuis] = await Promise.all([
+      prisma.kuis.findMany({ orderBy: { id: 'asc' } }),
+      prisma.soalKuis.findMany({ orderBy: { id: 'asc' } }),
+      prisma.percobaanKuis.findMany({ orderBy: { id: 'asc' } }),
+    ]);
+    const topik = await prisma.topik.findMany({ orderBy: { id: 'asc' } });
+    const [sesiPresensi, presensi] = await Promise.all([
+      prisma.sesiPresensi.findMany({ orderBy: { id: 'asc' } }),
+      prisma.presensi.findMany({ orderBy: { id: 'asc' } }),
+    ]);
+    const [ujianManual, nilaiUjianManual] = await Promise.all([
+      prisma.ujianManual.findMany({ orderBy: { id: 'asc' } }),
+      prisma.nilaiUjianManual.findMany({ orderBy: { id: 'asc' } }),
+    ]);
 
     const backup = {
       version: '2.0',
       timestamp: new Date().toISOString(),
-      fotos: await bacaFoto(),
+      fotos: await bacaFolder(FOTO_DIR, FOTO_NAME),
+      lampiranLms: await bacaFolder(LMS_DIR, LMS_NAME),
       data: {
         users, ujian, bagianUjian, soal, jawabanUjian, historiUjian, sesiUjian, pelanggaran, userActivity, ipRules, auditLogs, pengaturanAplikasi,
-        kelas, mapel, materi, materiDibaca, tugas, pengumpulanTugas, pengumuman, komentar,
+        kelas, mapel, materi, materiDibaca, tugas, pengumpulanTugas, pengumuman, komentar, kuis, soalKuis, percobaanKuis, sesiPresensi, presensi, topik, ujianManual, nilaiUjianManual,
       },
     };
 
@@ -90,7 +121,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { data, replaceAll, fotos } = body;
+    const { data, replaceAll, fotos, lampiranLms } = body;
 
     if (!data || typeof data !== 'object' || !Array.isArray(data.users)) {
       return NextResponse.json({ message: 'Data backup tidak valid' }, { status: 400 });
@@ -109,6 +140,13 @@ export async function POST(request: Request) {
     await prisma.$transaction(async (tx) => {
       if (replaceAll) {
         await tx.komentar.deleteMany();
+        await tx.nilaiUjianManual.deleteMany();
+        await tx.ujianManual.deleteMany();
+        await tx.presensi.deleteMany();
+        await tx.sesiPresensi.deleteMany();
+        await tx.percobaanKuis.deleteMany();
+        await tx.soalKuis.deleteMany();
+        await tx.kuis.deleteMany();
         await tx.materiDibaca.deleteMany();
         await tx.pengumpulanTugas.deleteMany();
         await tx.pengumuman.deleteMany();
@@ -125,6 +163,7 @@ export async function POST(request: Request) {
         await tx.soal.deleteMany();
         await tx.bagianUjian.deleteMany();
         await tx.ujian.deleteMany();
+        await tx.topik.deleteMany();
         await tx.mapel.deleteMany();
         await tx.kelas.deleteMany();
         await tx.user.deleteMany();
@@ -141,6 +180,7 @@ export async function POST(request: Request) {
       await upsertAll('users', (r) => tx.user.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
       await upsertAll('kelas', (r) => tx.kelas.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
       await upsertAll('mapel', (r) => tx.mapel.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
+      await upsertAll('topik', (r) => tx.topik.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
       await upsertAll('ujian', (r) => tx.ujian.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
       await upsertAll('bagianUjian', (r) => tx.bagianUjian.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
       await upsertAll('soal', (r) => tx.soal.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
@@ -156,6 +196,13 @@ export async function POST(request: Request) {
       await upsertAll('pengumpulanTugas', (r) => tx.pengumpulanTugas.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
       await upsertAll('pengumuman', (r) => tx.pengumuman.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
       await upsertAll('komentar', (r) => tx.komentar.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
+      await upsertAll('kuis', (r) => tx.kuis.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
+      await upsertAll('soalKuis', (r) => tx.soalKuis.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
+      await upsertAll('percobaanKuis', (r) => tx.percobaanKuis.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
+      await upsertAll('sesiPresensi', (r) => tx.sesiPresensi.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
+      await upsertAll('presensi', (r) => tx.presensi.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
+      await upsertAll('ujianManual', (r) => tx.ujianManual.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
+      await upsertAll('nilaiUjianManual', (r) => tx.nilaiUjianManual.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
 
       // Tanda "sudah dibaca" memakai kunci gabungan (tanpa id)
       const dibaca = Array.isArray(data.materiDibaca) ? data.materiDibaca : [];
@@ -182,18 +229,9 @@ export async function POST(request: Request) {
       counts.pengaturanAplikasi = pengaturan.length;
     }, { timeout: 120_000, maxWait: 10_000 });
 
-    // Pulihkan file foto (hanya nama file yang aman)
-    if (fotos && typeof fotos === 'object') {
-      await mkdir(FOTO_DIR, { recursive: true });
-      let n = 0;
-      for (const [name, b64] of Object.entries(fotos as Record<string, unknown>)) {
-        if (FOTO_NAME.test(name) && typeof b64 === 'string') {
-          await writeFile(join(FOTO_DIR, name), Buffer.from(b64, 'base64'));
-          n++;
-        }
-      }
-      counts.fotos = n;
-    }
+    // Pulihkan file foto & lampiran LMS
+    if (fotos) counts.fotos = await tulisFolder(FOTO_DIR, FOTO_NAME, fotos);
+    if (lampiranLms) counts.lampiranLms = await tulisFolder(LMS_DIR, LMS_NAME, lampiranLms);
 
     cache.clear();
     await createAuditLog({

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useToast } from "@/components/Toast";
 
@@ -48,6 +48,11 @@ export default function KelasMapelPage() {
     const [data, setData] = useState<Data>({ kelas: [], guru: [], kelasBelumDibuat: [] });
     const [formKelas, setFormKelas] = useState(KOSONG_KELAS);
     const [formMapel, setFormMapel] = useState(KOSONG_MAPEL);
+    const [cari, setCari] = useState("");
+    const [tingkat, setTingkat] = useState("");
+    // Kelas yang daftar mapelnya dibuka (default tertutup; saat mencari semua hasil terbuka)
+    const [dibuka, setDibuka] = useState<Set<number>>(new Set());
+    const toggleKelas = (id: number) => setDibuka((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
     const refresh = useCallback(async () => {
         const d = await muat();
@@ -75,7 +80,10 @@ export default function KelasMapelPage() {
     const simpanMapel = async (e: React.FormEvent) => {
         e.preventDefault();
         const { ok, data: d } = await kirim(formMapel.id ? "PUT" : "POST", { jenis: "mapel", ...formMapel, guruId: formMapel.guruId || null });
-        if (hasil(ok, d, formMapel.id ? "Mapel diperbarui" : "Mapel ditambahkan")) setFormMapel(KOSONG_MAPEL);
+        if (hasil(ok, d, formMapel.id ? "Mapel diperbarui" : "Mapel ditambahkan")) {
+            setDibuka((s) => new Set(s).add(formMapel.kelasId));
+            setFormMapel(KOSONG_MAPEL);
+        }
     };
 
     const hapus = async (jenis: "kelas" | "mapel", id: number, nama: string) => {
@@ -92,6 +100,21 @@ export default function KelasMapelPage() {
     const inputClass = "w-full px-3 py-2 text-sm rounded-lg border border-slate-300 outline-none focus:ring-2 focus:ring-indigo-500 bg-white";
     const labelClass = "block text-xs font-bold text-slate-600 uppercase mb-1";
     const kelasDipilih = data.kelas.find((k) => k.id === formMapel.kelasId);
+
+    // Tingkat = kata pertama nama kelas (X, XI, XII, ...)
+    const daftarTingkat = useMemo(() => [...new Set(data.kelas.map((k) => k.nama.split(" ")[0]))], [data.kelas]);
+    const kelasTampil = useMemo(() => {
+        const q = cari.trim().toLowerCase();
+        return data.kelas
+            .filter((k) => !tingkat || k.nama.split(" ")[0] === tingkat)
+            .map((k) => {
+                if (!q || `${k.nama} ${k.keterangan}`.toLowerCase().includes(q)) return k;
+                // Cocok di mapel/guru: tampilkan hanya mapel yang cocok
+                const mapel = k.mapel.filter((m) => `${m.nama} ${m.guru?.nama ?? ""}`.toLowerCase().includes(q));
+                return mapel.length ? { ...k, mapel } : null;
+            })
+            .filter((k): k is Kelas => k !== null);
+    }, [data.kelas, cari, tingkat]);
 
     return (
         <div className="min-h-screen bg-slate-100 font-sans">
@@ -170,20 +193,55 @@ export default function KelasMapelPage() {
                         </div>
                     )}
 
-                    {data.kelas.map((k) => (
+                    {data.kelas.length > 0 && (
+                        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-3 flex flex-wrap items-center gap-2">
+                            <input type="search" value={cari} onChange={(e) => setCari(e.target.value)} aria-label="Cari kelas"
+                                placeholder="Cari kelas, wali kelas, mapel, atau guru..." className={`${inputClass} flex-1 min-w-48`} />
+                            {daftarTingkat.length > 1 && (
+                                <div className="flex flex-wrap gap-1" role="group" aria-label="Filter tingkat">
+                                    {["", ...daftarTingkat].map((t) => (
+                                        <button key={t || "semua"} onClick={() => setTingkat(t)} aria-pressed={tingkat === t}
+                                            className={`px-3 py-2 rounded-lg text-xs font-bold ${tingkat === t ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
+                                            {t || "Semua"}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                            <span className="text-xs text-slate-500 w-full sm:w-auto">{kelasTampil.length} dari {data.kelas.length} kelas</span>
+                            {!cari.trim() && kelasTampil.length > 0 && (
+                                <button onClick={() => setDibuka(kelasTampil.every((k) => dibuka.has(k.id)) ? new Set() : new Set(kelasTampil.map((k) => k.id)))}
+                                    className="text-xs font-bold text-indigo-600 hover:underline">
+                                    {kelasTampil.every((k) => dibuka.has(k.id)) ? "Tutup semua" : "Buka semua"}
+                                </button>
+                            )}
+                        </div>
+                    )}
+                    {data.kelas.length > 0 && kelasTampil.length === 0 && (
+                        <div className="bg-white p-8 rounded-2xl border border-slate-200 text-center text-slate-400 italic">Tidak ada kelas yang cocok.</div>
+                    )}
+
+                    {kelasTampil.map((k) => {
+                        const terbuka = dibuka.has(k.id) || !!cari.trim();
+                        const tanpaGuru = k.mapel.filter((m) => !m.guru).length;
+                        return (
                         <section key={k.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                            <header className="px-5 py-3 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center gap-2">
-                                <h3 className="font-black text-slate-800 text-lg">{k.nama}</h3>
-                                <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-sky-100 text-sky-700">{k.jumlahSiswa} siswa</span>
-                                <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-slate-200 text-slate-600">{k.mapel.length} mapel</span>
-                                {k.keterangan && <span className="text-xs text-slate-500">· {k.keterangan}</span>}
+                            <header className={`px-5 py-3 bg-slate-50 flex flex-wrap items-center gap-2 ${terbuka ? "border-b border-slate-200" : ""}`}>
+                                <button onClick={() => toggleKelas(k.id)} aria-expanded={terbuka} disabled={!!cari.trim()}
+                                    className="flex flex-wrap items-center gap-2 text-left disabled:cursor-default">
+                                    <span aria-hidden className={`text-slate-400 text-xs transition-transform ${terbuka ? "rotate-90" : ""}`}>&#9654;</span>
+                                    <h3 className="font-black text-slate-800 text-lg">{k.nama}</h3>
+                                    <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-sky-100 text-sky-700">{k.jumlahSiswa} siswa</span>
+                                    <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-slate-200 text-slate-600">{k.mapel.length} mapel</span>
+                                    {tanpaGuru > 0 && <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-700">{tanpaGuru} tanpa guru</span>}
+                                    {k.keterangan && <span className="text-xs text-slate-500">· {k.keterangan}</span>}
+                                </button>
                                 <div className="ml-auto flex gap-1">
                                     <button onClick={() => setFormMapel({ ...KOSONG_MAPEL, kelasId: k.id })} className="text-[10px] bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold px-2 py-1 rounded-md">+ Mapel</button>
                                     <button onClick={() => setFormKelas({ id: k.id, nama: k.nama, keterangan: k.keterangan })} className="text-[10px] bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold px-2 py-1 rounded-md">Edit</button>
                                     <button onClick={() => hapus("kelas", k.id, k.nama)} className="text-[10px] bg-red-100 hover:bg-red-200 text-red-800 font-bold px-2 py-1 rounded-md">Hapus</button>
                                 </div>
                             </header>
-                            {k.mapel.length === 0 ? (
+                            {!terbuka ? null : k.mapel.length === 0 ? (
                                 <p className="px-5 py-4 text-sm text-slate-400 italic">Belum ada mapel.</p>
                             ) : (
                                 <ul className="divide-y divide-slate-100">
@@ -206,7 +264,8 @@ export default function KelasMapelPage() {
                                 </ul>
                             )}
                         </section>
-                    ))}
+                        );
+                    })}
                 </div>
             </main>
         </div>

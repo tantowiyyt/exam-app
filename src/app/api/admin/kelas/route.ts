@@ -167,16 +167,16 @@ export async function DELETE(request: Request) {
     if (jenis === 'mapel') {
       const mapel = await prisma.mapel.findUnique({
         where: { id },
-        include: { _count: { select: { materi: true, tugas: true, pengumuman: true, ujian: true } } },
+        include: { _count: { select: { materi: true, tugas: true, pengumuman: true, ujian: true, kuis: true, sesiPresensi: true, ujianManual: true } } },
       });
       if (!mapel) return NextResponse.json({ message: 'Mapel tidak ditemukan' }, { status: 404 });
       const c = mapel._count;
-      if (c.materi + c.tugas + c.pengumuman + c.ujian > 0) {
+      if (c.materi + c.tugas + c.pengumuman + c.ujian + c.kuis + c.sesiPresensi + c.ujianManual > 0) {
         return NextResponse.json({
-          message: `Mapel masih berisi ${c.materi} materi, ${c.tugas} tugas, ${c.pengumuman} pengumuman, ${c.ujian} ujian. Hapus isinya dulu.`,
+          message: `Mapel masih berisi ${c.materi} materi, ${c.tugas} tugas, ${c.kuis} kuis, ${c.sesiPresensi} pertemuan presensi, ${c.pengumuman} pengumuman, ${c.ujian} ujian CAT, ${c.ujianManual} ujian offline. Hapus isinya dulu.`,
         }, { status: 400 });
       }
-      await prisma.mapel.delete({ where: { id } });
+      await prisma.$transaction([prisma.topik.deleteMany({ where: { mapelId: id } }), prisma.mapel.delete({ where: { id } })]);
       await createAuditLog({ action: 'DELETE_MAPEL', target: `Mapel #${id} ${mapel.nama}`, ipAddress: getAuditIP(request) });
       return NextResponse.json({ success: true, message: 'Mapel dihapus' });
     }
