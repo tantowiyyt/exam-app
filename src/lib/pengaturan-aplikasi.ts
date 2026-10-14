@@ -11,6 +11,9 @@ export const DEFAULT_INSTANSI = {
   jabatanPenandatangan: 'Ketua Panitia',
   namaPenandatangan: '',
   nipPenandatangan: '',
+  /** Tampilan kartu: warna aksen (lihat WARNA_KARTU) & model cetak */
+  warnaKartu: 'biru',
+  modelKartu: 'lengkap',
   tataTertib: [
     'Peserta hadir di ruang ujian 15 menit sebelum ujian dimulai.',
     'Kartu ini wajib dibawa dan ditunjukkan kepada pengawas.',
@@ -20,6 +23,9 @@ export const DEFAULT_INSTANSI = {
     'Peserta yang melanggar tata tertib dapat dikeluarkan dari ruang ujian.',
   ].join('\n'),
 };
+
+export const WARNA_KARTU = ['biru', 'hijau', 'merah', 'ungu', 'oranye', 'hitam'] as const;
+export const MODEL_KARTU = ['lengkap', 'ringkas'] as const;
 
 export type Instansi = typeof DEFAULT_INSTANSI;
 const KEYS = Object.keys(DEFAULT_INSTANSI) as (keyof Instansi)[];

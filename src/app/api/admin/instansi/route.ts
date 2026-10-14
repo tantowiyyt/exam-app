@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { verifyAdminSession } from '@/lib/admin-auth';
-import { getInstansi, setInstansi } from '@/lib/pengaturan-aplikasi';
+import { getInstansi, setInstansi, WARNA_KARTU, MODEL_KARTU } from '@/lib/pengaturan-aplikasi';
 import { createAuditLog, getAuditIP, AUDIT_ACTIONS } from '@/lib/audit-log';
 
 export async function GET() {
@@ -24,6 +24,12 @@ export async function PUT(request: Request) {
     // Logo hanya boleh dari hasil upload aplikasi ini
     if (body.logo && !/^\/(api\/foto|uploads\/fotos)\/[\w-]+\.(jpg|jpeg|png|webp)$/i.test(body.logo)) {
       return NextResponse.json({ message: 'Logo tidak valid' }, { status: 400 });
+    }
+    if (body.warnaKartu !== undefined && !(WARNA_KARTU as readonly string[]).includes(body.warnaKartu)) {
+      return NextResponse.json({ message: 'Warna kartu tidak valid' }, { status: 400 });
+    }
+    if (body.modelKartu !== undefined && !(MODEL_KARTU as readonly string[]).includes(body.modelKartu)) {
+      return NextResponse.json({ message: 'Model kartu tidak valid' }, { status: 400 });
     }
     const data = await setInstansi(body);
     await createAuditLog({ action: AUDIT_ACTIONS.UPDATE_PENGATURAN, target: 'Identitas instansi', ipAddress: getAuditIP(request) });
