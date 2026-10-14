@@ -19,7 +19,37 @@ This version has breaking changes — APIs, conventions, and file structure may 
 ## Credentials
 - **Admin**: username `admin` — password tidak dicatat di repo. Buat/reset dengan `npm run admin:buat -- <username> <password>`
 - **Database**: `prisma/dev.db`
-- **Env**: `DATABASE_URL=file:./dev.db`, `SESSION_SECRET` (random)
+- **Env**: `DATABASE_URL=file:./dev.db`, `SESSION_SECRET` (random) — contoh lengkap di `.env.example`
+
+---
+
+## Status Terakhir (2026-10-14) — BACA INI DULU
+
+**Repo:** https://github.com/tantowiyyt/exam-app (branch `main`). Database, foto upload, dan `.env` sengaja tidak di-commit.
+
+**Kondisi:** fitur lengkap, build & lint bersih, `npm run test:e2e` 127 tes lulus, uji beban 150 peserta serentak 0 gagal.
+Siap untuk **simulasi**, belum untuk ujian sungguhan — selesaikan daftar di bawah dulu.
+
+**Belum dilakukan (oleh pemilik proyek):**
+1. Simulasi 5–10 peserta di lab (alur UI ujian belum pernah dicoba orang sungguhan di browser) — checklist di `DEPLOY.md` §9
+2. Ganti password admin lewat menu *Ganti Password* (password lama pernah tertulis di dokumen ini)
+3. Di server: isi `.env` dari `.env.example` (`SESSION_SECRET` acak, `COOKIE_SECURE=false` bila lab via http://IP)
+4. Buat akun pengawas per ruang, isi kelas peserta, isi kop kartu, cetak kartu
+
+**Keputusan yang sudah diambil:**
+- Penguncian perangkat ala Safe Exam Browser **tidak** dibangun di proyek ini. Pakai Safe Exam Browser resmi bila perlu;
+  aplikasi tetap punya deteksi pelanggaran (pindah tab, keluar fullscreen, copy/paste, shortcut; auto-submit di pelanggaran ke-5).
+- Skema DB dikelola dengan `npx prisma db push` (folder `prisma/migrations` usang — jangan `migrate deploy`).
+- Satu instance server saja (rate limit & cache di memori).
+
+**Keterbatasan yang diketahui:**
+- Login serentak 150 orang pada detik yang sama ±12 dtk (bcrypt); dalam praktik login tersebar.
+- IP dibaca dari `X-Forwarded-For` → pakai reverse proxy agar aturan IP & rate limit tidak bisa dipalsukan.
+- Admin yang diturunkan role-nya masih melihat tampilan halaman admin (kosong, API menolak) sampai login ulang.
+- Durasi per bagian hanya berlaku bila SEMUA soal ujian berada di bagian yang punya durasi.
+- Sisa 14 warning lint ringan (`<img>`, unused vars) — tidak ada error.
+
+**Backup DB lokal** (di-ignore git): `prisma/dev.db.bak-20261014063026`, `-065253`, `-071034` — boleh dihapus bila tidak diperlukan.
 
 ---
 
@@ -328,7 +358,7 @@ src/proxy.ts                          # Next.js 16 route protection (dipindah da
 - `npm run build` passes ✅
 - `npm run test:e2e` (butuh build): 127 tes lulus — lihat `tests/README.md`
 - Deploy: lihat `DEPLOY.md`
-- 43 routes total (16 static, 27 dynamic)
+- ±60 routes (halaman statis + API dinamis)
 - `npx eslint src`: 0 error (sisa warning ringan, mis. `<img>`)
 
 ---
@@ -339,7 +369,7 @@ src/proxy.ts                          # Next.js 16 route protection (dipindah da
 3. ~~No CSRF protection~~ ✅ FIXED
 4. ~~No question weights/bobot~~ ✅ FIXED
 5. ~~Single exam configuration only (no multi-exam support)~~ ✅ FIXED
-6. ~~SQLite (not suitable for high-concurrency production)~~ ✅ FIXED (PostgreSQL ready)
+6. SQLite dipertahankan (mode WAL, diuji 150 peserta serentak). Pindah ke PostgreSQL butuh ubah `provider` di schema & uji ulang — belum dilakukan
 7. ~~No offline handling / service worker~~ ✅ FIXED
 8. ~~No dark mode~~ ✅ FIXED
 9. ~~No question difficulty analysis~~ ✅ FIXED
