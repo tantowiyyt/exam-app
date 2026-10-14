@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { muatIdentitas, type Identitas } from "@/components/AppShell";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -11,6 +12,13 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [identitas, setIdentitas] = useState<Identitas | null>(null);
+
+  useEffect(() => {
+    let ignore = false;
+    muatIdentitas().then((d) => { if (!ignore && d) { setIdentitas(d); document.title = `Masuk · ${d.namaAplikasi}`; } });
+    return () => { ignore = true; };
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,10 +67,10 @@ export default function LoginPage() {
               </svg>
             </div>
             <h1 className="text-2xl font-black tracking-tight text-slate-800 dark:text-white mb-1">
-              Portal Sesi Ujian
+              {identitas?.namaAplikasi ?? "E-Learning"}
             </h1>
             <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">
-              Silakan masuk menggunakan kredensial Anda
+              {identitas?.namaSekolah || "Masuk untuk melanjutkan belajar"}
             </p>
           </div>
 
@@ -75,14 +83,14 @@ export default function LoginPage() {
           <form onSubmit={handleLogin} className="space-y-5">
             <div>
               <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 ml-1">
-                Nomor Peserta / Username
+                NIS / Username
               </label>
               <input
                 type="text"
                 required
                 value={nomorPeserta}
                 onChange={(e) => setNomorPeserta(e.target.value)}
-                placeholder="Contoh: 2026-XXXX"
+                placeholder="NIS atau username"
                 className="w-full bg-slate-50 dark:bg-slate-950/50 border border-slate-300 dark:border-slate-800 text-slate-800 dark:text-white px-4 py-3.5 rounded-xl outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600 font-mono text-sm"
               />
             </div>
@@ -112,7 +120,7 @@ export default function LoginPage() {
                   Memproses...
                 </span>
               ) : (
-                "Masuk ke Dashboard"
+                "Masuk"
               )}
             </button>
           </form>

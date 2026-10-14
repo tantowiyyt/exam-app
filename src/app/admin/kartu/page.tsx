@@ -36,6 +36,7 @@ interface Bagian {
 }
 
 interface Instansi {
+    namaAplikasi?: string;
     namaInstansi: string;
     subJudul: string;
     alamat: string;
@@ -539,7 +540,7 @@ export default function CetakKartuUjian() {
                             </div>
 
                             <p className="kartu-footer text-[7.5pt] text-white text-center bg-[var(--aksen)] rounded-full py-[2px]">
-                                Kartu ini wajib dibawa setiap mengikuti ujian · Dicetak dari CAT System pada {fmtTanggalPendek(new Date())}
+                                Kartu ini wajib dibawa setiap mengikuti ujian · Dicetak dari {instansi?.namaAplikasi || "E-Learning"} pada {fmtTanggalPendek(new Date())}
                             </p>
                         </section>
                     );

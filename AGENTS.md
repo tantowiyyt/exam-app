@@ -27,7 +27,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 **Repo:** https://github.com/tantowiyyt/exam-app (branch `main`). Database, foto upload, dan `.env` sengaja tidak di-commit.
 
-**Kondisi:** fitur lengkap + LMS (Phase 16), build & lint bersih, `npm run test:e2e` 482 tes lulus, uji beban 150 peserta serentak 0 gagal (sebelum LMS).
+**Kondisi:** fitur lengkap + LMS (Phase 16), build & lint bersih, `npm run test:e2e` 484 tes lulus, uji beban 150 peserta serentak 0 gagal (sebelum LMS).
 Siap untuk **simulasi**, belum untuk ujian sungguhan — selesaikan daftar di bawah dulu.
 
 **Belum dilakukan (oleh pemilik proyek):**
@@ -197,7 +197,9 @@ Aplikasi diposisikan sebagai **LMS yang punya modul ujian CAT** (keputusan pemil
 | 1 | Setelah login semua role ke beranda LMS `/kelas` (pengawas tetap ke monitoring). Beranda: siswa = banner ujian CAT aktif untuk kelasnya; guru/admin = "Perlu Dinilai"; admin = ringkasan sekolah | `src/proxy.ts`, `src/app/login/page.tsx`, `src/app/api/lms/kelas/route.ts`, `src/app/kelas/page.tsx` |
 | 1 | Identitas aplikasi: `instansi.namaAplikasi` (default "E-Learning") & `instansi.modulCat` (aktif/nonaktif → menu & banner CAT disembunyikan); API publik `/api/identitas` | `src/lib/pengaturan-aplikasi.ts`, `src/app/api/identitas/route.ts` |
 | 2 | Semua halaman admin di dalam kerangka; navbar lama diganti `HeaderHalaman` (grup + judul + aksi); menu admin dikelompokkan Akademik / Ujian CAT / Sistem; halaman **Pengaturan** (nama aplikasi, sekolah, alamat, logo, modul CAT) | `src/app/admin/**`, `src/app/admin/pengaturan/page.tsx` |
-| 3 | (berikutnya) penyeragaman istilah siswa/peserta, halaman depan & login, tampilan profil/dasbor ujian siswa | — |
+| 3 | Halaman depan LMS (nama aplikasi & sekolah, fitur; kartu Ujian CAT hanya bila modul aktif), login "NIS / Username", judul tab = nama aplikasi, istilah "Siswa" di admin, kaki kartu ujian memakai nama aplikasi | `src/app/page.tsx`, `src/app/login/page.tsx`, `src/app/admin/peserta/page.tsx`, `src/app/admin/kartu/page.tsx` |
+| 3 | **Data Diri** bisa dilihat & diubah kapan saja (tema terang, terisi data lama); simpan tidak lagi gagal bila belum ada jadwal ujian (ruang diatur admin). Dari dasbor ujian (`?lanjut=ujian`) kembali ke ujian | `src/app/profile/page.tsx`, `src/app/api/me/route.ts` |
+| 3 | Mode gelap tidak lagi otomatis mengikuti sistem (tampilan LMS terang); hanya bila dipilih pengguna. Dasbor ujian siswa tanpa tombol ganda (password/keluar/kelas sudah di menu) | `src/app/layout.tsx`, `src/components/ThemeProvider.tsx`, `src/app/dashboard/page.tsx` |
 
 `LmsNav` kini hanya sub-judul halaman (kembali + judul); bilah tab mapel `sticky top-14` mengikuti tinggi bilah atas.
 
@@ -443,7 +445,7 @@ src/proxy.ts                          # Next.js 16 route protection (dipindah da
 
 ## Build Status
 - `npm run build` passes ✅
-- `npm run test:e2e` (butuh build): 482 tes lulus — lihat `tests/README.md`
+- `npm run test:e2e` (butuh build): 484 tes lulus — lihat `tests/README.md`
 - Deploy: lihat `DEPLOY.md`
 - ±60 routes (halaman statis + API dinamis)
 - `npx eslint src`: 0 error (sisa warning ringan, mis. `<img>`)

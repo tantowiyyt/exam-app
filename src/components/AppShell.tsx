@@ -100,7 +100,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         let ignore = false;
         fetch("/api/me").then((r) => (r.ok ? r.json() : null)).then((d) => { if (!ignore && d) setMe(d); });
-        muatIdentitas().then((d) => { if (!ignore && d) setIdentitas(d); });
+        muatIdentitas().then((d) => { if (!ignore && d) { setIdentitas(d); document.title = d.namaAplikasi; } });
         return () => { ignore = true; };
     }, []);
 

@@ -74,7 +74,7 @@ export default function PesertaManagement() {
         if (!res.ok) {
             toast(data.message, "error");
         } else {
-            toast(isEditing ? "Data peserta berhasil diubah!" : "Peserta baru berhasil ditambah!", "success");
+            toast(isEditing ? "Data siswa berhasil diubah" : "Siswa baru ditambahkan", "success");
             resetForm();
             fetchPeserta();
         }
@@ -92,14 +92,14 @@ export default function PesertaManagement() {
     };
 
     const handleDelete = async (id: number) => {
-        if (!confirm("Apakah Anda yakin ingin menghapus peserta ini?")) return;
+        if (!confirm("Hapus siswa ini beserta data belajarnya (jawaban tugas, kuis, presensi, nilai)?")) return;
 
         const res = await fetch(`/api/admin/peserta?id=${id}`, { method: "DELETE" });
         if (res.ok) {
-            toast("Peserta berhasil dihapus!", "success");
+            toast("Siswa dihapus", "success");
             fetchPeserta();
         } else {
-            toast("Gagal menghapus peserta", "error");
+            toast("Gagal menghapus siswa", "error");
         }
     };
 
@@ -253,12 +253,12 @@ export default function PesertaManagement() {
                 <div className="space-y-6">
                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 h-fit">
                         <h2 className="text-lg font-bold text-slate-800 mb-4">
-                            {isEditing ? "Edit Data Peserta" : "Tambah Peserta Baru"}
+                            {isEditing ? "Edit Data Siswa" : "Tambah Siswa"}
                         </h2>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
-                            <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Nomor Peserta / Username</label>
+                            <label className="block text-xs font-bold text-slate-600 uppercase mb-1">NIS / Username</label>
                             <input type="text" value={form.nomorPeserta} onChange={(e) => setForm({ ...form, nomorPeserta: e.target.value })}
                                 className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 outline-none focus:ring-2 focus:ring-blue-500" placeholder="Contoh: 2026001" required />
                         </div>
@@ -266,7 +266,7 @@ export default function PesertaManagement() {
                         <div>
                             <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Nama Lengkap</label>
                             <input type="text" value={form.nama} onChange={(e) => setForm({ ...form, nama: e.target.value })}
-                                className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 outline-none focus:ring-2 focus:ring-blue-500" placeholder="Nama Lengkap Peserta" required />
+                                className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 outline-none focus:ring-2 focus:ring-blue-500" placeholder="Nama lengkap siswa" required />
                         </div>
 
                         <div>
@@ -360,7 +360,7 @@ export default function PesertaManagement() {
 
                         <div className="flex gap-2 pt-2">
                             <button type="submit" disabled={loading || uploading} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm font-bold transition-all disabled:opacity-50">
-                                {loading ? "Menyimpan..." : isEditing ? "Simpan Perubahan" : "Tambah Peserta"}
+                                {loading ? "Menyimpan..." : isEditing ? "Simpan Perubahan" : "Tambah Siswa"}
                             </button>
                             {isEditing && (
                                 <button type="button" onClick={resetForm} className="bg-slate-300 hover:bg-slate-400 text-slate-700 px-3 py-2 rounded-lg text-sm font-bold">
@@ -402,7 +402,7 @@ export default function PesertaManagement() {
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 lg:col-span-2 overflow-hidden flex flex-col">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
                         <div className="flex items-center gap-3">
-                            <h2 className="text-lg font-bold text-slate-800">Daftar Peserta ({filteredPeserta.length})</h2>
+                            <h2 className="text-lg font-bold text-slate-800">Daftar Siswa ({filteredPeserta.length})</h2>
                             <button onClick={handleResetAll} className="text-xs bg-red-500 hover:bg-red-600 text-white font-bold px-3 py-1.5 rounded-lg transition-all">
                                 Reset Semua
                             </button>
@@ -442,7 +442,7 @@ export default function PesertaManagement() {
                         <table className="w-full text-left text-sm text-slate-600 min-w-[700px]">
                             <thead className="bg-slate-100 text-xs text-slate-700 uppercase font-bold">
                                 <tr>
-                                    <th className="px-4 py-3 whitespace-nowrap">No. Peserta</th>
+                                    <th className="px-4 py-3 whitespace-nowrap">NIS / Username</th>
                                     <th className="px-4 py-3">Nama</th>
                                     <th className="px-4 py-3">Password</th>
                                     <th className="px-4 py-3 whitespace-nowrap">Ruang / Sesi</th>

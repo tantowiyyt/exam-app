@@ -100,6 +100,10 @@ const npBaru = r.body.data.nomorPeserta;
 await req('d', '/api/login', { method: 'POST', body: J({ nomorPeserta: npBaru, password: 'rahasia123' }) });
 r = await req('d', '/api/me');
 ok(r.body.ruang === '' && r.body.sesi === '', 'peserta daftar mandiri belum punya ruang (siap auto-assign)');
+r = await req('d', '/api/me', { method: 'PUT', body: J({ nik: '3201234567890123', tempatLahir: 'Bandung', tanggalLahir: '2009-05-06', jenisKelamin: 'P', alamat: 'Jl. Uji 1', noHp: '0811' }) });
+ok(r.status === 200, `data diri tersimpan walau ruang ujian belum bisa dibagi (${r.status} ${J(r.body)})`);
+r = await req('d', '/api/me');
+ok(r.body.nik === '3201234567890123' && r.body.tanggalLahir === '2009-05-06' && r.body.alamat === 'Jl. Uji 1' && r.body.profilLengkap, 'data diri sendiri bisa dibaca kembali untuk diubah');
 
 // --- Hapus peserta yang punya data
 r = await req('admin', `/api/admin/peserta?id=${pid}`, { method: 'DELETE' });

@@ -22,18 +22,16 @@ function readTheme(): Theme {
     const stored = localStorage.getItem("theme");
     if (stored === "light" || stored === "dark") return stored;
   } catch {}
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  // Bawaan terang (tampilan LMS belum punya mode gelap); mode gelap hanya bila dipilih pengguna
+  return "light";
 }
 
 function subscribe(callback: () => void) {
-  const media = window.matchMedia("(prefers-color-scheme: dark)");
   window.addEventListener(EVENT, callback);
   window.addEventListener("storage", callback);
-  media.addEventListener("change", callback);
   return () => {
     window.removeEventListener(EVENT, callback);
     window.removeEventListener("storage", callback);
-    media.removeEventListener("change", callback);
   };
 }
 

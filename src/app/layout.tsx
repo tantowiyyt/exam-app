@@ -17,8 +17,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CAT System - Aplikasi Ujian Berbasis Komputer",
-  description: "Sistem Ujian Berbasis Komputer (Computer Assisted Test) dengan kalkulasi skor otomatis dan pemantauan live score.",
+  title: "E-Learning",
+  description: "Aplikasi belajar sekolah (LMS): materi, tugas, kuis, presensi, nilai, dan ujian berbasis komputer (CAT).",
 };
 
 export default function RootLayout({
@@ -36,7 +36,7 @@ export default function RootLayout({
         {/* Terapkan tema sebelum render pertama agar mode gelap tidak berkedip */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{var t=localStorage.getItem("theme");if(t==="dark"||(!t&&matchMedia("(prefers-color-scheme: dark)").matches))document.documentElement.classList.add("dark")}catch(e){}`,
+            __html: `try{var t=localStorage.getItem("theme");if(t==="dark")document.documentElement.classList.add("dark")}catch(e){}`,
           }}
         />
       </head>

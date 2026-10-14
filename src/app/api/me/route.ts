@@ -12,7 +12,7 @@ export async function GET() {
     const user = await prisma.user.findUnique({
       where: { nomorPeserta: session.nomorPeserta },
       select: {
-        nama: true, role: true, sudahUjian: true, ruang: true, sesi: true, tanggalUjian: true,
+        nama: true, role: true, sudahUjian: true, ruang: true, sesi: true, tanggalUjian: true, kelas: true,
         foto: true, nik: true, tempatLahir: true, tanggalLahir: true,
         jenisKelamin: true, alamat: true, noHp: true,
       },
@@ -30,6 +30,14 @@ export async function GET() {
       sesi: user?.sesi ?? '',
       tanggalUjian: user?.tanggalUjian ?? '',
       foto: user?.foto ?? '',
+      kelas: user?.kelas ?? '',
+      // Data diri milik sendiri (untuk mengisi ulang form Data Diri)
+      nik: user?.nik ?? '',
+      tempatLahir: user?.tempatLahir ?? '',
+      tanggalLahir: user?.tanggalLahir ? user.tanggalLahir.toISOString().slice(0, 10) : '',
+      jenisKelamin: user?.jenisKelamin ?? '',
+      alamat: user?.alamat ?? '',
+      noHp: user?.noHp ?? '',
       profilLengkap,
     });
   } catch (error) {
@@ -77,6 +85,9 @@ export async function PUT(request: Request) {
       select: { id: true, ruang: true, sesi: true },
     });
 
+    // Ruang/sesi ujian CAT dibagi otomatis bila ada jadwal ujian aktif; bila belum ada, data diri tetap
+    // disimpan (aplikasi LMS) dan ruang diatur admin kemudian.
+    let catatan = '';
     if (!user?.ruang || !user?.sesi) {
       const assigned = await autoAssignRoom();
       if (assigned) {
@@ -84,7 +95,7 @@ export async function PUT(request: Request) {
         updateData.sesi = assigned.sesi;
         updateData.tanggalUjian = assigned.tanggal;
       } else {
-        return NextResponse.json({ message: 'Tidak ada jadwal ujian aktif atau semua ruang penuh. Hubungi admin.' }, { status: 400 });
+        catatan = ' Ruang ujian akan diatur oleh admin.';
       }
     }
 
@@ -93,7 +104,7 @@ export async function PUT(request: Request) {
       data: updateData,
     });
 
-    return NextResponse.json({ success: true, message: 'Profil berhasil diperbarui' });
+    return NextResponse.json({ success: true, message: `Data diri disimpan.${catatan}` });
   } catch (error) {
     console.error('ERROR PUT PROFILE:', error);
     return NextResponse.json({ message: 'Gagal memperbarui profil' }, { status: 500 });
