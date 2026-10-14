@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { randomInt } from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { semesterAktif, semesterDipilih } from '@/lib/semester';
-import { verifyLmsSession, aksesMapel, teks } from '@/lib/lms';
+import { verifyLmsSession, aksesMapel, teks, linkValid } from '@/lib/lms';
 import { checkRateLimit, resetRateLimit } from '@/lib/rate-limit';
 import { createAuditLog, getAuditIP } from '@/lib/audit-log';
 
@@ -30,7 +30,14 @@ function dataSesi(body: Record<string, unknown>) {
   if (!Number.isFinite(menit) || menit < 0 || menit > 1440) return { error: 'Lama presensi mandiri 0–1440 menit' } as const;
   // bukaMenit tidak dikirim saat mengubah = status buka/tutup tidak berubah
   const buka = body.bukaMenit === undefined ? {} : { bukaSampai: menit ? new Date(Date.now() + menit * 60000) : null };
-  return { data: { judul, tanggal, catatan: teks(body.catatan, 2000), ...buka } } as const;
+  // Tautan kelas virtual (Zoom/Meet); tidak dikirim saat mengubah = tidak berubah
+  let link = {};
+  if (body.linkVirtual !== undefined) {
+    const v = linkValid(body.linkVirtual);
+    if (String(body.linkVirtual ?? '').trim() && !v) return { error: 'Tautan kelas virtual harus diawali http:// atau https://' } as const;
+    link = { linkVirtual: v };
+  }
+  return { data: { judul, tanggal, catatan: teks(body.catatan, 2000), ...buka, ...link } } as const;
 }
 
 export async function GET(request: Request) {
@@ -59,7 +66,7 @@ export async function GET(request: Request) {
       return NextResponse.json({
         peran: akses.peran,
         sesi: sesi.map((s) => ({
-          id: s.id, judul: s.judul, tanggal: s.tanggal, catatan: s.catatan,
+          id: s.id, judul: s.judul, tanggal: s.tanggal, catatan: s.catatan, linkVirtual: s.linkVirtual,
           dibuka: !!s.bukaSampai && s.bukaSampai > now, bukaSampai: s.bukaSampai,
           saya: s.presensi[0] ? { status: s.presensi[0].status, waktu: s.presensi[0].waktu, mandiri: s.presensi[0].mandiri, keterangan: s.presensi[0].keterangan } : null,
         })),
@@ -76,7 +83,7 @@ export async function GET(request: Request) {
       peran: akses.peran,
       siswa,
       sesi: sesi.map((s) => ({
-        id: s.id, judul: s.judul, tanggal: s.tanggal, catatan: s.catatan, kode: s.kode,
+        id: s.id, judul: s.judul, tanggal: s.tanggal, catatan: s.catatan, kode: s.kode, linkVirtual: s.linkVirtual,
         dibuka: !!s.bukaSampai && s.bukaSampai > now, bukaSampai: s.bukaSampai,
         presensi: s.presensi.map((p) => ({ userId: p.userId, status: p.status, mandiri: p.mandiri, keterangan: p.keterangan, waktu: p.waktu })),
         jumlah: rekap(s.presensi.map((p) => p.status), 0),

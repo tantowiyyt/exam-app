@@ -86,6 +86,20 @@ export async function GET() {
       ].sort((a, b) => b.jumlah - a.jumlah).slice(0, 8);
     }
 
+    // Kelas virtual (pertemuan dengan tautan Zoom/Meet) hari ini
+    const awal = new Date(); awal.setHours(0, 0, 0, 0);
+    const akhir = new Date(awal.getTime() + 86400000);
+    const kelasVirtual = mapel.length && user.role !== 'ADMIN'
+      ? (await prisma.sesiPresensi.findMany({
+        where: { mapelId: { in: mapel.map((m) => m.id) }, linkVirtual: { not: '' }, tanggal: { gte: awal, lt: akhir } },
+        orderBy: { tanggal: 'asc' },
+        select: { id: true, judul: true, tanggal: true, linkVirtual: true, mapelId: true },
+      })).map((s) => {
+        const m = mapel.find((x) => x.id === s.mapelId)!;
+        return { id: s.id, judul: s.judul, tanggal: s.tanggal, link: s.linkVirtual, mapel: { id: m.id, nama: m.nama, kelas: m.kelas.nama } };
+      })
+      : [];
+
     // Admin: ringkasan sekolah
     let ringkasan = null;
     if (user.role === 'ADMIN') {
@@ -116,6 +130,7 @@ export async function GET() {
       })),
       agenda,
       ujianCat,
+      kelasVirtual,
       perluDinilai,
       ringkasan,
     });

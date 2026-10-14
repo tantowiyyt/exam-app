@@ -34,13 +34,15 @@ function menu(role: string, cat: boolean): Grup[] {
     const beranda: Item = { href: "/kelas", label: "Beranda", ikon: "rumah", aktif: (p) => p === "/kelas" || (/^\/kelas\/\d/.test(p)) };
     const kalender: Item = { href: "/kelas/kalender", label: "Kalender", ikon: "kalender" };
     const password: Item = { href: "/akun/password", label: "Ganti Password", ikon: "kunci" };
+    const rapor: Item = { href: "/kelas/rapor", label: "Rapor", ikon: "nilai" };
+    const bankSoal: Item = { href: "/kelas/bank-soal", label: "Bank Soal", ikon: "soal" };
     if (role === "PESERTA") {
         return [
-            { item: [beranda, kalender, ...(cat ? [{ href: "/dashboard", label: "Ujian CAT", ikon: "ujian" as const, aktif: (p: string) => p.startsWith("/dashboard") || p.startsWith("/ujian") }] : [])] },
+            { item: [beranda, kalender, rapor, ...(cat ? [{ href: "/dashboard", label: "Ujian CAT", ikon: "ujian" as const, aktif: (p: string) => p.startsWith("/dashboard") || p.startsWith("/ujian") }] : [])] },
             { judul: "Akun", item: [{ href: "/profile", label: "Data Diri", ikon: "profil" }, password] },
         ];
     }
-    if (role === "GURU") return [{ item: [beranda, kalender] }, { judul: "Akun", item: [password] }];
+    if (role === "GURU") return [{ item: [beranda, kalender, bankSoal, rapor] }, { judul: "Akun", item: [password] }];
     if (role === "PENGAWAS") return [{ item: [{ href: "/admin/monitoring", label: "Monitoring Ujian", ikon: "monitor" }] }, { judul: "Akun", item: [password] }];
     // ADMIN
     return [
@@ -48,6 +50,8 @@ function menu(role: string, cat: boolean): Grup[] {
         {
             judul: "Akademik", item: [
                 { href: "/admin/kelas", label: "Kelas & Mapel", ikon: "kelas" },
+                rapor,
+                { ...bankSoal, label: "Bank Soal Guru" },
                 { href: "/admin/peserta", label: "Siswa", ikon: "siswa" },
                 { href: "/admin/akun", label: "Guru & Staf", ikon: "guru" },
             ],

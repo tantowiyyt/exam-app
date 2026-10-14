@@ -218,7 +218,7 @@ export default function HalamanKuis() {
                         </div>
 
                         {tabAktif === "soal" && d.soal && (
-                            <EditorSoal key={versiSoal} kuisId={k.id} adaPercobaan={!!d.hasil?.some((h) => h.percobaan.length)}
+                            <EditorSoal key={versiSoal} kuisId={k.id} mapelNama={d.mapel.nama} adaPercobaan={!!d.hasil?.some((h) => h.percobaan.length)}
                                 awal={d.soal.map((s) => ({ ...s, kunciLokal: `db${s.id}` }) as SoalEdit)}
                                 onSaved={async () => { await refresh(); setVersiSoal((v) => v + 1); }} />
                         )}

@@ -27,7 +27,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 **Repo:** https://github.com/tantowiyyt/exam-app (branch `main`). Database, foto upload, dan `.env` sengaja tidak di-commit.
 
-**Kondisi:** fitur lengkap + LMS (Phase 16), build & lint bersih, `npm run test:e2e` 559 tes lulus, uji beban 150 peserta serentak 0 gagal (sebelum LMS).
+**Kondisi:** fitur lengkap + LMS (Phase 16), build & lint bersih, `npm run test:e2e` 610 tes lulus, uji beban 150 peserta serentak 0 gagal (sebelum LMS).
 Siap untuk **simulasi**, belum untuk ujian sungguhan — selesaikan daftar di bawah dulu.
 
 **Belum dilakukan (oleh pemilik proyek):**
@@ -58,7 +58,7 @@ Siap untuk **simulasi**, belum untuk ujian sungguhan — selesaikan daftar di ba
   lampiran yang tertaut hanya untuk anggota/pengelola mapelnya.
 
 **Backup DB lokal** (di-ignore git): `prisma/dev.db.bak-20261014063026`, `-065253`, `-071034`, `-090459` (sebelum skema LMS), `-115525` (sebelum fitur tugas lanjutan), `-132330` (sebelum kuis), `-134625` (sebelum presensi), `-135714` (sebelum topik & jadwal terbit), `-140714` (sebelum bobot nilai & rubrik) — boleh dihapus bila tidak diperlukan.
-**PERHATIAN:** backup `-115525` s/d `-164000` dibuat dengan menyalin `dev.db` saja padahal perubahan masih di `dev.db-wal`, sehingga isinya SAMA (kondisi 09:29, sebelum kelas/kuis/dst). Backup lengkap yang valid (via `VACUUM INTO`): `-164500` (63 akun, 21 kelas), `-170000` (sebelum 273 mapel), `-173000` (sebelum 630 siswa), `-174500` (sebelum skema ujian offline), `-190000` (sebelum skema semester & ujian CAT mapel).
+**PERHATIAN:** backup `-115525` s/d `-164000` dibuat dengan menyalin `dev.db` saja padahal perubahan masih di `dev.db-wal`, sehingga isinya SAMA (kondisi 09:29, sebelum kelas/kuis/dst). Backup lengkap yang valid (via `VACUUM INTO`): `-164500` (63 akun, 21 kelas), `-170000` (sebelum 273 mapel), `-173000` (sebelum 630 siswa), `-174500` (sebelum skema ujian offline), `-190000` (sebelum skema semester & ujian CAT mapel), `-203000` (sebelum bank soal & tautan kelas virtual).
 **Data contoh di dev.db (2026-10-14):** 21 kelas X–XII IPA/IPS/Bahasa, 273 mapel ber-guru, 25 guru + 25 pengawas (`storage/akun-guru-pengawas.csv`), 630 siswa 30/kelas (`storage/akun-siswa.csv`), pembagian mapel di `storage/pembagian-mapel.csv`. Ruang/sesi ujian siswa baru masih kosong.
 Backup berikutnya pakai `VACUUM INTO` / `sqlite3 .backup` (lihat `DEPLOY.md`), **jangan `cp dev.db`**.
 
@@ -88,6 +88,7 @@ Backup berikutnya pakai `VACUUM INTO` / `sqlite3 .backup` (lihat `DEPLOY.md`), *
 | **SesiPresensi / Presensi** | Sesi: mapelId, judul, tanggal, kode (6 karakter), bukaSampai? (presensi mandiri), catatan / Presensi: sesiId+userId unique, status H/I/S/A, mandiri, keterangan, waktu | LMS presensi |
 | **Mapel.bobotTugas/Kuis/Ujian/Presensi, kkm**; `Tugas.rubrik` (JSON [{kriteria,deskripsi,maks}]); `PengumpulanTugas.nilaiRubrik` (JSON number[]) | Bobot semua 0 = rata-rata biasa; rubrik ada = nilaiMaks = jumlah maks | LMS nilai |
 | **UjianManual / NilaiUjianManual** | UjianManual: mapelId, judul, jenis (UH/UTS/UAS/LAIN), mode (offline/cat), kuisId?, semesterId, tanggal?, nilaiMaks, keterangan, terbit (nilai diumumkan), diumumkanAt / Nilai: ujianId+userId unique, nilai (Float), catatan | LMS ujian mapel |
+| **BankSoal** (pemilikId, mapel = nama mapel, label, tipe, pertanyaan, opsi, kunci, pembahasan, bobot, bersama); `SesiPresensi.linkVirtual` | Bank soal guru & kelas virtual | Phase 18 |
 | **Semester** + `semesterId` di Tugas/Kuis/SesiPresensi/UjianManual; `Kuis.modeUjian/token/maksPelanggaran`; `PercobaanKuis.pelanggaran/tambahanMenit`; `Mapel.bobotUH/UTS/UAS` | Semester: tahunAjaran+semester unique, aktif | Phase 18 |
 | **Topik** + `Materi/Tugas/Kuis.topikId`, `Materi/Tugas.terbitPada` | Topik: mapelId, judul, deskripsi, urutan (topikId tanpa relasi FK; hapus topik = isi jadi tanpa topik). terbitPada = terbit terjadwal | LMS |
 | **Pengumuman / Komentar** | mapelId, judul, isi / isi + salah satu materiId/tugasId/pengumumanId | LMS |
@@ -204,6 +205,12 @@ semester aktif global; menu Ujian CAT admin tetap untuk ujian sekolah.
 | Rekap: komponen UH/UTS/UAS + bobot `Mapel.bobotUH/UTS/UAS` (Ujian lain = jenis LAIN + ujian CAT sekolah, yang tampil hanya di semester aktif) | `nilai/route.ts`, `src/components/lms/RekapNilai.tsx` |
 | Kuis mode ujian tidak tampil di tab Kuis; agenda/kalender/notifikasi menyebut "Ujian"; backup memuat semester | API kelas, kalender, notifikasi, backup |
 | Tes E2E semester & ujian CAT mapel (75 tes) | `tests/e2e/12-ujian-cat-semester.mjs` |
+| **Rapor** lintas mapel per semester (menu Rapor): kop sekolah, nilai per komponen (UH/UTS/UAS/tugas/kuis/hadir), nilai akhir & KKM per mapel, rata-rata, kehadiran H/I/S/A gabungan, peringkat (staf), tanda tangan orang tua / wali kelas / penandatangan (dari Pengaturan kartu), cetak A4 satu halaman per siswa. Admin: semua kelas; guru: kelas yang diajar atau diwalikan (keterangan kelas "Wali kelas: Nama"); siswa: rapornya sendiri tanpa nilai yang belum diumumkan | `src/app/api/lms/rapor/route.ts`, `src/app/kelas/rapor/page.tsx` |
+| Perhitungan rekap nilai mapel dipindah ke satu fungsi (dipakai tab Nilai & rapor) | `src/lib/rekap.ts` |
+| Tes E2E rapor (20 tes) | `tests/e2e/13-rapor.mjs` |
+| **Bank soal guru** (menu Bank Soal): soal per *nama* mapel (lintas kelas), label bab/topik, cari, bagikan ke guru lain (hanya pemilik yang mengubah/menghapus), tambah lewat editor/impor teks. Di editor soal kuis & ujian CAT: **Ambil dari Bank Soal** (disalin) dan **Simpan ke Bank Soal** | `src/app/api/lms/bank-soal/route.ts`, `src/app/kelas/bank-soal/page.tsx`, `src/components/lms/kuis.tsx` (`PilihBankSoal`, `EditorSoal` props `simpanKe`/`mapelNama`/`tunggal`) |
+| **Tautan kelas virtual** (Zoom/Meet) per pertemuan presensi: tombol Gabung di tab Presensi (sejak hari pertemuan) & kartu "Kelas Virtual Hari Ini" di beranda siswa/guru | `SesiPresensi.linkVirtual`, `src/app/api/lms/presensi/route.ts`, `src/components/lms/Presensi.tsx`, `src/app/api/lms/kelas/route.ts` |
+| Tes E2E bank soal & kelas virtual (31 tes) | `tests/e2e/14-bank-soal-virtual.mjs` |
 
 ### Phase 17 — Tampilan LMS-first (2026-10-14)
 Aplikasi diposisikan sebagai **LMS yang punya modul ujian CAT** (keputusan pemilik). Dikerjakan bertahap:
@@ -462,7 +469,7 @@ src/proxy.ts                          # Next.js 16 route protection (dipindah da
 
 ## Build Status
 - `npm run build` passes ✅
-- `npm run test:e2e` (butuh build): 559 tes lulus — lihat `tests/README.md`
+- `npm run test:e2e` (butuh build): 610 tes lulus — lihat `tests/README.md`
 - Deploy: lihat `DEPLOY.md`
 - ±60 routes (halaman statis + API dinamis)
 - `npx eslint src`: 0 error (sisa warning ringan, mis. `<img>`)

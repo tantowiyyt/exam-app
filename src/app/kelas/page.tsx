@@ -24,6 +24,7 @@ interface Data {
     agenda?: { id: number; jenis: "tugas" | "kuis"; ujian?: boolean; judul: string; tenggat: string | null; revisi: boolean; mapel: { id: number; nama: string } }[];
     ujianCat?: { nama: string; durasiMenit: number; jadwalMulai: string | null; jadwalSelesai: string | null; mapel: string | null; sudahUjian: boolean } | null;
     perluDinilai?: { jenis: "tugas" | "kuis"; id: number; judul: string; jumlah: number; mapel: { id: number; nama: string; kelas: string } }[];
+    kelasVirtual?: { id: number; judul: string; tanggal: string; link: string; mapel: { id: number; nama: string; kelas: string } }[];
     ringkasan?: { kelas: number; mapel: number; guru: number; siswa: number; siswaTanpaKelas: number; mapelTanpaGuru: number } | null;
 }
 
@@ -115,6 +116,27 @@ export default function BerandaKelas() {
                         </span>
                         <span className="shrink-0 bg-white text-slate-800 font-bold text-sm rounded-xl px-4 py-2 text-center">{data.ujianCat.sudahUjian ? "Lihat hasil" : "Buka ujian →"}</span>
                     </Link>
+                )}
+
+                {/* Kelas virtual hari ini (Zoom/Meet) */}
+                {!!data?.kelasVirtual?.length && (
+                    <section className="bg-white rounded-2xl border border-sky-200 shadow-sm mb-6">
+                        <h2 className="px-5 py-3 border-b border-slate-100 text-sm font-bold text-slate-700">Kelas Virtual Hari Ini</h2>
+                        <ul className="divide-y divide-slate-100">
+                            {data.kelasVirtual.map((v) => (
+                                <li key={v.id} className="flex items-center gap-3 px-5 py-3">
+                                    <span className="shrink-0 w-9 h-9 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8}><path d="M15 10l5-3v10l-5-3M4 6h11v12H4z" /></svg>
+                                    </span>
+                                    <span className="flex-1 min-w-0">
+                                        <span className="block text-sm font-semibold text-slate-800 truncate">{v.mapel.nama} · {v.judul}</span>
+                                        <span className="block text-[11px] text-slate-400 truncate">{siswa ? "" : `${v.mapel.kelas} · `}{new Date(v.tanggal).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}</span>
+                                    </span>
+                                    <a href={v.link} target="_blank" rel="noopener noreferrer" className="shrink-0 px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold">Gabung</a>
+                                </li>
+                            ))}
+                        </ul>
+                    </section>
                 )}
 
                 {/* Guru/admin: yang menunggu dinilai */}

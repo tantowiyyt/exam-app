@@ -45,7 +45,7 @@ type TableName =
   | 'users' | 'ujian' | 'bagianUjian' | 'soal' | 'jawabanUjian'
   | 'historiUjian' | 'sesiUjian' | 'pelanggaran' | 'userActivity' | 'ipRules' | 'auditLogs'
   | 'kelas' | 'mapel' | 'materi' | 'tugas' | 'pengumpulanTugas' | 'pengumuman' | 'komentar'
-  | 'kuis' | 'soalKuis' | 'percobaanKuis' | 'sesiPresensi' | 'presensi' | 'topik' | 'ujianManual' | 'nilaiUjianManual' | 'semester';
+  | 'kuis' | 'soalKuis' | 'percobaanKuis' | 'sesiPresensi' | 'presensi' | 'topik' | 'ujianManual' | 'nilaiUjianManual' | 'semester' | 'bankSoal';
 
 export async function GET(request: Request) {
   const auth = await verifyAdminSession();
@@ -88,6 +88,7 @@ export async function GET(request: Request) {
       prisma.presensi.findMany({ orderBy: { id: 'asc' } }),
     ]);
     const semester = await prisma.semester.findMany({ orderBy: { id: 'asc' } });
+    const bankSoal = await prisma.bankSoal.findMany({ orderBy: { id: 'asc' } });
     const [ujianManual, nilaiUjianManual] = await Promise.all([
       prisma.ujianManual.findMany({ orderBy: { id: 'asc' } }),
       prisma.nilaiUjianManual.findMany({ orderBy: { id: 'asc' } }),
@@ -100,7 +101,7 @@ export async function GET(request: Request) {
       lampiranLms: await bacaFolder(LMS_DIR, LMS_NAME),
       data: {
         users, ujian, bagianUjian, soal, jawabanUjian, historiUjian, sesiUjian, pelanggaran, userActivity, ipRules, auditLogs, pengaturanAplikasi,
-        kelas, mapel, materi, materiDibaca, tugas, pengumpulanTugas, pengumuman, komentar, kuis, soalKuis, percobaanKuis, sesiPresensi, presensi, topik, ujianManual, nilaiUjianManual, semester,
+        kelas, mapel, materi, materiDibaca, tugas, pengumpulanTugas, pengumuman, komentar, kuis, soalKuis, percobaanKuis, sesiPresensi, presensi, topik, ujianManual, nilaiUjianManual, semester, bankSoal,
       },
     };
 
@@ -142,6 +143,7 @@ export async function POST(request: Request) {
     await prisma.$transaction(async (tx) => {
       if (replaceAll) {
         await tx.komentar.deleteMany();
+        await tx.bankSoal.deleteMany();
         await tx.nilaiUjianManual.deleteMany();
         await tx.ujianManual.deleteMany();
         await tx.presensi.deleteMany();
@@ -206,6 +208,7 @@ export async function POST(request: Request) {
       await upsertAll('sesiPresensi', (r) => tx.sesiPresensi.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
       await upsertAll('presensi', (r) => tx.presensi.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
       await upsertAll('ujianManual', (r) => tx.ujianManual.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
+      await upsertAll('bankSoal', (r) => tx.bankSoal.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
       await upsertAll('nilaiUjianManual', (r) => tx.nilaiUjianManual.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
 
       // Tanda "sudah dibaca" memakai kunci gabungan (tanpa id)

@@ -16,8 +16,8 @@ const URUT: Status[] = ["H", "I", "S", "A"];
 
 interface Rekap { H: number; I: number; S: number; A: number; persen: number | null }
 interface CatatanSiswa { userId: number; status: Status; mandiri: boolean; keterangan: string; waktu: string }
-interface SesiGuru { id: number; judul: string; tanggal: string; catatan: string; kode: string; dibuka: boolean; bukaSampai: string | null; presensi: CatatanSiswa[]; jumlah: Rekap }
-interface SesiSiswa { id: number; judul: string; tanggal: string; catatan: string; dibuka: boolean; bukaSampai: string | null; saya: { status: Status; waktu: string; mandiri: boolean; keterangan: string } | null }
+interface SesiGuru { id: number; judul: string; tanggal: string; catatan: string; linkVirtual: string; kode: string; dibuka: boolean; bukaSampai: string | null; presensi: CatatanSiswa[]; jumlah: Rekap }
+interface SesiSiswa { id: number; judul: string; tanggal: string; catatan: string; linkVirtual: string; dibuka: boolean; bukaSampai: string | null; saya: { status: Status; waktu: string; mandiri: boolean; keterangan: string } | null }
 interface DataGuru { peran: "kelola"; siswa: { id: number; nomorPeserta: string; nama: string }[]; sesi: SesiGuru[]; rekap: (Rekap & { userId: number })[] }
 interface DataSiswa { peran: "siswa"; sesi: SesiSiswa[]; rekap: Rekap }
 
@@ -105,6 +105,7 @@ function PresensiSiswa({ mapelId, d, refresh, kodeAwal }: { mapelId: number; d: 
                             <p className="font-semibold text-slate-800 truncate">{s.judul}</p>
                             <p className="text-[11px] text-slate-400">{fmtWaktu(s.tanggal)}{s.saya?.mandiri && ` · presensi mandiri ${jam(s.saya.waktu)}`}{s.saya?.keterangan && ` · ${s.saya.keterangan}`}</p>
                         </div>
+                        {tautanAktif(s) && <TombolGabung link={s.linkVirtual} />}
                         {s.saya
                             ? <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${STATUS[s.saya.status].aktif}`}>{STATUS[s.saya.status].label}</span>
                             : <span className="text-xs text-slate-400">{s.dibuka ? "Belum presensi" : "Belum dicatat"}</span>}
@@ -115,13 +116,31 @@ function PresensiSiswa({ mapelId, d, refresh, kodeAwal }: { mapelId: number; d: 
     );
 }
 
+/** Tautan kelas virtual ditampilkan sejak hari pertemuan (bukan untuk pertemuan yang sudah lewat). */
+const tautanAktif = (s: { linkVirtual: string; tanggal: string }) => {
+    if (!s.linkVirtual) return false;
+    const awalHari = new Date(); awalHari.setHours(0, 0, 0, 0);
+    return new Date(s.tanggal) >= awalHari;
+};
+function TombolGabung({ link }: { link: string }) {
+    return <a href={link} target="_blank" rel="noopener noreferrer" className="shrink-0 px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold">Gabung kelas virtual</a>;
+}
+
 // ---------- guru ----------
 
 function PresensiGuru({ mapelId, d, refresh }: { mapelId: number; d: DataGuru; refresh: () => void }) {
     const { toast } = useToast();
-    const [form, setForm] = useState<{ judul: string; tanggal: string; bukaMenit: number; catatan: string } | null>(null);
+    const [form, setForm] = useState<{ judul: string; tanggal: string; bukaMenit: number; catatan: string; linkVirtual: string } | null>(null);
     const [isi, setIsi] = useState<SesiGuru | null>(null);
     const [kode, setKode] = useState<SesiGuru | null>(null);
+
+    const ubahTautan = async (s: SesiGuru) => {
+        const v = prompt("Tautan kelas virtual (Zoom/Meet). Kosongkan untuk menghapus:", s.linkVirtual);
+        if (v === null) return;
+        const { ok, data } = await kirim("/api/lms/presensi", "PUT", { aksi: "ubah", id: s.id, judul: s.judul, tanggal: s.tanggal, catatan: s.catatan, linkVirtual: v.trim() });
+        toast(ok ? (v.trim() ? "Tautan disimpan" : "Tautan dihapus") : data.message || "Gagal", ok ? "success" : "error");
+        if (ok) refresh();
+    };
 
     const buat = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -161,7 +180,7 @@ function PresensiGuru({ mapelId, d, refresh }: { mapelId: number; d: DataGuru; r
     return (
         <section className="space-y-4">
             <div className="flex flex-wrap gap-2">
-                <button onClick={() => setForm({ judul: `Pertemuan ${d.sesi.length + 1}`, tanggal: toLocalInput(new Date().toISOString()), bukaMenit: 15, catatan: "" })}
+                <button onClick={() => setForm({ judul: `Pertemuan ${d.sesi.length + 1}`, tanggal: toLocalInput(new Date().toISOString()), bukaMenit: 15, catatan: "", linkVirtual: d.sesi[0]?.linkVirtual ?? "" })}
                     className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold">+ Pertemuan Baru</button>
                 {d.sesi.length > 0 && <button onClick={unduhCsv} className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-sm font-bold">Unduh Rekap CSV</button>}
             </div>
@@ -175,6 +194,7 @@ function PresensiGuru({ mapelId, d, refresh }: { mapelId: number; d: DataGuru; r
                             <div className="flex-1 min-w-0">
                                 <p className="font-bold text-slate-800 truncate">{s.judul}</p>
                                 <p className="text-[11px] text-slate-400">{fmtWaktu(s.tanggal)}</p>
+                                {s.linkVirtual && <a href={s.linkVirtual} target="_blank" rel="noopener noreferrer" className="block text-[11px] text-sky-700 hover:underline truncate">{s.linkVirtual}</a>}
                             </div>
                             {s.dibuka && <button onClick={() => setKode(s)} className="text-[11px] font-bold px-2 py-1 rounded-lg bg-teal-600 text-white">Kode {s.kode} · s.d. {jam(s.bukaSampai)}</button>}
                         </div>
@@ -185,6 +205,7 @@ function PresensiGuru({ mapelId, d, refresh }: { mapelId: number; d: DataGuru; r
                         <div className="flex gap-2">
                             <button onClick={() => setIsi(s)} className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold">Isi Presensi</button>
                             {!s.dibuka && <button onClick={() => setKode(s)} className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold">Buka Presensi Mandiri</button>}
+                            <button onClick={() => ubahTautan(s)} className="px-3 py-1.5 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-700 text-xs font-bold">{s.linkVirtual ? "Ubah Tautan" : "+ Tautan Virtual"}</button>
                             <button onClick={() => hapus(s)} className="ml-auto text-xs text-red-500 hover:text-red-700 font-bold">Hapus</button>
                         </div>
                     </div>
@@ -242,6 +263,10 @@ function PresensiGuru({ mapelId, d, refresh }: { mapelId: number; d: DataGuru; r
                         </div>
                         <label className="block"><span className={labelClass}>Catatan / topik (opsional)</span>
                             <input value={form.catatan} onChange={(e) => setForm({ ...form, catatan: e.target.value })} maxLength={2000} className={inputClass} placeholder="mis. Bab 3 — Turunan" />
+                        </label>
+                        <label className="block"><span className={labelClass}>Tautan kelas virtual (opsional)</span>
+                            <input type="url" value={form.linkVirtual} onChange={(e) => setForm({ ...form, linkVirtual: e.target.value })} maxLength={500} className={inputClass} placeholder="https://meet.google.com/... atau https://zoom.us/j/..." />
+                            <span className="text-[11px] text-slate-400">Siswa melihat tombol &quot;Gabung&quot; di tab Presensi dan di beranda pada hari pertemuan.</span>
                         </label>
                         <div className="flex justify-end gap-2">
                             <button type="button" onClick={() => setForm(null)} className="px-4 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-bold">Batal</button>

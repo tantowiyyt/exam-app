@@ -42,6 +42,7 @@ model User {
   percobaanKuis    PercobaanKuis[]
   presensi         Presensi[]
   nilaiUjianManual NilaiUjianManual[]
+  bankSoal         BankSoal[]
 
   @@index([role])
   @@index([sudahUjian])
@@ -465,15 +466,16 @@ model PercobaanKuis {
 
 // LMS — presensi per pertemuan
 model SesiPresensi {
-  id         Int       @id @default(autoincrement())
-  mapelId    Int
-  judul      String // mis. "Pertemuan 3"
-  tanggal    DateTime  @default(now())
-  kode       String // kode presensi mandiri siswa
-  bukaSampai DateTime? // presensi mandiri dibuka sampai waktu ini (null = hanya guru yang mengisi)
-  catatan    String    @default("")
-  semesterId Int?
-  createdAt  DateTime  @default(now())
+  id          Int       @id @default(autoincrement())
+  mapelId     Int
+  judul       String // mis. "Pertemuan 3"
+  tanggal     DateTime  @default(now())
+  kode        String // kode presensi mandiri siswa
+  bukaSampai  DateTime? // presensi mandiri dibuka sampai waktu ini (null = hanya guru yang mengisi)
+  catatan     String    @default("")
+  linkVirtual String    @default("") // tautan kelas virtual (Zoom/Meet) untuk pertemuan ini
+  semesterId  Int?
+  createdAt   DateTime  @default(now())
 
   mapel    Mapel      @relation(fields: [mapelId], references: [id])
   presensi Presensi[]
@@ -546,6 +548,29 @@ model Semester {
   createdAt   DateTime @default(now())
 
   @@unique([tahunAjaran, semester])
+}
+
+// Bank soal guru: dipakai ulang di kuis / ujian CAT mapel (diambil ke editor soal sebagai salinan).
+// mapel = nama mapel (mis. "Fisika") agar berlaku lintas kelas. bersama = terlihat guru lain dengan mapel yang sama.
+model BankSoal {
+  id         Int      @id @default(autoincrement())
+  pemilikId  Int
+  mapel      String
+  label      String   @default("") // bab/topik/tingkat, mis. "Bab 2 · X"
+  tipe       String // pg | bs | isian | esai
+  pertanyaan String
+  opsi       String   @default("[]")
+  kunci      String   @default("")
+  pembahasan String   @default("")
+  bobot      Int      @default(1)
+  bersama    Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  pemilik User @relation(fields: [pemilikId], references: [id])
+
+  @@index([mapel])
+  @@index([pemilikId])
 }
 
 model Topik {

@@ -153,12 +153,21 @@ export function imporTeks(teks: string): SoalEdit[] {
     return out;
 }
 
-export function EditorSoal({ kuisId, awal, adaPercobaan, onSaved }: { kuisId: number; awal: SoalEdit[]; adaPercobaan: boolean; onSaved: () => void }) {
+/**
+ * Editor daftar soal. Bawaan: menyimpan soal kuis (kuisId). simpanKe = penyimpanan lain (mis. bank soal).
+ * mapelNama = tampilkan tombol ambil/simpan ke bank soal. tunggal = mengedit satu soal saja.
+ */
+export function EditorSoal({ kuisId, awal, adaPercobaan = false, onSaved, simpanKe, mapelNama, tunggal, labelSimpan = "Simpan Soal" }: {
+    kuisId?: number; awal: SoalEdit[]; adaPercobaan?: boolean; onSaved: () => void;
+    simpanKe?: (soal: Omit<SoalEdit, "kunciLokal">[]) => Promise<{ ok: boolean; data: { message?: string } }>;
+    mapelNama?: string; tunggal?: boolean; labelSimpan?: string;
+}) {
     const { toast } = useToast();
     const [list, setList] = useState<SoalEdit[]>(awal);
     const [ubah, setUbah] = useState(false);
     const [simpan, setSimpan] = useState(false);
     const [impor, setImpor] = useState<string | null>(null);
+    const [ambilBank, setAmbilBank] = useState(false);
 
     const set = (i: number, v: Partial<SoalEdit>) => { setList(list.map((s, j) => (j === i ? { ...s, ...v } : s))); setUbah(true); };
     const ganti = (l: SoalEdit[]) => { setList(l); setUbah(true); };
@@ -172,7 +181,8 @@ export function EditorSoal({ kuisId, awal, adaPercobaan, onSaved }: { kuisId: nu
 
     const simpanSemua = async () => {
         setSimpan(true);
-        const { ok, data } = await kirim(`/api/lms/kuis/${kuisId}/soal`, "PUT", { soal: list.map((s) => ({ ...s, kunciLokal: undefined })) });
+        const soal = list.map((s) => ({ ...s, kunciLokal: undefined }));
+        const { ok, data } = simpanKe ? await simpanKe(soal) : await kirim(`/api/lms/kuis/${kuisId}/soal`, "PUT", { soal });
         setSimpan(false);
         if (ok) { toast(data.message || "Soal disimpan", "success"); setUbah(false); onSaved(); } else toast(data.message || "Gagal menyimpan", "error");
     };
@@ -183,6 +193,14 @@ export function EditorSoal({ kuisId, awal, adaPercobaan, onSaved }: { kuisId: nu
         ganti([...list, ...hasil]);
         setImpor(null);
         toast(`${hasil.length} soal ditambahkan — periksa lalu klik Simpan Soal`, "success");
+    };
+
+    const keBank = async () => {
+        if (!mapelNama || !list.length) return;
+        const label = prompt(`Simpan ${list.length} soal ke Bank Soal ${mapelNama}. Label (bab/topik, opsional):`, "");
+        if (label === null) return;
+        const { ok, data } = await kirim("/api/lms/bank-soal", "POST", { mapel: mapelNama, label, soal: list.map((s) => ({ ...s, id: undefined, kunciLokal: undefined })) });
+        toast(data.message || (ok ? "Tersimpan" : "Gagal"), ok ? "success" : "error");
     };
 
     const totalBobot = list.reduce((a, s) => a + (Number(s.bobot) || 0), 0);
@@ -208,7 +226,7 @@ export function EditorSoal({ kuisId, awal, adaPercobaan, onSaved }: { kuisId: nu
                         <label className="text-xs text-slate-500 flex items-center gap-1">Bobot
                             <input type="number" min={1} max={100} value={s.bobot} onChange={(e) => set(i, { bobot: Number(e.target.value) })} className="w-16 border border-slate-300 rounded-lg px-2 py-1 text-sm" />
                         </label>
-                        <div className="ml-auto flex gap-1">
+                        <div className={`ml-auto flex gap-1 ${tunggal ? "hidden" : ""}`}>
                             <button type="button" onClick={() => pindah(i, -1)} disabled={i === 0} aria-label="Naikkan" className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 disabled:opacity-30">↑</button>
                             <button type="button" onClick={() => pindah(i, 1)} disabled={i === list.length - 1} aria-label="Turunkan" className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 disabled:opacity-30">↓</button>
                             <button type="button" onClick={() => ganti(list.filter((_, j) => j !== i))} className="px-3 h-8 rounded-lg text-xs font-bold text-red-600 hover:bg-red-50">Hapus</button>
@@ -259,18 +277,28 @@ export function EditorSoal({ kuisId, awal, adaPercobaan, onSaved }: { kuisId: nu
                 </div>
             ))}
 
-            <div className="flex flex-wrap items-center gap-2 bg-white rounded-2xl border border-dashed border-slate-300 p-4">
+            <div className={`flex flex-wrap items-center gap-2 bg-white rounded-2xl border border-dashed border-slate-300 p-4 ${tunggal ? "hidden" : ""}`}>
                 <span className="text-xs font-bold text-slate-500 mr-1">Tambah soal:</span>
                 {(Object.keys(LABEL_TIPE) as TipeSoal[]).map((t) => (
                     <button key={t} type="button" onClick={() => ganti([...list, soalBaru(t)])} className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-xs font-bold text-slate-700">+ {LABEL_TIPE[t]}</button>
                 ))}
                 <button type="button" onClick={() => setImpor("")} className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-xs font-bold text-slate-700">Impor dari teks</button>
+                {mapelNama && <button type="button" onClick={() => setAmbilBank(true)} className="px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-xs font-bold text-emerald-800">Ambil dari Bank Soal</button>}
             </div>
 
             <div className="sticky bottom-0 bg-slate-100/95 backdrop-blur py-3 flex items-center gap-3">
-                <p className="text-xs text-slate-500 flex-1">{list.length} soal · total bobot {totalBobot}{ubah && <span className="text-amber-600 font-bold"> · belum disimpan</span>}</p>
-                <button type="button" onClick={simpanSemua} disabled={simpan || !ubah} className="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold disabled:opacity-50">{simpan ? "Menyimpan..." : "Simpan Soal"}</button>
+                <p className="text-xs text-slate-500 flex-1">{tunggal ? "" : `${list.length} soal · total bobot ${totalBobot}`}{ubah && <span className="text-amber-600 font-bold">{tunggal ? "" : " · "}belum disimpan</span>}</p>
+                {mapelNama && list.length > 0 && <button type="button" onClick={keBank} className="px-4 py-2 rounded-lg bg-white border border-emerald-300 hover:bg-emerald-50 text-emerald-800 text-sm font-bold">Simpan ke Bank Soal</button>}
+                <button type="button" onClick={simpanSemua} disabled={simpan || !ubah} className="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold disabled:opacity-50">{simpan ? "Menyimpan..." : labelSimpan}</button>
             </div>
+
+            {ambilBank && mapelNama && (
+                <PilihBankSoal mapel={mapelNama} onClose={() => setAmbilBank(false)} onPilih={(soal) => {
+                    ganti([...list, ...soal]);
+                    setAmbilBank(false);
+                    toast(`${soal.length} soal dari bank ditambahkan — klik ${labelSimpan} untuk menyimpan`, "success");
+                }} />
+            )}
 
             {impor !== null && (
                 <Modal judul="Impor Soal dari Teks" onClose={() => setImpor(null)}>
@@ -662,6 +690,96 @@ export function RincianPercobaan({ id, onClose, onChanged }: { id: number; onClo
                     )}
                 </div>
             )}
+        </Modal>
+    );
+}
+
+// ---------- bank soal ----------
+
+export interface ItemBank {
+    id: number; mapel: string; label: string; tipe: TipeSoal; pertanyaan: string; opsi: string[]; kunci: string; pembahasan: string;
+    bobot: number; bersama: boolean; milikSaya: boolean; pemilik: string;
+}
+
+/** Teks kunci jawaban singkat untuk daftar soal. */
+export function teksKunci(s: { tipe: string; opsi: string[]; kunci: string }) {
+    if (s.tipe === "pg") return `${HURUF[Number(s.kunci)] ?? "?"}. ${s.opsi[Number(s.kunci)] ?? ""}`;
+    if (s.tipe === "bs") return s.kunci === "B" ? "Benar" : "Salah";
+    if (s.tipe === "isian") return s.kunci.split("|").join(" / ");
+    return "dinilai guru";
+}
+
+/** Modal memilih soal dari bank soal (milik sendiri + bersama) untuk ditambahkan ke editor. */
+export function PilihBankSoal({ mapel, onClose, onPilih }: { mapel: string; onClose: () => void; onPilih: (soal: SoalEdit[]) => void }) {
+    const [list, setList] = useState<ItemBank[] | null>(null);
+    const [gagal, setGagal] = useState("");
+    const [label, setLabel] = useState("");
+    const [cari, setCari] = useState("");
+    const [pilih, setPilih] = useState<Set<number>>(new Set());
+
+    useEffect(() => {
+        let ignore = false;
+        fetch(`/api/lms/bank-soal?mapel=${encodeURIComponent(mapel)}`)
+            .then(async (r) => ({ ok: r.ok, d: await r.json().catch(() => ({})) }))
+            .then(({ ok, d }) => { if (!ignore) { if (ok) setList(d.soal); else setGagal(d.message || "Gagal memuat bank soal"); } });
+        return () => { ignore = true; };
+    }, [mapel]);
+
+    const labelList = [...new Set((list ?? []).map((s) => s.label).filter(Boolean))].sort();
+    const tampil = (list ?? []).filter((s) => (!label || s.label === label) && (!cari || s.pertanyaan.toLowerCase().includes(cari.toLowerCase())));
+    const semuaDipilih = tampil.length > 0 && tampil.every((s) => pilih.has(s.id));
+    const toggle = (id: number) => setPilih((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+
+    const tambahkan = () => {
+        const soal = (list ?? []).filter((s) => pilih.has(s.id)).map((s) => ({
+            kunciLokal: kunciBaru(), tipe: s.tipe, pertanyaan: s.pertanyaan, opsi: s.tipe === "pg" ? s.opsi : [], kunci: s.kunci, pembahasan: s.pembahasan, bobot: s.bobot,
+        }));
+        onPilih(soal);
+    };
+
+    return (
+        <Modal judul={`Bank Soal — ${mapel}`} onClose={onClose}>
+            <div className="space-y-3">
+                {gagal && <p className="text-red-600 text-sm font-semibold">{gagal}</p>}
+                {!list && !gagal && <p className="text-sm text-slate-500">Memuat...</p>}
+                {list && list.length === 0 && <p className="text-sm text-slate-500 italic">Bank soal {mapel} masih kosong. Simpan soal dari kuis/ujian ke bank, atau tambahkan di menu Bank Soal.</p>}
+                {list && list.length > 0 && (
+                    <>
+                        <div className="flex flex-wrap gap-2">
+                            <input type="search" value={cari} onChange={(e) => setCari(e.target.value)} placeholder="Cari pertanyaan..." aria-label="Cari soal" className={`${inputClass} flex-1 min-w-40`} />
+                            {labelList.length > 0 && (
+                                <select value={label} onChange={(e) => setLabel(e.target.value)} aria-label="Label" className={`${inputClass} w-auto`}>
+                                    <option value="">Semua label</option>
+                                    {labelList.map((l) => <option key={l}>{l}</option>)}
+                                </select>
+                            )}
+                        </div>
+                        <label className="flex items-center gap-2 text-xs font-bold text-slate-600">
+                            <input type="checkbox" checked={semuaDipilih} onChange={() => setPilih((p) => { const n = new Set(p); tampil.forEach((s) => (semuaDipilih ? n.delete(s.id) : n.add(s.id))); return n; })} />
+                            Pilih semua yang tampil ({tampil.length})
+                        </label>
+                        <ul className="max-h-[50vh] overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-xl">
+                            {tampil.map((s) => (
+                                <li key={s.id}>
+                                    <label className={`flex items-start gap-3 px-3 py-2.5 cursor-pointer ${pilih.has(s.id) ? "bg-indigo-50" : "hover:bg-slate-50"}`}>
+                                        <input type="checkbox" className="mt-1" checked={pilih.has(s.id)} onChange={() => toggle(s.id)} />
+                                        <span className="flex-1 min-w-0">
+                                            <span className="block text-sm text-slate-800 line-clamp-2">{s.pertanyaan}</span>
+                                            <span className="block text-[11px] text-slate-400 mt-0.5">
+                                                {LABEL_TIPE[s.tipe]} · bobot {s.bobot}{s.label && ` · ${s.label}`} · kunci: {teksKunci(s)}{!s.milikSaya && ` · dari ${s.pemilik}`}
+                                            </span>
+                                        </span>
+                                    </label>
+                                </li>
+                            ))}
+                        </ul>
+                    </>
+                )}
+                <div className="flex justify-end gap-2">
+                    <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-bold">Batal</button>
+                    <button type="button" onClick={tambahkan} disabled={!pilih.size} className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold disabled:opacity-50">Tambahkan {pilih.size || ""} Soal</button>
+                </div>
+            </div>
         </Modal>
     );
 }
