@@ -62,7 +62,7 @@ export default function Kalender() {
 
     return (
         <div className="min-h-screen bg-slate-100 font-sans">
-            <LmsNav judul="Kalender" kembali={{ href: "/kelas", label: "Kelas" }} />
+            <LmsNav judul="Kalender" kembali={{ href: "/kelas", label: "Beranda" }} />
             <main className="max-w-6xl mx-auto p-4 md:p-8 space-y-4">
                 <header className="flex flex-wrap items-center gap-3">
                     <div className="flex-1 min-w-0">

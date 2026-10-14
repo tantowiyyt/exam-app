@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import Link from "next/link";
 import { useToast } from "@/components/Toast";
+import { HeaderHalaman } from "@/components/AppShell";
 
 interface Peserta {
   id: number;
@@ -62,7 +62,6 @@ export default function MonitoringPage() {
   const [offset, setOffset] = useState(0);
   const [sekarang, setSekarang] = useState(0);
   const [aksiId, setAksiId] = useState<number | null>(null);
-  const [role, setRole] = useState("");
   const [ruangSaya, setRuangSaya] = useState<string | null>(null);
   const [ujian, setUjian] = useState<UjianInfo | null>(null);
   const [peserta, setPeserta] = useState<Peserta[]>([]);
@@ -87,12 +86,6 @@ export default function MonitoringPage() {
         setRuangSaya(data.ruangPengawas ?? null);
       }
     } catch {}
-  }, []);
-
-  useEffect(() => {
-    let ignore = false;
-    fetch("/api/me").then((r) => (r.ok ? r.json() : null)).then((me) => { if (!ignore && me) setRole(me.role); }).catch(() => {});
-    return () => { ignore = true; };
   }, []);
 
   useEffect(() => {
@@ -164,38 +157,20 @@ export default function MonitoringPage() {
 
   return (
     <div className="min-h-screen bg-slate-100 font-sans">
-      <nav className="bg-linear-to-r from-slate-900 to-blue-950 text-white px-6 py-4 flex justify-between items-center shadow-md">
-        <h1 className="text-xl font-black tracking-wider text-cyan-400">CAT SYSTEM <span className="text-white text-xs font-normal">| Monitoring Real-Time</span></h1>
-        <div className="flex items-center gap-2">
-          {countdown && (
-            <span className={`text-xs font-bold px-3 py-1.5 rounded-lg border ${
-              countdown === "Selesai" ? "bg-red-500/20 text-red-300 border-red-500/30" :
-              countdown === "Belum Mulai" ? "bg-amber-500/20 text-amber-300 border-amber-500/30" :
-              "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
-            }`}>
-              {countdown}
-            </span>
-          )}
-          {ruangSaya && (
-            <span className="text-xs font-bold px-3 py-1.5 rounded-lg bg-white/10 border border-white/20">Ruang {ruangSaya}</span>
-          )}
-          {role === "PENGAWAS" ? (
-            <>
-              <Link href="/akun/password" className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-xs font-bold transition-all">
-                Ganti Password
-              </Link>
-              <button onClick={async () => { await fetch("/api/logout", { method: "POST" }); window.location.href = "/login"; }}
-                className="bg-red-500/10 hover:bg-red-500 border border-red-500/50 text-red-400 hover:text-white px-4 py-2 rounded-lg text-xs font-bold transition-all">
-                Keluar
-              </button>
-            </>
-          ) : (
-            <Link href="/admin" className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-xs font-bold transition-all">
-              &larr; Kembali
-            </Link>
-          )}
-        </div>
-      </nav>
+      <HeaderHalaman grup="Ujian CAT" judul="Monitoring Ujian">
+        {countdown && (
+          <span className={`text-xs font-bold px-3 py-1.5 rounded-lg border ${
+            countdown === "Selesai" ? "bg-red-50 text-red-700 border-red-200" :
+            countdown === "Belum Mulai" ? "bg-amber-50 text-amber-700 border-amber-200" :
+            "bg-emerald-50 text-emerald-700 border-emerald-200"
+          }`}>
+            {countdown}
+          </span>
+        )}
+        {ruangSaya && (
+          <span className="text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-100 border border-slate-200 text-slate-700">Ruang {ruangSaya}</span>
+        )}
+      </HeaderHalaman>
 
       <main className="max-w-7xl mx-auto p-4 md:p-8 space-y-6">
         {/* Stats Cards */}

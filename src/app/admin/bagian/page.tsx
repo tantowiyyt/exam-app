@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useToast } from "@/components/Toast";
+import { HeaderHalaman } from "@/components/AppShell";
 
 interface Bagian {
   id: number;
@@ -114,10 +115,7 @@ export default function BagianManagement() {
 
   return (
     <div className="min-h-screen bg-slate-100 font-sans">
-      <nav className="bg-linear-to-r from-slate-900 to-blue-950 text-white px-6 py-4 flex justify-between items-center shadow-md">
-        <h1 className="text-xl font-black tracking-wider text-cyan-400">CAT SYSTEM <span className="text-white text-xs font-normal">| Kelola Bagian Ujian</span></h1>
-        <Link href="/admin" className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-xs font-bold transition-all">&larr; Kembali</Link>
-      </nav>
+      <HeaderHalaman grup="Ujian CAT" judul="Bagian Ujian" />
 
       <main className="max-w-7xl mx-auto p-4 md:p-8 grid lg:grid-cols-3 gap-8">
         {/* Form */}

@@ -2,6 +2,10 @@ import { prisma } from './prisma';
 
 /** Identitas instansi & penandatangan untuk kop kartu ujian dan dokumen cetak lain. */
 export const DEFAULT_INSTANSI = {
+  /** Nama aplikasi di menu & judul (aplikasi LMS dengan modul ujian CAT) */
+  namaAplikasi: 'E-Learning',
+  /** 'aktif' = menu & banner Ujian CAT ditampilkan; 'nonaktif' = disembunyikan */
+  modulCat: 'aktif',
   namaInstansi: 'NAMA SEKOLAH / INSTANSI',
   subJudul: 'Panitia Ujian Berbasis Komputer (CAT)',
   alamat: 'Alamat instansi',
@@ -38,6 +42,18 @@ export async function getInstansi(): Promise<Instansi> {
     if (k in out) out[k] = r.value;
   }
   return out;
+}
+
+/** Identitas ringkas untuk tampilan aplikasi (menu, beranda). */
+export async function getIdentitas() {
+  const i = await getInstansi();
+  return {
+    namaAplikasi: i.namaAplikasi.trim() || DEFAULT_INSTANSI.namaAplikasi,
+    // Nama sekolah hanya bila sudah diisi admin (bukan teks contoh)
+    namaSekolah: i.namaInstansi === DEFAULT_INSTANSI.namaInstansi ? '' : i.namaInstansi,
+    logo: i.logo,
+    modulCat: i.modulCat !== 'nonaktif',
+  };
 }
 
 export async function setInstansi(data: Partial<Record<string, unknown>>): Promise<Instansi> {

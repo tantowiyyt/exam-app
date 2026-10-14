@@ -74,8 +74,10 @@ ok(r.body.peserta.some((p) => p.id === pa) && r.body.peserta.some((p) => p.id ==
 // Peserta tidak bisa akses staf
 for (const p of ['/admin/monitoring', '/admin']) {
   r = await req('pa', p);
-  ok(r.status === 307 && r.loc?.endsWith('/dashboard'), `peserta di ${p} diarahkan ke dashboard`);
+  ok(r.status === 307 && r.loc?.endsWith('/kelas'), `peserta di ${p} diarahkan ke beranda LMS`);
 }
+r = await req('pa', '/login');
+ok(r.status === 307 && r.loc?.endsWith('/kelas'), 'peserta yang sudah login diarahkan ke beranda LMS');
 ok((await req('pa', '/api/admin/monitoring')).status === 403, 'peserta ditolak di API monitoring');
 ok((await post('pa', '/api/admin/sesi', { userId: pa, action: 'tambahWaktu', menit: 60 })).status === 403, 'peserta tidak bisa menambah waktunya sendiri');
 

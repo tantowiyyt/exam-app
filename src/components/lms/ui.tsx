@@ -2,9 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
-import { Notifikasi } from "./Notifikasi";
 
 // ---------- util ----------
 
@@ -46,40 +44,16 @@ export async function kirim(url: string, method: string, body?: unknown) {
 
 // ---------- tata letak ----------
 
-interface Me { nama: string; role: string }
-
+/** Sub-judul halaman di dalam kerangka aplikasi (AppShell): tombol kembali + judul. */
 export function LmsNav({ judul, kembali }: { judul?: string; kembali?: { href: string; label: string } }) {
-    const router = useRouter();
-    const [me, setMe] = useState<Me | null>(null);
-
-    useEffect(() => {
-        let ignore = false;
-        fetch("/api/me").then((r) => (r.ok ? r.json() : null)).then((d) => { if (!ignore && d) setMe(d); });
-        return () => { ignore = true; };
-    }, []);
-
-    const keluar = async () => {
-        await fetch("/api/logout", { method: "POST" });
-        router.push("/login");
-    };
-
+    if (!judul && !kembali) return null;
     return (
-        <nav className="bg-linear-to-r from-slate-900 to-indigo-950 text-white shadow-md sticky top-0 z-40">
-            <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
-                <Link href="/kelas" className="font-black tracking-wider text-indigo-300 shrink-0">CAT<span className="text-white">·LMS</span></Link>
-                {judul && <span className="text-white/60 text-sm truncate hidden sm:inline">| {judul}</span>}
-                <div className="ml-auto flex items-center gap-2 text-xs">
-                    {me && <Notifikasi />}
-                    {me && <Link href="/kelas/kalender" className="bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg font-bold hidden sm:inline">Kalender</Link>}
-                    {kembali && <Link href={kembali.href} className="bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg font-bold">&larr; {kembali.label}</Link>}
-                    {me?.role === "ADMIN" && <Link href="/admin" className="bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg font-bold hidden sm:inline">Admin</Link>}
-                    {me?.role === "PESERTA" && <Link href="/dashboard" className="bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg font-bold hidden sm:inline">Ujian CAT</Link>}
-                    <span className="hidden md:inline text-white/70 max-w-40 truncate" title={me?.nama}>{me?.nama}</span>
-                    <Link href="/akun/password" className="text-white/70 hover:text-white font-bold hidden sm:inline">Password</Link>
-                    <button onClick={keluar} className="text-red-300 hover:text-red-200 font-bold">Keluar</button>
-                </div>
+        <div className="bg-white border-b border-slate-200">
+            <div className="max-w-6xl mx-auto px-4 md:px-8 py-2.5 flex items-center gap-3 text-sm min-w-0">
+                {kembali && <Link href={kembali.href} className="shrink-0 font-bold text-indigo-600 hover:text-indigo-800">&larr; {kembali.label}</Link>}
+                {judul && <span className="text-slate-500 truncate">{judul}</span>}
             </div>
-        </nav>
+        </div>
     );
 }
 

@@ -13,11 +13,10 @@ const aksesRole: Record<string, string[]> = {
 };
 const protectedRoutes = ['/admin', '/dashboard', '/ujian', '/profile', '/akun', '/kelas'];
 
+// Aplikasi LMS: semua role masuk ke beranda LMS (/kelas), kecuali pengawas (monitoring ujian)
 function beranda(role: string) {
-  if (role === 'ADMIN') return '/admin';
   if (role === 'PENGAWAS') return '/admin/monitoring';
-  if (role === 'GURU') return '/kelas';
-  return '/dashboard';
+  return '/kelas';
 }
 
 const cocok = (path: string, route: string) => path === route || path.startsWith(route + '/');

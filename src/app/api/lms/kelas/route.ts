@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyLmsSession, mapelPengguna, whereTugasSiswa } from '@/lib/lms';
+import { getIdentitas } from '@/lib/pengaturan-aplikasi';
 
-// Daftar mapel yang bisa dibuka pengguna (beranda LMS)
+// Beranda LMS: daftar mapel yang bisa dibuka pengguna + ringkasan per role
+// (siswa: agenda & ujian CAT aktif; guru/admin: yang perlu dinilai; admin: ringkasan sekolah)
 export async function GET() {
   const auth = await verifyLmsSession();
   if (!auth.ok) return NextResponse.json({ message: auth.message }, { status: auth.status });
@@ -46,9 +48,56 @@ export async function GET() {
         .slice(0, 8);
     }
 
-    const kelasSaya = user.role === 'PESERTA'
-      ? (await prisma.user.findUnique({ where: { id: user.id }, select: { kelas: true } }))?.kelas ?? ''
-      : '';
+    const saya = user.role === 'PESERTA'
+      ? await prisma.user.findUnique({ where: { id: user.id }, select: { kelas: true, sudahUjian: true } })
+      : null;
+    const kelasSaya = saya?.kelas ?? '';
+    const { modulCat } = await getIdentitas();
+
+    // Siswa: ujian CAT yang sedang aktif & berlaku untuk kelasnya (banner di beranda)
+    let ujianCat = null;
+    if (saya && modulCat) {
+      const u = await prisma.ujian.findFirst({
+        where: { isActive: true },
+        select: { nama: true, durasiMenit: true, jadwalMulai: true, jadwalSelesai: true, mapel: { select: { nama: true, kelas: { select: { nama: true } } } }, _count: { select: { soal: true } } },
+      });
+      const lewat = u?.jadwalSelesai && u.jadwalSelesai < new Date();
+      if (u && u._count.soal > 0 && !lewat && (!u.mapel || u.mapel.kelas.nama === kelasSaya)) {
+        ujianCat = { nama: u.nama, durasiMenit: u.durasiMenit, jadwalMulai: u.jadwalMulai, jadwalSelesai: u.jadwalSelesai, mapel: u.mapel?.nama ?? null, sudahUjian: saya.sudahUjian };
+      }
+    }
+
+    // Guru/admin: tugas & kuis yang menunggu dinilai
+    let perluDinilai: { jenis: 'tugas' | 'kuis'; id: number; judul: string; jumlah: number; mapel: { id: number; nama: string; kelas: string } }[] = [];
+    if (user.role !== 'PESERTA' && mapel.length) {
+      const ids = mapel.map((m) => m.id);
+      const info = new Map(mapel.map((m) => [m.id, { id: m.id, nama: m.nama, kelas: m.kelas.nama }]));
+      const [kumpul, esai] = await Promise.all([
+        prisma.pengumpulanTugas.groupBy({ by: ['tugasId'], where: { tugas: { mapelId: { in: ids } }, nilai: null, status: 'dikumpulkan' }, _count: true }),
+        prisma.percobaanKuis.groupBy({ by: ['kuisId'], where: { kuis: { mapelId: { in: ids } }, perluDinilai: true, selesaiAt: { not: null } }, _count: true }),
+      ]);
+      const [tugasN, kuisN] = await Promise.all([
+        prisma.tugas.findMany({ where: { id: { in: kumpul.map((k) => k.tugasId) } }, select: { id: true, judul: true, mapelId: true } }),
+        prisma.kuis.findMany({ where: { id: { in: esai.map((k) => k.kuisId) } }, select: { id: true, judul: true, mapelId: true } }),
+      ]);
+      perluDinilai = [
+        ...tugasN.map((t) => ({ jenis: 'tugas' as const, id: t.id, judul: t.judul, jumlah: kumpul.find((k) => k.tugasId === t.id)!._count, mapel: info.get(t.mapelId)! })),
+        ...kuisN.map((k) => ({ jenis: 'kuis' as const, id: k.id, judul: k.judul, jumlah: esai.find((e) => e.kuisId === k.id)!._count, mapel: info.get(k.mapelId)! })),
+      ].sort((a, b) => b.jumlah - a.jumlah).slice(0, 8);
+    }
+
+    // Admin: ringkasan sekolah
+    let ringkasan = null;
+    if (user.role === 'ADMIN') {
+      const [kelas, guru, siswa, siswaTanpaKelas, mapelTanpaGuru] = await Promise.all([
+        prisma.kelas.count(),
+        prisma.user.count({ where: { role: 'GURU' } }),
+        prisma.user.count({ where: { role: 'PESERTA' } }),
+        prisma.user.count({ where: { role: 'PESERTA', kelas: '' } }),
+        prisma.mapel.count({ where: { guruId: null } }),
+      ]);
+      ringkasan = { kelas, mapel: mapel.length, guru, siswa, siswaTanpaKelas, mapelTanpaGuru };
+    }
 
     return NextResponse.json({
       role: user.role,
@@ -66,6 +115,9 @@ export async function GET() {
         tugasBelum: tugasBelum[m.id] ?? 0,
       })),
       agenda,
+      ujianCat,
+      perluDinilai,
+      ringkasan,
     });
   } catch (error) {
     console.error('ERROR LMS KELAS:', error);

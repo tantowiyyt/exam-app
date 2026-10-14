@@ -27,7 +27,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 **Repo:** https://github.com/tantowiyyt/exam-app (branch `main`). Database, foto upload, dan `.env` sengaja tidak di-commit.
 
-**Kondisi:** fitur lengkap + LMS (Phase 16), build & lint bersih, `npm run test:e2e` 471 tes lulus, uji beban 150 peserta serentak 0 gagal (sebelum LMS).
+**Kondisi:** fitur lengkap + LMS (Phase 16), build & lint bersih, `npm run test:e2e` 482 tes lulus, uji beban 150 peserta serentak 0 gagal (sebelum LMS).
 Siap untuk **simulasi**, belum untuk ujian sungguhan — selesaikan daftar di bawah dulu.
 
 **Belum dilakukan (oleh pemilik proyek):**
@@ -187,6 +187,19 @@ Backup berikutnya pakai `VACUUM INTO` / `sqlite3 .backup` (lihat `DEPLOY.md`), *
 | Hapus soal yang sudah dijawab ditolak dengan pesan jelas (sebelumnya error FK) | ✅ | `src/app/api/admin/soal/route.ts` |
 
 **Durasi per bagian** kini diterapkan — lihat Phase 12.
+
+### Phase 17 — Tampilan LMS-first (2026-10-14)
+Aplikasi diposisikan sebagai **LMS yang punya modul ujian CAT** (keputusan pemilik). Dikerjakan bertahap:
+
+| Tahap | Isi | Files |
+|-------|-----|-------|
+| 1 | Satu kerangka untuk semua role: bilah atas (nama aplikasi + sekolah, notifikasi, user, Keluar) + menu samping (layar lebar) / laci menu (HP); tidak dipakai di `/ujian` (layar penuh) & tersembunyi saat cetak | `src/components/AppShell.tsx`, `src/app/{kelas,admin,akun,profile,dashboard}/layout.tsx` |
+| 1 | Setelah login semua role ke beranda LMS `/kelas` (pengawas tetap ke monitoring). Beranda: siswa = banner ujian CAT aktif untuk kelasnya; guru/admin = "Perlu Dinilai"; admin = ringkasan sekolah | `src/proxy.ts`, `src/app/login/page.tsx`, `src/app/api/lms/kelas/route.ts`, `src/app/kelas/page.tsx` |
+| 1 | Identitas aplikasi: `instansi.namaAplikasi` (default "E-Learning") & `instansi.modulCat` (aktif/nonaktif → menu & banner CAT disembunyikan); API publik `/api/identitas` | `src/lib/pengaturan-aplikasi.ts`, `src/app/api/identitas/route.ts` |
+| 2 | Semua halaman admin di dalam kerangka; navbar lama diganti `HeaderHalaman` (grup + judul + aksi); menu admin dikelompokkan Akademik / Ujian CAT / Sistem; halaman **Pengaturan** (nama aplikasi, sekolah, alamat, logo, modul CAT) | `src/app/admin/**`, `src/app/admin/pengaturan/page.tsx` |
+| 3 | (berikutnya) penyeragaman istilah siswa/peserta, halaman depan & login, tampilan profil/dasbor ujian siswa | — |
+
+`LmsNav` kini hanya sub-judul halaman (kembali + judul); bilah tab mapel `sticky top-14` mengikuti tinggi bilah atas.
 
 ### Phase 16 — LMS (2026-10-14)
 Ujian CAT kini bagian dari LMS. Anggota kelas = peserta dengan `User.kelas` == `Kelas.nama` (ganti nama kelas ikut mengganti kelas peserta).
@@ -430,7 +443,7 @@ src/proxy.ts                          # Next.js 16 route protection (dipindah da
 
 ## Build Status
 - `npm run build` passes ✅
-- `npm run test:e2e` (butuh build): 471 tes lulus — lihat `tests/README.md`
+- `npm run test:e2e` (butuh build): 482 tes lulus — lihat `tests/README.md`
 - Deploy: lihat `DEPLOY.md`
 - ±60 routes (halaman statis + API dinamis)
 - `npx eslint src`: 0 error (sisa warning ringan, mis. `<img>`)

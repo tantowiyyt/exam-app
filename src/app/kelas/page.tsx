@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { LmsNav, warnaMapel, fmtWaktu } from "@/components/lms/ui";
+import { warnaMapel, fmtWaktu } from "@/components/lms/ui";
 
 interface MapelKartu {
     id: number;
@@ -22,6 +22,9 @@ interface Data {
     kelasSaya: string;
     mapel: MapelKartu[];
     agenda?: { id: number; jenis: "tugas" | "kuis"; judul: string; tenggat: string | null; revisi: boolean; mapel: { id: number; nama: string } }[];
+    ujianCat?: { nama: string; durasiMenit: number; jadwalMulai: string | null; jadwalSelesai: string | null; mapel: string | null; sudahUjian: boolean } | null;
+    perluDinilai?: { jenis: "tugas" | "kuis"; id: number; judul: string; jumlah: number; mapel: { id: number; nama: string; kelas: string } }[];
+    ringkasan?: { kelas: number; mapel: number; guru: number; siswa: number; siswaTanpaKelas: number; mapelTanpaGuru: number } | null;
 }
 
 /** Sisa waktu menuju tenggat, mis. "2 hari lagi" / "lewat 3 jam". */
@@ -67,11 +70,10 @@ export default function BerandaKelas() {
 
     return (
         <div className="min-h-screen bg-slate-100 font-sans">
-            <LmsNav />
             <main className="max-w-6xl mx-auto p-4 md:p-8">
                 <header className="mb-6 flex flex-wrap items-end gap-3">
                     <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold uppercase tracking-widest text-indigo-600">Ruang Belajar</p>
+                    <p className="text-xs font-bold uppercase tracking-widest text-indigo-600">Beranda</p>
                     <h1 className="text-2xl md:text-3xl font-black text-slate-800">{siswa ? "Kelas Saya" : data?.role === "ADMIN" ? "Semua Kelas" : "Kelas yang Saya Ampu"}</h1>
                     {data && (
                         <p className="text-sm text-slate-500 mt-1">
@@ -79,8 +81,62 @@ export default function BerandaKelas() {
                         </p>
                     )}
                     </div>
-                    <Link href="/kelas/kalender" className="px-4 py-2 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-sm font-bold text-slate-700">Kalender</Link>
                 </header>
+
+                {/* Admin: ringkasan sekolah */}
+                {data?.ringkasan && (
+                    <section className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {[
+                            { label: "Kelas", n: data.ringkasan.kelas, href: "/admin/kelas" },
+                            { label: "Mata pelajaran", n: data.ringkasan.mapel, href: "/admin/kelas", catatan: data.ringkasan.mapelTanpaGuru ? `${data.ringkasan.mapelTanpaGuru} tanpa guru` : "" },
+                            { label: "Guru", n: data.ringkasan.guru, href: "/admin/akun" },
+                            { label: "Siswa", n: data.ringkasan.siswa, href: "/admin/peserta", catatan: data.ringkasan.siswaTanpaKelas ? `${data.ringkasan.siswaTanpaKelas} belum punya kelas` : "" },
+                        ].map((c) => (
+                            <Link key={c.label} href={c.href} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 hover:shadow-md transition-shadow">
+                                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{c.label}</p>
+                                <p className="text-2xl font-black text-slate-800">{c.n}</p>
+                                {c.catatan && <p className="text-[11px] font-semibold text-amber-600 mt-0.5">{c.catatan}</p>}
+                            </Link>
+                        ))}
+                    </section>
+                )}
+
+                {/* Siswa: ujian CAT yang sedang aktif untuk kelasnya */}
+                {siswa && data.ujianCat && (
+                    <Link href="/dashboard" className={`mb-6 flex flex-col sm:flex-row sm:items-center gap-3 rounded-2xl p-5 text-white shadow-sm hover:shadow-lg transition-shadow ${data.ujianCat.sudahUjian ? "bg-linear-to-r from-slate-600 to-slate-700" : "bg-linear-to-r from-emerald-600 to-teal-600"}`}>
+                        <span className="shrink-0 w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center text-xl font-black" aria-hidden="true">{data.ujianCat.sudahUjian ? "✓" : "!"}</span>
+                        <span className="flex-1 min-w-0">
+                            <span className="block text-[11px] font-bold uppercase tracking-wider text-white/80">{data.ujianCat.sudahUjian ? "Ujian CAT selesai" : "Ujian CAT"}</span>
+                            <span className="block text-lg font-black leading-tight">{data.ujianCat.nama}</span>
+                            <span className="block text-xs text-white/85 mt-0.5">
+                                {data.ujianCat.mapel && `${data.ujianCat.mapel} · `}{data.ujianCat.durasiMenit} menit
+                                {data.ujianCat.jadwalMulai && ` · ${fmtWaktu(data.ujianCat.jadwalMulai)}${data.ujianCat.jadwalSelesai ? ` – ${fmtWaktu(data.ujianCat.jadwalSelesai)}` : ""}`}
+                            </span>
+                        </span>
+                        <span className="shrink-0 bg-white text-slate-800 font-bold text-sm rounded-xl px-4 py-2 text-center">{data.ujianCat.sudahUjian ? "Lihat hasil" : "Buka ujian →"}</span>
+                    </Link>
+                )}
+
+                {/* Guru/admin: yang menunggu dinilai */}
+                {!siswa && !!data?.perluDinilai?.length && (
+                    <section className="bg-white rounded-2xl border border-slate-200 shadow-sm mb-6">
+                        <h2 className="px-5 py-3 border-b border-slate-100 text-sm font-bold text-slate-700">Perlu Dinilai</h2>
+                        <ul className="divide-y divide-slate-100">
+                            {data.perluDinilai.map((t) => (
+                                <li key={`${t.jenis}${t.id}`}>
+                                    <Link href={`/kelas/${t.mapel.id}/${t.jenis}/${t.id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50">
+                                        <span className={`shrink-0 w-9 h-9 rounded-lg font-black flex items-center justify-center ${t.jenis === "kuis" ? "bg-fuchsia-100 text-fuchsia-700" : "bg-amber-100 text-amber-700"}`}>{t.jenis === "kuis" ? "Q" : "T"}</span>
+                                        <span className="flex-1 min-w-0">
+                                            <span className="block text-sm font-semibold text-slate-800 truncate">{t.judul}</span>
+                                            <span className="block text-[11px] text-slate-400 truncate">{t.mapel.kelas} · {t.mapel.nama}{t.jenis === "kuis" ? " · esai" : ""}</span>
+                                        </span>
+                                        <span className="text-[10px] font-bold px-2 py-1 rounded-full whitespace-nowrap bg-indigo-100 text-indigo-700">{t.jumlah} {t.jenis === "kuis" ? "percobaan" : "jawaban"}</span>
+                                    </Link>
+                                </li>
+                            ))}
+                        </ul>
+                    </section>
+                )}
 
                 {!siswa && data && data.mapel.length > 3 && (
                     <div className="mb-6">

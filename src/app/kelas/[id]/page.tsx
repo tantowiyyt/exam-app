@@ -73,7 +73,7 @@ export default function HalamanMapel() {
         return () => { ignore = true; };
     }, [id]);
 
-    if (error) return (<div className="min-h-screen bg-slate-100"><LmsNav kembali={{ href: "/kelas", label: "Kelas" }} /><p className="p-8 text-center text-red-600 font-semibold">{error}</p></div>);
+    if (error) return (<div className="min-h-screen bg-slate-100"><LmsNav kembali={{ href: "/kelas", label: "Beranda" }} /><p className="p-8 text-center text-red-600 font-semibold">{error}</p></div>);
     if (!d) return (<div className="min-h-screen bg-slate-100"><LmsNav /><p className="p-8 text-center text-slate-500">Memuat...</p></div>);
 
     const kelola = d.peran === "kelola";
@@ -111,7 +111,7 @@ export default function HalamanMapel() {
 
     return (
         <div className="min-h-screen bg-slate-100 font-sans">
-            <LmsNav judul={`${d.mapel.kelas.nama} · ${d.mapel.nama}`} kembali={{ href: "/kelas", label: "Kelas" }} />
+            <LmsNav judul={`${d.mapel.kelas.nama} · ${d.mapel.nama}`} kembali={{ href: "/kelas", label: "Beranda" }} />
 
             {/* Sampul mapel */}
             <div className={`bg-linear-to-br ${warnaMapel(d.mapel.id)} text-white`}>
@@ -130,7 +130,7 @@ export default function HalamanMapel() {
             </div>
 
             {/* Tab */}
-            <div className="bg-white border-b border-slate-200 sticky top-[52px] z-30">
+            <div className="bg-white border-b border-slate-200 sticky top-14 z-30">
                 <div className="max-w-6xl mx-auto px-4 md:px-8 flex gap-1 overflow-x-auto" role="tablist">
                     {tabs.map((t) => (
                         <button key={t.key} role="tab" aria-selected={tab === t.key} onClick={() => setTab(t.key)}

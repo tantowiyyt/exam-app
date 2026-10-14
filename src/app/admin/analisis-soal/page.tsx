@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { HeaderHalaman } from "@/components/AppShell";
 
 interface SoalAnalisis {
     soalId: number;
@@ -59,12 +59,7 @@ export default function AnalisisSoalPage() {
 
     return (
         <div className="min-h-screen bg-slate-50 font-sans pb-12">
-            <nav className="bg-linear-to-r from-slate-900 to-indigo-950 text-white px-6 py-4 flex justify-between items-center shadow-md">
-                <h1 className="text-xl font-black tracking-wider text-indigo-400">CAT SYSTEM <span className="text-white text-xs font-normal">| Analisis Difficulty Soal</span></h1>
-                <div className="flex items-center gap-2">
-                    <Link href="/admin" className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-xs font-bold transition-all">&larr; Kembali</Link>
-                </div>
-            </nav>
+            <HeaderHalaman grup="Ujian CAT" judul="Analisis Butir Soal" />
 
             <main className="max-w-7xl mx-auto p-4 md:p-8 space-y-6">
                 {/* Stats Summary */}

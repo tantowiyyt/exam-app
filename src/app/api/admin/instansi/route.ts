@@ -31,6 +31,12 @@ export async function PUT(request: Request) {
     if (body.modelKartu !== undefined && !(MODEL_KARTU as readonly string[]).includes(body.modelKartu)) {
       return NextResponse.json({ message: 'Model kartu tidak valid' }, { status: 400 });
     }
+    if (body.modulCat !== undefined && !['aktif', 'nonaktif'].includes(body.modulCat)) {
+      return NextResponse.json({ message: 'Status modul CAT tidak valid' }, { status: 400 });
+    }
+    if (body.namaAplikasi !== undefined && !String(body.namaAplikasi).trim()) {
+      return NextResponse.json({ message: 'Nama aplikasi wajib diisi' }, { status: 400 });
+    }
     const data = await setInstansi(body);
     await createAuditLog({ action: AUDIT_ACTIONS.UPDATE_PENGATURAN, target: 'Identitas instansi', ipAddress: getAuditIP(request) });
     return NextResponse.json({ success: true, data });

@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { useToast } from "@/components/Toast";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { HeaderHalaman } from "@/components/AppShell";
 
 export default function BackupPage() {
     const { toast } = useToast();
@@ -105,21 +104,7 @@ export default function BackupPage() {
 
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-            <nav className="bg-white dark:bg-gray-800 shadow">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between h-16">
-                        <div className="flex items-center">
-                            <Link href="/admin" className="text-xl font-bold text-indigo-600">
-                                Admin Panel
-                            </Link>
-                        </div>
-                        <div className="flex items-center space-x-4">
-                            <ThemeToggle />
-                            <span className="text-gray-700 dark:text-gray-300">Backup & Restore</span>
-                        </div>
-                    </div>
-                </div>
-            </nav>
+            <HeaderHalaman grup="Sistem" judul="Backup & Restore" />
 
             <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -190,15 +175,6 @@ export default function BackupPage() {
                         <li>Pastikan backup tersimpan di tempat yang aman</li>
                         <li>Lakukan backup secara berkala untuk keamanan data</li>
                     </ul>
-                </div>
-
-                <div className="mt-4">
-                    <Link
-                        href="/admin"
-                        className="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400"
-                    >
-                        ← Kembali ke Dashboard
-                    </Link>
                 </div>
             </main>
         </div>

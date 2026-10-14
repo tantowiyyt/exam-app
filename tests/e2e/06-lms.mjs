@@ -302,6 +302,23 @@ r = await req('s1', '/api/ujian');
 ok(r.status === 200 && r.body.status === 'ok', 'siswa kelasnya bisa mengerjakan ujian kelas');
 r = await req('s1', `/api/lms/mapel/${m1}`);
 ok(r.body.ujian.some((u) => u.id === ujianKelas && u.isActive), 'ujian tampil di halaman mapel');
+// Beranda LMS: banner ujian CAT untuk kelasnya saja, ringkasan admin, perlu dinilai guru, saklar modul CAT
+r = await req('s1', '/api/lms/kelas');
+ok(r.body.ujianCat?.nama === `Ulangan Mat ${t}` && r.body.ujianCat.sudahUjian === false, 'beranda siswa menampilkan ujian CAT aktif kelasnya');
+ok((await req('s2', '/api/lms/kelas')).body.ujianCat === null, 'ujian kelas lain tidak tampil di beranda siswa');
+r = await req('admin', '/api/lms/kelas');
+ok(r.body.ringkasan && r.body.ringkasan.kelas >= 2 && r.body.ringkasan.siswa >= 2 && Array.isArray(r.body.perluDinilai), 'beranda admin memuat ringkasan sekolah');
+r = await req('ga', '/api/lms/kelas');
+ok(r.body.ringkasan === null && Array.isArray(r.body.perluDinilai) && r.body.ujianCat === null, 'beranda guru memuat daftar perlu dinilai, tanpa ringkasan admin');
+r = await fetch(BASE + '/api/identitas').then((x) => x.json());
+ok(typeof r.namaAplikasi === 'string' && r.namaAplikasi && r.modulCat === true, 'identitas aplikasi bisa dibaca tanpa login');
+ok((await put('admin', '/api/admin/instansi', { modulCat: 'salah' })).status === 400, 'status modul CAT tidak valid ditolak');
+ok((await put('admin', '/api/admin/instansi', { namaAplikasi: '  ' })).status === 400, 'nama aplikasi kosong ditolak');
+ok((await put('admin', '/api/admin/instansi', { modulCat: 'nonaktif', namaAplikasi: `Sekolah Uji ${t}` })).status === 200, 'admin menonaktifkan modul CAT');
+r = await fetch(BASE + '/api/identitas').then((x) => x.json());
+ok(r.modulCat === false && r.namaAplikasi === `Sekolah Uji ${t}`, 'identitas ikut berubah');
+ok((await req('s1', '/api/lms/kelas')).body.ujianCat === null, 'banner ujian CAT hilang saat modul CAT nonaktif');
+await put('admin', '/api/admin/instansi', { modulCat: 'aktif', namaAplikasi: 'E-Learning' });
 // Kembalikan ujian aktif semula agar suite lain tidak terpengaruh
 if (aktifSemula) await put('admin', '/api/admin/ujian', { id: aktifSemula.id, isActive: true });
 

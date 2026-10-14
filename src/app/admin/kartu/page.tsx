@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import QRCode from "qrcode";
 import { useToast } from "@/components/Toast";
 
@@ -209,13 +208,12 @@ export default function CetakKartuUjian() {
     return (
         <div className="min-h-screen bg-slate-200 font-sans">
             {/* Toolbar */}
-            <div className="no-print bg-white p-4 border-b border-slate-200 sticky top-0 z-50 shadow-sm space-y-3">
+            <div className="no-print bg-white p-4 border-b border-slate-200 sticky top-14 z-30 shadow-sm space-y-3">
                 <div className="flex flex-wrap justify-between items-center gap-3">
                     <h1 className="text-lg font-bold text-slate-800">
                         Cetak Kartu Ujian <span className="text-sm font-normal text-slate-500">— {dicetak.length} kartu ({model === "ringkas" ? `${Math.ceil(dicetak.length / 4)} lembar A4, 4 kartu per lembar` : "1 lembar A4 per peserta"})</span>
                     </h1>
                     <div className="flex flex-wrap gap-2">
-                        <Link href="/admin" className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-sm font-bold">&larr; Kembali</Link>
                         <button onClick={() => setPanelKop(!panelKop)} className="px-4 py-2 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded-lg text-sm font-bold">
                             {panelKop ? "Tutup Pengaturan Kop" : "Atur Kop & Tanda Tangan"}
                         </button>

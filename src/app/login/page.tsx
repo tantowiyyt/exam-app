@@ -27,15 +27,8 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (res.ok) {
-        if (data.role === "ADMIN") {
-          router.push("/admin");
-        } else if (data.role === "PENGAWAS") {
-          router.push("/admin/monitoring");
-        } else if (data.role === "GURU") {
-          router.push("/kelas");
-        } else {
-          router.push("/dashboard");
-        }
+        // Semua role ke beranda LMS, pengawas langsung ke monitoring ujian
+        router.push(data.role === "PENGAWAS" ? "/admin/monitoring" : "/kelas");
       } else {
         setError(data.message || "Login gagal, periksa kembali data Anda.");
       }
