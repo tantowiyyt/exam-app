@@ -3,9 +3,10 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { verifyAdminSession } from '@/lib/admin-auth';
 import { createAuditLog, getAuditIP } from '@/lib/audit-log';
+import { opsHapusDataLms } from '@/lib/lms';
 
-// Kelola akun staf (ADMIN & PENGAWAS). Akun peserta dikelola di /api/admin/peserta.
-const STAFF_ROLES = ['ADMIN', 'PENGAWAS'];
+// Kelola akun staf (ADMIN, PENGAWAS & GURU). Akun peserta dikelola di /api/admin/peserta.
+const STAFF_ROLES = ['ADMIN', 'PENGAWAS', 'GURU'];
 const SELECT = { id: true, nomorPeserta: true, nama: true, role: true, ruang: true, createdAt: true } as const;
 
 const jumlahAdmin = () => prisma.user.count({ where: { role: 'ADMIN' } });
@@ -153,6 +154,7 @@ export async function DELETE(request: Request) {
       prisma.sesiUjian.deleteMany({ where: { userId: id } }),
       prisma.pelanggaran.deleteMany({ where: { userId: id } }),
       prisma.userActivity.deleteMany({ where: { userId: id } }),
+      ...opsHapusDataLms(id),
       prisma.auditLog.updateMany({ where: { userId: id }, data: { userId: null } }),
       prisma.user.delete({ where: { id } }),
     ]);

@@ -12,7 +12,7 @@ model User {
   nomorPeserta   String   @unique
   nama           String
   password       String
-  role           String   @default("PESERTA") // ADMIN atau PESERTA
+  role           String   @default("PESERTA") // ADMIN, PENGAWAS, GURU, atau PESERTA
   foto           String?  // Path foto profil
   nik            String?  // Nomor Induk Kependudukan
   tempatLahir    String?
@@ -33,6 +33,11 @@ model User {
   activities     UserActivity[]
   auditLogs      AuditLog[]
   sesiUjian      SesiUjian[]
+  mapelDiajar    Mapel[]
+  materiDibaca   MateriDibaca[]
+  pengumpulan    PengumpulanTugas[]
+  pengumuman     Pengumuman[]
+  komentar       Komentar[]
 
   @@index([role])
   @@index([sudahUjian])
@@ -107,6 +112,7 @@ model Ujian {
   jadwalSelesai  DateTime? // Waktu selesai ujian
   isActive       Boolean   @default(false) // Ujian yang aktif saat ini
   poolSize       Int?      // Jumlah soal yang diambil dari pool (null = semua soal)
+  mapelId        Int?      // null = ujian umum lintas kelas; ada = ujian milik mapel/kelas tertentu (LMS)
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
@@ -115,8 +121,10 @@ model Ujian {
   histori        HistoriUjian[]
   bagian         BagianUjian[]
   sesiUjian      SesiUjian[]
+  mapel          Mapel?    @relation(fields: [mapelId], references: [id])
 
   @@index([isActive])
+  @@index([mapelId])
 }
 
 model HistoriUjian {
@@ -221,4 +229,137 @@ model AuditLog {
   @@index([userId])
   @@index([action])
   @@index([createdAt])
+}
+// ===================== LMS =====================
+// Anggota kelas = peserta dengan User.kelas sama dengan Kelas.nama
+
+model Kelas {
+  id             Int      @id @default(autoincrement())
+  nama           String   @unique // mis. "X IPA 1" — sama dengan User.kelas
+  keterangan     String   @default("")
+  createdAt      DateTime @default(now())
+  mapel          Mapel[]
+}
+
+model Mapel {
+  id             Int      @id @default(autoincrement())
+  kelasId        Int
+  nama           String
+  guruId         Int?
+  deskripsi      String   @default("")
+  createdAt      DateTime @default(now())
+
+  kelas          Kelas    @relation(fields: [kelasId], references: [id])
+  guru           User?    @relation(fields: [guruId], references: [id])
+  materi         Materi[]
+  tugas          Tugas[]
+  pengumuman     Pengumuman[]
+  ujian          Ujian[]
+
+  @@unique([kelasId, nama])
+  @@index([guruId])
+}
+
+model Materi {
+  id             Int      @id @default(autoincrement())
+  mapelId        Int
+  judul          String
+  isi            String   @default("")
+  linkVideo      String   @default("")
+  lampiran       String   @default("") // URL /api/lms/file/...
+  namaLampiran   String   @default("")
+  terbit         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  mapel          Mapel    @relation(fields: [mapelId], references: [id])
+  dibaca         MateriDibaca[]
+  komentar       Komentar[]
+
+  @@index([mapelId])
+}
+
+model MateriDibaca {
+  userId         Int
+  materiId       Int
+  createdAt      DateTime @default(now())
+
+  user           User     @relation(fields: [userId], references: [id])
+  materi         Materi   @relation(fields: [materiId], references: [id])
+
+  @@id([userId, materiId])
+}
+
+model Tugas {
+  id             Int       @id @default(autoincrement())
+  mapelId        Int
+  judul          String
+  deskripsi      String    @default("")
+  lampiran       String    @default("")
+  namaLampiran   String    @default("")
+  tenggat        DateTime?
+  nilaiMaks      Int       @default(100)
+  terbit         Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  mapel          Mapel     @relation(fields: [mapelId], references: [id])
+  pengumpulan    PengumpulanTugas[]
+  komentar       Komentar[]
+
+  @@index([mapelId])
+}
+
+model PengumpulanTugas {
+  id             Int       @id @default(autoincrement())
+  tugasId        Int
+  userId         Int
+  jawaban        String    @default("")
+  lampiran       String    @default("")
+  namaLampiran   String    @default("")
+  dikumpulkanAt  DateTime  @default(now())
+  nilai          Int?
+  catatanGuru    String    @default("")
+  dinilaiAt      DateTime?
+
+  tugas          Tugas     @relation(fields: [tugasId], references: [id])
+  user           User      @relation(fields: [userId], references: [id])
+
+  @@unique([tugasId, userId])
+  @@index([userId])
+}
+
+model Pengumuman {
+  id             Int      @id @default(autoincrement())
+  mapelId        Int
+  userId         Int?     // penulis (null bila akunnya dihapus)
+  judul          String
+  isi            String
+  createdAt      DateTime @default(now())
+
+  mapel          Mapel    @relation(fields: [mapelId], references: [id])
+  user           User?    @relation(fields: [userId], references: [id])
+  komentar       Komentar[]
+
+  @@index([mapelId])
+}
+
+// Diskusi/forum: komentar di materi, tugas, atau pengumuman
+model Komentar {
+  id             Int      @id @default(autoincrement())
+  userId         Int
+  materiId       Int?
+  tugasId        Int?
+  pengumumanId   Int?
+  isi            String
+  createdAt      DateTime @default(now())
+
+  user           User        @relation(fields: [userId], references: [id])
+  materi         Materi?     @relation(fields: [materiId], references: [id])
+  tugas          Tugas?      @relation(fields: [tugasId], references: [id])
+  pengumuman     Pengumuman? @relation(fields: [pengumumanId], references: [id])
+
+  @@index([materiId])
+  @@index([tugasId])
+  @@index([pengumumanId])
 }

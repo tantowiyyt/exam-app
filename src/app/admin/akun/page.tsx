@@ -8,7 +8,7 @@ interface Akun {
   id: number;
   nomorPeserta: string;
   nama: string;
-  role: "ADMIN" | "PENGAWAS";
+  role: "ADMIN" | "PENGAWAS" | "GURU";
   ruang: string;
   createdAt: string;
 }
@@ -113,6 +113,7 @@ export default function KelolaAkunPage() {
               <label htmlFor="akun-role" className="block text-xs font-bold text-slate-600 uppercase mb-1">Role</label>
               <select id="akun-role" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} disabled={editingSelf} className={`${inputClass} disabled:bg-slate-50`}>
                 <option value="PENGAWAS">Pengawas — hanya monitoring ujian</option>
+                <option value="GURU">Guru — kelola kelas, materi, tugas (LMS)</option>
                 <option value="ADMIN">Admin — akses penuh</option>
               </select>
               {editingSelf && <p className="text-[10px] text-slate-400 mt-1">Role akun Anda sendiri tidak dapat diubah.</p>}
@@ -146,7 +147,7 @@ export default function KelolaAkunPage() {
 
         {/* List */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 lg:col-span-2">
-          <h2 className="text-lg font-bold text-slate-800 mb-1">Akun Admin & Pengawas ({data.akun.length})</h2>
+          <h2 className="text-lg font-bold text-slate-800 mb-1">Akun Admin, Pengawas & Guru ({data.akun.length})</h2>
           <p className="text-xs text-slate-500 mb-4">
             Akun peserta dikelola di menu <Link href="/admin/peserta" className="text-indigo-600 font-semibold hover:underline">Peserta</Link>.
           </p>
@@ -156,7 +157,7 @@ export default function KelolaAkunPage() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-semibold text-slate-800 text-sm">{a.nama}</p>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${a.role === "ADMIN" ? "bg-indigo-100 text-indigo-700" : "bg-cyan-100 text-cyan-700"}`}>{a.role}</span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${a.role === "ADMIN" ? "bg-indigo-100 text-indigo-700" : a.role === "GURU" ? "bg-emerald-100 text-emerald-700" : "bg-cyan-100 text-cyan-700"}`}>{a.role}</span>
                     {a.id === data.selfId && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-200 text-slate-600">Anda</span>}
                   </div>
                   <p className="text-xs text-slate-500 font-mono mt-0.5">

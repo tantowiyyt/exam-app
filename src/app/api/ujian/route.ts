@@ -17,15 +17,19 @@ export async function GET(request: Request) {
     if (!user) {
       return NextResponse.json({ message: 'User tidak ditemukan' }, { status: 401 });
     }
-    if (user.role === 'PENGAWAS') {
-      return NextResponse.json({ message: 'Akun pengawas tidak dapat mengerjakan ujian' }, { status: 403 });
+    if (user.role === 'PENGAWAS' || user.role === 'GURU') {
+      return NextResponse.json({ message: 'Akun pengawas/guru tidak dapat mengerjakan ujian' }, { status: 403 });
     }
     if (user.sudahUjian && user.role !== 'ADMIN') {
       return NextResponse.json({ message: 'Anda sudah menyelesaikan ujian ini', sudahUjian: true }, { status: 409 });
     }
 
     const serverNow = Date.now();
-    const ujian = await prisma.ujian.findFirst({ where: { isActive: true } });
+    const ujian = await prisma.ujian.findFirst({ where: { isActive: true }, include: { mapel: { include: { kelas: true } } } });
+    // Ujian milik mapel (LMS) hanya untuk peserta di kelas mapel tersebut
+    if (ujian?.mapel && user.role !== 'ADMIN' && user.kelas !== ujian.mapel.kelas.nama) {
+      return NextResponse.json({ status: 'bukan_kelas', kelas: ujian.mapel.kelas.nama, serverNow: Date.now() });
+    }
     let sesi = await cariSesiAktif(user.id, ujian?.id ?? null);
 
     // Soal tidak dikirim sebelum jadwal mulai

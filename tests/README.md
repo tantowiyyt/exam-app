@@ -23,6 +23,7 @@ Runner (`tests/run.mjs`) otomatis:
 | `03-sesi-server` | Timer server, simpan otomatis, waktu habis, bagian berwaktu, aksi pengawas, ganti password |
 | `04-role` | Akses ADMIN / PENGAWAS / PESERTA, kelola akun |
 | `05-data-diri` | Data diri & foto peserta oleh admin |
+| `06-lms` | LMS: role GURU, kelas & mapel, materi, tugas & nilai, upload, diskusi, ujian per kelas, backup |
 | `beban` | Login, mulai, simpan, submit serentak (hanya dengan `--beban`) |
 
 Setiap baris hasil diawali `PASS` atau `FAIL`; runner keluar dengan kode 1 bila ada yang gagal.

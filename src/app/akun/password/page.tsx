@@ -19,6 +19,7 @@ export default function GantiPasswordPage() {
       if (ignore) return;
       if (me?.role === "ADMIN") setKembali("/admin");
       else if (me?.role === "PENGAWAS") setKembali("/admin/monitoring");
+      else if (me?.role === "GURU") setKembali("/kelas");
     }).catch(() => {});
     return () => { ignore = true; };
   }, []);

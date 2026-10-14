@@ -200,6 +200,17 @@ export default function ParticipantDashboard() {
                         )}
                     </div>
 
+                    <Link href="/kelas" className="sm:col-span-2 group bg-linear-to-r from-emerald-600 to-teal-600 rounded-2xl p-6 text-white shadow-sm hover:shadow-lg transition-all flex items-center gap-4">
+                        <span className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                            <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+                        </span>
+                        <span className="flex-1 text-left">
+                            <span className="block font-bold text-lg">Kelas Saya</span>
+                            <span className="block text-sm text-white/85">Materi pelajaran, tugas, pengumuman, dan diskusi kelas.</span>
+                        </span>
+                        <span className="text-2xl group-hover:translate-x-1 transition-transform">&rarr;</span>
+                    </Link>
+
                     {histori && (
                         <div className="sm:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                             <div className="p-6 bg-linear-to-r from-indigo-600 to-purple-600 text-white">

@@ -6,15 +6,17 @@ const publicRoutes = ['/', '/login', '/daftar'];
 
 // Halaman yang boleh dibuka tiap role (prefix). Role diperiksa ulang dari database di setiap API.
 const aksesRole: Record<string, string[]> = {
-  ADMIN: ['/admin', '/dashboard', '/ujian', '/profile', '/akun'],
+  ADMIN: ['/admin', '/dashboard', '/ujian', '/profile', '/akun', '/kelas'],
   PENGAWAS: ['/admin/monitoring', '/akun'],
-  PESERTA: ['/dashboard', '/ujian', '/profile', '/akun'],
+  GURU: ['/kelas', '/akun'],
+  PESERTA: ['/dashboard', '/ujian', '/profile', '/akun', '/kelas'],
 };
-const protectedRoutes = ['/admin', '/dashboard', '/ujian', '/profile', '/akun'];
+const protectedRoutes = ['/admin', '/dashboard', '/ujian', '/profile', '/akun', '/kelas'];
 
 function beranda(role: string) {
   if (role === 'ADMIN') return '/admin';
   if (role === 'PENGAWAS') return '/admin/monitoring';
+  if (role === 'GURU') return '/kelas';
   return '/dashboard';
 }
 

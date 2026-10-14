@@ -13,9 +13,16 @@ interface Ujian {
   isActive: boolean;
   poolSize: number | null;
   _count: { soal: number; histori: number; bagian: number };
+  mapelId: number | null;
+  mapel: { id: number; nama: string; kelas: { nama: string } } | null;
 }
 
-const EMPTY_FORM = { nama: "", durasiMenit: "60", jadwalMulai: "", jadwalSelesai: "", poolSize: "" };
+interface MapelOpsi {
+  id: number;
+  label: string;
+}
+
+const EMPTY_FORM = { nama: "", durasiMenit: "60", jadwalMulai: "", jadwalSelesai: "", poolSize: "", mapelId: "" };
 
 /** ISO string -> nilai input datetime-local (waktu lokal). */
 function toLocalInput(iso: string | null) {
@@ -34,12 +41,21 @@ async function loadUjian(): Promise<Ujian[] | null> {
   return res.ok ? res.json() : null;
 }
 
+/** Pilihan mapel (LMS) untuk menautkan ujian ke kelas tertentu. */
+async function loadMapel(): Promise<MapelOpsi[]> {
+  const res = await fetch("/api/admin/kelas");
+  if (!res.ok) return [];
+  const data: { kelas: { nama: string; mapel: { id: number; nama: string }[] }[] } = await res.json();
+  return data.kelas.flatMap((k) => k.mapel.map((m) => ({ id: m.id, label: `${k.nama} — ${m.nama}` })));
+}
+
 export default function UjianManagement() {
   const { toast } = useToast();
   const [ujianList, setUjianList] = useState<Ujian[]>([]);
   const [form, setForm] = useState(EMPTY_FORM);
   const [editId, setEditId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  const [mapelList, setMapelList] = useState<MapelOpsi[]>([]);
 
   const refresh = useCallback(async () => {
     const data = await loadUjian();
@@ -49,6 +65,7 @@ export default function UjianManagement() {
   useEffect(() => {
     let ignore = false;
     loadUjian().then((data) => { if (!ignore && data) setUjianList(data); });
+    loadMapel().then((m) => { if (!ignore) setMapelList(m); });
     return () => { ignore = true; };
   }, []);
 
@@ -71,6 +88,7 @@ export default function UjianManagement() {
       jadwalMulai: form.jadwalMulai ? new Date(form.jadwalMulai).toISOString() : null,
       jadwalSelesai: form.jadwalSelesai ? new Date(form.jadwalSelesai).toISOString() : null,
       poolSize: form.poolSize ? Number(form.poolSize) : null,
+      mapelId: form.mapelId ? Number(form.mapelId) : null,
     };
     const res = await fetch("/api/admin/ujian", {
       method: editId ? "PUT" : "POST",
@@ -96,6 +114,7 @@ export default function UjianManagement() {
       jadwalMulai: toLocalInput(u.jadwalMulai),
       jadwalSelesai: toLocalInput(u.jadwalSelesai),
       poolSize: u.poolSize ? String(u.poolSize) : "",
+      mapelId: u.mapelId ? String(u.mapelId) : "",
     });
   };
 
@@ -161,6 +180,17 @@ export default function UjianManagement() {
             </div>
             <p className="text-[10px] text-slate-400 -mt-2">Jumlah Soal (pool): tiap peserta mendapat sejumlah soal acak dari bank soal ujian ini. Kosongkan = semua soal.</p>
             <div>
+              <label htmlFor="ujian-mapel" className="block text-xs font-bold text-slate-600 uppercase mb-1">Untuk Kelas / Mapel</label>
+              <select id="ujian-mapel" value={form.mapelId} onChange={(e) => setForm({ ...form, mapelId: e.target.value })} className={`${inputClass} bg-white`}>
+                <option value="">Ujian umum — semua peserta</option>
+                {mapelList.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+              </select>
+              <p className="text-[10px] text-slate-400 mt-1">
+                Bila dipilih, hanya siswa kelas itu yang bisa mengerjakan dan ujian tampil di halaman mapel.
+                {mapelList.length === 0 && <> Buat kelas & mapel di <Link href="/admin/kelas" className="text-indigo-600 font-semibold hover:underline">Kelas & Mapel</Link>.</>}
+              </p>
+            </div>
+            <div>
               <label htmlFor="ujian-mulai" className="block text-xs font-bold text-slate-600 uppercase mb-1">Jadwal Mulai</label>
               <input id="ujian-mulai" type="datetime-local" value={form.jadwalMulai} onChange={(e) => setForm({ ...form, jadwalMulai: e.target.value })} className={inputClass} />
             </div>
@@ -199,6 +229,9 @@ export default function UjianManagement() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="font-bold text-slate-800">{u.nama}</h3>
                         {u.isActive && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500 text-white">AKTIF</span>}
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${u.mapel ? "bg-sky-100 text-sky-700" : "bg-slate-200 text-slate-600"}`}>
+                          {u.mapel ? `${u.mapel.kelas.nama} · ${u.mapel.nama}` : "Umum"}
+                        </span>
                       </div>
                       <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-slate-500">
                         <span>{u.durasiMenit} menit</span>

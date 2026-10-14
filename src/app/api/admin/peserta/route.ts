@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { verifyAdminSession } from '@/lib/admin-auth';
 import bcrypt from 'bcryptjs';
 import { createAuditLog, getAuditIP, AUDIT_ACTIONS } from '@/lib/audit-log';
+import { opsHapusDataLms } from '@/lib/lms';
 
 /**
  * Data diri opsional yang boleh diisi/dikoreksi admin (biasanya diisi peserta di /profile).
@@ -230,6 +231,7 @@ export async function DELETE(request: Request) {
       prisma.pelanggaran.deleteMany({ where: { userId } }),
       prisma.userActivity.deleteMany({ where: { userId } }),
       prisma.sesiUjian.deleteMany({ where: { userId } }),
+      ...opsHapusDataLms(userId),
       prisma.auditLog.updateMany({ where: { userId }, data: { userId: null } }),
       prisma.user.delete({ where: { id: userId } }),
     ]);

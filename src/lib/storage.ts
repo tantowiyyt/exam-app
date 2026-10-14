@@ -6,3 +6,5 @@ import { join } from 'path';
  */
 export const STORAGE_DIR = process.env.STORAGE_DIR || join(process.cwd(), 'storage');
 export const FOTO_DIR = join(STORAGE_DIR, 'fotos');
+/** Lampiran LMS (materi, tugas, jawaban tugas). */
+export const LMS_DIR = join(STORAGE_DIR, 'lms');

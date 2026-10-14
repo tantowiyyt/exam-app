@@ -11,6 +11,14 @@ function parsePoolSize(value: unknown): number | null | undefined {
   return Number.isFinite(n) ? n : null;
 }
 
+/** mapelId: undefined = tidak diubah, null = ujian umum, angka = harus mapel yang ada. */
+async function parseMapelId(value: unknown): Promise<number | null | undefined | false> {
+  if (value === undefined) return undefined;
+  if (value === null || value === '') return null;
+  const mapel = await prisma.mapel.findUnique({ where: { id: Number(value) }, select: { id: true } });
+  return mapel ? mapel.id : false;
+}
+
 export async function GET() {
   const auth = await verifyAdminSession();
   if (!auth.ok) return NextResponse.json({ message: auth.message }, { status: auth.status });
@@ -18,7 +26,10 @@ export async function GET() {
   try {
     const ujianList = await prisma.ujian.findMany({
       orderBy: { createdAt: 'desc' },
-      include: { _count: { select: { soal: true, histori: true, bagian: true } } },
+      include: {
+        _count: { select: { soal: true, histori: true, bagian: true } },
+        mapel: { select: { id: true, nama: true, kelas: { select: { nama: true } } } },
+      },
     });
     return NextResponse.json(ujianList);
   } catch (error) {
@@ -34,6 +45,10 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { nama, durasiMenit, jadwalMulai, jadwalSelesai, poolSize } = body;
+    const mapelId = await parseMapelId(body.mapelId);
+    if (mapelId === false) {
+      return NextResponse.json({ message: 'Mapel tidak ditemukan' }, { status: 400 });
+    }
 
     if (!nama || !String(nama).trim()) {
       return NextResponse.json({ message: 'Nama ujian wajib diisi' }, { status: 400 });
@@ -49,6 +64,7 @@ export async function POST(request: Request) {
         jadwalMulai: jadwalMulai ? new Date(jadwalMulai) : null,
         jadwalSelesai: jadwalSelesai ? new Date(jadwalSelesai) : null,
         poolSize: parsePoolSize(poolSize) ?? null,
+        mapelId: mapelId ?? null,
       },
     });
 
@@ -83,6 +99,11 @@ export async function PUT(request: Request) {
     if (isActive !== undefined) updateData.isActive = !!isActive;
     const pool = parsePoolSize(poolSize);
     if (pool !== undefined) updateData.poolSize = pool;
+    const mapelId = await parseMapelId(body.mapelId);
+    if (mapelId === false) {
+      return NextResponse.json({ message: 'Mapel tidak ditemukan' }, { status: 400 });
+    }
+    if (mapelId !== undefined) updateData.mapelId = mapelId;
 
     // Hanya satu ujian yang boleh aktif
     const ujian = await prisma.$transaction(async (tx) => {

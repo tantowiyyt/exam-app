@@ -27,7 +27,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 **Repo:** https://github.com/tantowiyyt/exam-app (branch `main`). Database, foto upload, dan `.env` sengaja tidak di-commit.
 
-**Kondisi:** fitur lengkap, build & lint bersih, `npm run test:e2e` 127 tes lulus, uji beban 150 peserta serentak 0 gagal.
+**Kondisi:** fitur lengkap + LMS (Phase 16), build & lint bersih, `npm run test:e2e` 214 tes lulus, uji beban 150 peserta serentak 0 gagal (sebelum LMS).
 Siap untuk **simulasi**, belum untuk ujian sungguhan — selesaikan daftar di bawah dulu.
 
 **Belum dilakukan (oleh pemilik proyek):**
@@ -35,6 +35,7 @@ Siap untuk **simulasi**, belum untuk ujian sungguhan — selesaikan daftar di ba
 2. Ganti password admin lewat menu *Ganti Password* (password lama pernah tertulis di dokumen ini)
 3. Di server: isi `.env` dari `.env.example` (`SESSION_SECRET` acak, `COOKIE_SECURE=false` bila lab via http://IP)
 4. Buat akun pengawas per ruang, isi kelas peserta, isi kop kartu, cetak kartu
+5. LMS: buat akun guru (Kelola Akun → role Guru), kelas & mapel (Admin → LMS → Kelas & Mapel), lalu uji alur materi/tugas dengan guru & siswa sungguhan
 
 **Keputusan yang sudah diambil:**
 - Penguncian perangkat ala Safe Exam Browser **tidak** dibangun di proyek ini. Pakai Safe Exam Browser resmi bila perlu;
@@ -47,9 +48,12 @@ Siap untuk **simulasi**, belum untuk ujian sungguhan — selesaikan daftar di ba
 - IP dibaca dari `X-Forwarded-For` → pakai reverse proxy agar aturan IP & rate limit tidak bisa dipalsukan.
 - Admin yang diturunkan role-nya masih melihat tampilan halaman admin (kosong, API menolak) sampai login ulang.
 - Durasi per bagian hanya berlaku bila SEMUA soal ujian berada di bagian yang punya durasi.
-- Sisa 14 warning lint ringan (`<img>`, unused vars) — tidak ada error.
+- Sisa 18 warning lint ringan (`<img>`, unused vars) — tidak ada error.
+- LMS: hanya SATU ujian aktif sekaligus (mesin ujian lama). Ujian per kelas = ujian aktif dibatasi ke kelas mapelnya;
+  ujian beberapa kelas berjalan bersamaan belum didukung (`User.sudahUjian` masih global).
+- LMS: lampiran (`storage/lms`) tidak masuk backup JSON; file bisa dibuka siapa pun yang login asal tahu URL acaknya (UUID).
 
-**Backup DB lokal** (di-ignore git): `prisma/dev.db.bak-20261014063026`, `-065253`, `-071034` — boleh dihapus bila tidak diperlukan.
+**Backup DB lokal** (di-ignore git): `prisma/dev.db.bak-20261014063026`, `-065253`, `-071034`, `-090459` (sebelum skema LMS) — boleh dihapus bila tidak diperlukan.
 
 ---
 
@@ -69,6 +73,10 @@ Siap untuk **simulasi**, belum untuk ujian sungguhan — selesaikan daftar di ba
 | **SesiUjian** | id, userId, ujianId?, waktuMulai, tambahanMenit, jawaban (JSON), ragu (JSON), tahap, tahapMulai, selesai | Sesi pengerjaan di server (timer resmi, autosave, bagian berwaktu) |
 | **PengaturanAplikasi** | key (PK), value, updatedAt | Key-value: identitas instansi/kop & penandatangan kartu (`instansi.*`) |
 | **AuditLog** | id, userId?, action, target?, details?, ipAddress?, createdAt | Catatan audit sistem |
+| **Kelas / Mapel** | Kelas: nama (unique = User.kelas); Mapel: kelasId, nama, guruId? | LMS — Phase 16 |
+| **Materi / MateriDibaca** | mapelId, judul, isi, linkVideo, lampiran, terbit / (userId, materiId) | LMS |
+| **Tugas / PengumpulanTugas** | mapelId, judul, tenggat, nilaiMaks / tugasId+userId unique, jawaban, lampiran, nilai, catatanGuru | LMS |
+| **Pengumuman / Komentar** | mapelId, judul, isi / isi + salah satu materiId/tugasId/pengumumanId | LMS |
 
 ---
 
@@ -168,6 +176,31 @@ Siap untuk **simulasi**, belum untuk ujian sungguhan — selesaikan daftar di ba
 
 **Durasi per bagian** kini diterapkan — lihat Phase 12.
 
+### Phase 16 — LMS (2026-10-14)
+Ujian CAT kini bagian dari LMS. Anggota kelas = peserta dengan `User.kelas` == `Kelas.nama` (ganti nama kelas ikut mengganti kelas peserta).
+
+| Role | Akses LMS |
+|------|-----------|
+| ADMIN | Kelola kelas & mapel (`/admin/kelas`), buka & kelola semua mapel di `/kelas` |
+| GURU (baru) | Hanya `/kelas` & `/akun`; mengelola mapel yang ia ampu (materi, tugas, nilai, pengumuman, diskusi) |
+| PESERTA | `/kelas` — mapel di kelasnya: baca materi, kumpulkan tugas, lihat nilai, diskusi; plus ujian CAT seperti biasa |
+
+| Item | Files |
+|------|-------|
+| Model Kelas, Mapel, Materi, MateriDibaca, Tugas, PengumpulanTugas, Pengumuman, Komentar; `Ujian.mapelId` | `prisma/schema.prisma` |
+| Hak akses per mapel (kelola/siswa), validasi, hapus data LMS saat akun dihapus | `src/lib/lms.ts` |
+| Admin: CRUD kelas & mapel, buat kelas dari data peserta | `src/app/admin/kelas/page.tsx`, `src/app/api/admin/kelas/route.ts` |
+| Beranda LMS, halaman mapel (tab Beranda/Materi/Tugas/Ujian/Anggota), detail materi, detail tugas & penilaian (+CSV) | `src/app/kelas/**`, `src/components/lms/ui.tsx` |
+| API LMS: kelas, mapel, materi, tugas, pengumpulan, pengumuman, komentar | `src/app/api/lms/**` |
+| Upload lampiran (PDF/Office/gambar/TXT/ZIP, maks 10 MB, cek magic bytes) di `STORAGE_DIR/lms` | `src/app/api/lms/upload/route.ts`, `src/app/api/lms/file/[name]/route.ts` |
+| Materi tercatat "sudah dibaca" saat siswa membuka; video YouTube disematkan | `src/app/api/lms/materi/[id]/route.ts` |
+| Tugas: tenggat, terlambat ditandai, jawaban terkunci setelah dinilai | `src/app/api/lms/pengumpulan/route.ts` |
+| Ujian bisa ditautkan ke mapel; siswa kelas lain mendapat layar "Ujian bukan untuk kelas Anda" | `src/app/admin/ujian/page.tsx`, `src/app/api/ujian/route.ts`, `src/app/ujian/page.tsx` |
+| Backup/restore memuat tabel LMS (ujian dipulihkan setelah mapel) | `src/app/api/admin/backup/route.ts` |
+| Tes E2E LMS (87 tes) | `tests/e2e/06-lms.mjs` |
+
+Kartu ujian (sesi yang sama): tema warna & model ringkas 4 kartu/A4, QR nomor peserta (`qrcode`), disimpan di `instansi.warnaKartu`/`instansi.modelKartu`.
+
 ### Phase 15 — Persiapan Produksi (2026-10-14)
 | Item | Files |
 |------|-------|
@@ -197,6 +230,7 @@ Uji beban 150 peserta serentak: 0 gagal; simpan jawaban ±0,5 dtk, submit ±0,9 
 |------|-------|
 | ADMIN | Semua halaman/API admin, juga bisa mencoba halaman ujian |
 | PENGAWAS | Hanya `/admin/monitoring` (+Waktu/Kumpulkan/Reset sesi) & `/akun/password`. Jika `User.ruang` diisi, hanya peserta di ruang itu |
+| GURU | `/kelas` (LMS, mapel yang diampu) & `/akun/password` — lihat Phase 16 |
 | PESERTA | `/dashboard`, `/profile`, `/ujian`, `/ujian/review`, `/akun/password` |
 
 | Item | Files |
@@ -356,7 +390,7 @@ src/proxy.ts                          # Next.js 16 route protection (dipindah da
 
 ## Build Status
 - `npm run build` passes ✅
-- `npm run test:e2e` (butuh build): 127 tes lulus — lihat `tests/README.md`
+- `npm run test:e2e` (butuh build): 214 tes lulus — lihat `tests/README.md`
 - Deploy: lihat `DEPLOY.md`
 - ±60 routes (halaman statis + API dinamis)
 - `npx eslint src`: 0 error (sisa warning ringan, mis. `<img>`)

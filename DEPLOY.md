@@ -86,7 +86,8 @@ WantedBy=multi-user.target
 Database memakai SQLite mode **WAL** (otomatis aktif). Saat aplikasi berjalan, data terbaru bisa
 masih ada di `dev.db-wal`, jadi **jangan menyalin `dev.db` saja**.
 
-- **Lewat aplikasi:** menu *Backup & Restore* → unduh file JSON (berisi semua data + foto).
+- **Lewat aplikasi:** menu *Backup & Restore* → unduh file JSON (berisi semua data + foto, termasuk data LMS).
+  Lampiran materi/tugas LMS (`storage/lms`) **tidak** ikut di file JSON — salin folder `storage/` terpisah.
 - **File database (terjadwal):** gunakan perintah `.backup` sqlite3, aman walau aplikasi berjalan:
   ```bash
   sqlite3 prisma/dev.db ".backup 'D:/cat-backup/cat-2026-11-02.db'"

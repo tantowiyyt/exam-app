@@ -27,7 +27,8 @@ async function bacaFoto(): Promise<Record<string, string>> {
 // Nama tabel dalam file backup (diisi berurutan sesuai relasi di POST)
 type TableName =
   | 'users' | 'ujian' | 'bagianUjian' | 'soal' | 'jawabanUjian'
-  | 'historiUjian' | 'sesiUjian' | 'pelanggaran' | 'userActivity' | 'ipRules' | 'auditLogs';
+  | 'historiUjian' | 'sesiUjian' | 'pelanggaran' | 'userActivity' | 'ipRules' | 'auditLogs'
+  | 'kelas' | 'mapel' | 'materi' | 'tugas' | 'pengumpulanTugas' | 'pengumuman' | 'komentar';
 
 export async function GET(request: Request) {
   const auth = await verifyAdminSession();
@@ -48,12 +49,26 @@ export async function GET(request: Request) {
       prisma.auditLog.findMany({ orderBy: { id: 'asc' } }),
     ]);
     const pengaturanAplikasi = await prisma.pengaturanAplikasi.findMany();
+    // LMS (lampiran file di storage/lms tidak ikut — salin foldernya, lihat DEPLOY.md)
+    const [kelas, mapel, materi, materiDibaca, tugas, pengumpulanTugas, pengumuman, komentar] = await Promise.all([
+      prisma.kelas.findMany({ orderBy: { id: 'asc' } }),
+      prisma.mapel.findMany({ orderBy: { id: 'asc' } }),
+      prisma.materi.findMany({ orderBy: { id: 'asc' } }),
+      prisma.materiDibaca.findMany(),
+      prisma.tugas.findMany({ orderBy: { id: 'asc' } }),
+      prisma.pengumpulanTugas.findMany({ orderBy: { id: 'asc' } }),
+      prisma.pengumuman.findMany({ orderBy: { id: 'asc' } }),
+      prisma.komentar.findMany({ orderBy: { id: 'asc' } }),
+    ]);
 
     const backup = {
       version: '2.0',
       timestamp: new Date().toISOString(),
       fotos: await bacaFoto(),
-      data: { users, ujian, bagianUjian, soal, jawabanUjian, historiUjian, sesiUjian, pelanggaran, userActivity, ipRules, auditLogs, pengaturanAplikasi },
+      data: {
+        users, ujian, bagianUjian, soal, jawabanUjian, historiUjian, sesiUjian, pelanggaran, userActivity, ipRules, auditLogs, pengaturanAplikasi,
+        kelas, mapel, materi, materiDibaca, tugas, pengumpulanTugas, pengumuman, komentar,
+      },
     };
 
     await createAuditLog({ action: AUDIT_ACTIONS.BACKUP_DATABASE, ipAddress: getAuditIP(request) });
@@ -93,6 +108,12 @@ export async function POST(request: Request) {
 
     await prisma.$transaction(async (tx) => {
       if (replaceAll) {
+        await tx.komentar.deleteMany();
+        await tx.materiDibaca.deleteMany();
+        await tx.pengumpulanTugas.deleteMany();
+        await tx.pengumuman.deleteMany();
+        await tx.materi.deleteMany();
+        await tx.tugas.deleteMany();
         await tx.auditLog.deleteMany();
         await tx.pengaturanAplikasi.deleteMany();
         await tx.iPRule.deleteMany();
@@ -104,6 +125,8 @@ export async function POST(request: Request) {
         await tx.soal.deleteMany();
         await tx.bagianUjian.deleteMany();
         await tx.ujian.deleteMany();
+        await tx.mapel.deleteMany();
+        await tx.kelas.deleteMany();
         await tx.user.deleteMany();
       }
 
@@ -116,6 +139,8 @@ export async function POST(request: Request) {
       };
 
       await upsertAll('users', (r) => tx.user.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
+      await upsertAll('kelas', (r) => tx.kelas.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
+      await upsertAll('mapel', (r) => tx.mapel.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
       await upsertAll('ujian', (r) => tx.ujian.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
       await upsertAll('bagianUjian', (r) => tx.bagianUjian.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
       await upsertAll('soal', (r) => tx.soal.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
@@ -126,6 +151,26 @@ export async function POST(request: Request) {
       await upsertAll('userActivity', (r) => tx.userActivity.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
       await upsertAll('ipRules', (r) => tx.iPRule.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
       await upsertAll('auditLogs', (r) => tx.auditLog.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
+      await upsertAll('materi', (r) => tx.materi.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
+      await upsertAll('tugas', (r) => tx.tugas.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
+      await upsertAll('pengumpulanTugas', (r) => tx.pengumpulanTugas.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
+      await upsertAll('pengumuman', (r) => tx.pengumuman.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
+      await upsertAll('komentar', (r) => tx.komentar.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
+
+      // Tanda "sudah dibaca" memakai kunci gabungan (tanpa id)
+      const dibaca = Array.isArray(data.materiDibaca) ? data.materiDibaca : [];
+      let nDibaca = 0;
+      for (const row of dibaca) {
+        if (row && Number.isInteger(row.userId) && Number.isInteger(row.materiId)) {
+          await tx.materiDibaca.upsert({
+            where: { userId_materiId: { userId: row.userId, materiId: row.materiId } },
+            update: {},
+            create: { userId: row.userId, materiId: row.materiId, ...(row.createdAt ? { createdAt: row.createdAt } : {}) },
+          });
+          nDibaca++;
+        }
+      }
+      counts.materiDibaca = nDibaca;
 
       // Pengaturan aplikasi memakai kunci teks (bukan id angka)
       const pengaturan = Array.isArray(data.pengaturanAplikasi) ? data.pengaturanAplikasi : [];

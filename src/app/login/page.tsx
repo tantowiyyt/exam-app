@@ -31,6 +31,8 @@ export default function LoginPage() {
           router.push("/admin");
         } else if (data.role === "PENGAWAS") {
           router.push("/admin/monitoring");
+        } else if (data.role === "GURU") {
+          router.push("/kelas");
         } else {
           router.push("/dashboard");
         }
