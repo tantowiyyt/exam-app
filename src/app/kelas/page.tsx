@@ -21,7 +21,7 @@ interface Data {
     nama: string;
     kelasSaya: string;
     mapel: MapelKartu[];
-    agenda?: { id: number; jenis: "tugas" | "kuis"; judul: string; tenggat: string | null; revisi: boolean; mapel: { id: number; nama: string } }[];
+    agenda?: { id: number; jenis: "tugas" | "kuis"; ujian?: boolean; judul: string; tenggat: string | null; revisi: boolean; mapel: { id: number; nama: string } }[];
     ujianCat?: { nama: string; durasiMenit: number; jadwalMulai: string | null; jadwalSelesai: string | null; mapel: string | null; sudahUjian: boolean } | null;
     perluDinilai?: { jenis: "tugas" | "kuis"; id: number; judul: string; jumlah: number; mapel: { id: number; nama: string; kelas: string } }[];
     ringkasan?: { kelas: number; mapel: number; guru: number; siswa: number; siswaTanpaKelas: number; mapelTanpaGuru: number } | null;
@@ -162,17 +162,17 @@ export default function BerandaKelas() {
 
                 {siswa && data.agenda && data.agenda.length > 0 && (
                     <section className="bg-white rounded-2xl border border-slate-200 shadow-sm mb-8">
-                        <h2 className="px-5 py-3 border-b border-slate-100 text-sm font-bold text-slate-700">Tugas & Kuis yang Harus Dikerjakan</h2>
+                        <h2 className="px-5 py-3 border-b border-slate-100 text-sm font-bold text-slate-700">Tugas, Kuis & Ujian yang Harus Dikerjakan</h2>
                         <ul className="divide-y divide-slate-100">
                             {data.agenda.map((t) => {
                                 const s = t.revisi ? { label: "Perlu revisi", cls: "bg-orange-100 text-orange-700" } : sisaWaktu(t.tenggat);
                                 return (
                                     <li key={`${t.jenis}${t.id}`}>
                                         <Link href={`/kelas/${t.mapel.id}/${t.jenis}/${t.id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50">
-                                            <span className={`shrink-0 w-9 h-9 rounded-lg font-black flex items-center justify-center ${t.jenis === "kuis" ? "bg-fuchsia-100 text-fuchsia-700" : "bg-amber-100 text-amber-700"}`}>{t.jenis === "kuis" ? "Q" : "T"}</span>
+                                            <span className={`shrink-0 w-9 h-9 rounded-lg font-black flex items-center justify-center ${t.ujian ? "bg-indigo-100 text-indigo-700" : t.jenis === "kuis" ? "bg-fuchsia-100 text-fuchsia-700" : "bg-amber-100 text-amber-700"}`}>{t.ujian ? "U" : t.jenis === "kuis" ? "Q" : "T"}</span>
                                             <span className="flex-1 min-w-0">
                                                 <span className="block text-sm font-semibold text-slate-800 truncate">{t.judul}</span>
-                                                <span className="block text-[11px] text-slate-400 truncate">{t.jenis === "kuis" ? "Kuis · " : ""}{t.mapel.nama}{t.tenggat && ` · ${t.jenis === "kuis" ? "ditutup" : "tenggat"} ${fmtWaktu(t.tenggat)}`}</span>
+                                                <span className="block text-[11px] text-slate-400 truncate">{t.ujian ? "Ujian CAT · " : t.jenis === "kuis" ? "Kuis · " : ""}{t.mapel.nama}{t.tenggat && ` · ${t.jenis === "kuis" ? "ditutup" : "tenggat"} ${fmtWaktu(t.tenggat)}`}</span>
                                             </span>
                                             <span className={`text-[10px] font-bold px-2 py-1 rounded-full whitespace-nowrap ${s.cls}`}>{s.label}</span>
                                         </Link>

@@ -18,6 +18,8 @@ interface DataMapel {
     mapel: { id: number; nama: string; deskripsi: string; kelas: { id: number; nama: string }; guru: { id: number; nama: string } | null };
     jumlahSiswa: number;
     jumlahUjianManual: number;
+    semester: { id: number; label: string; aktif: boolean };
+    daftarSemester: { id: number; label: string; aktif: boolean }[];
     siswa: { id: number; nomorPeserta: string; nama: string }[];
     topik: { id: number; judul: string; deskripsi: string }[];
     progres: { userId: number; materi: number; tugas: number; tugasTotal: number; kuis: number; persen: number | null }[];
@@ -44,8 +46,8 @@ function paramAwal() {
     return { tab: TAB.includes(tab) ? tab : "beranda", kode: q.get("kode") ?? "" };
 }
 
-async function muat(id: string) {
-    const res = await fetch(`/api/lms/mapel/${id}`);
+async function muat(id: string, semester?: number) {
+    const res = await fetch(`/api/lms/mapel/${id}${semester ? `?semester=${semester}` : ""}`);
     const data = await res.json().catch(() => ({}));
     return res.ok ? { data: data as DataMapel } : { error: (data.message as string) || "Gagal memuat" };
 }
@@ -61,17 +63,19 @@ export default function HalamanMapel() {
     const [form, setForm] = useState<"materi" | "tugas" | "kuis" | null>(null);
     const [pengumuman, setPengumuman] = useState({ judul: "", isi: "" });
     const [bukaDiskusi, setBukaDiskusi] = useState<number | null>(null);
+    // undefined = semester aktif
+    const [semester, setSemester] = useState<number | undefined>(undefined);
 
     const refresh = useCallback(async () => {
-        const r = await muat(id);
+        const r = await muat(id, semester);
         if (r.data) setD(r.data); else setError(r.error);
-    }, [id]);
+    }, [id, semester]);
 
     useEffect(() => {
         let ignore = false;
-        muat(id).then((r) => { if (!ignore) { if (r.data) setD(r.data); else setError(r.error); } });
+        muat(id, semester).then((r) => { if (!ignore) { if (r.data) setD(r.data); else setError(r.error); } });
         return () => { ignore = true; };
-    }, [id]);
+    }, [id, semester]);
 
     if (error) return (<div className="min-h-screen bg-slate-100"><LmsNav kembali={{ href: "/kelas", label: "Beranda" }} /><p className="p-8 text-center text-red-600 font-semibold">{error}</p></div>);
     if (!d) return (<div className="min-h-screen bg-slate-100"><LmsNav /><p className="p-8 text-center text-slate-500">Memuat...</p></div>);
@@ -120,6 +124,13 @@ export default function HalamanMapel() {
                     <h1 className="text-3xl font-black mt-1">{d.mapel.nama}</h1>
                     <p className="text-sm text-white/90 mt-1">{d.mapel.guru ? `Pengampu: ${d.mapel.guru.nama}` : "Guru belum ditentukan"} · {d.jumlahSiswa} siswa</p>
                     {d.mapel.deskripsi && <p className="text-sm text-white/85 mt-3 max-w-2xl">{d.mapel.deskripsi}</p>}
+                    <label className="mt-4 inline-flex items-center gap-2 text-xs bg-white/15 rounded-full pl-3 pr-1 py-1">
+                        <span className="font-bold">Semester</span>
+                        <select value={d.semester.id} onChange={(e) => { const v = Number(e.target.value); setSemester(d.daftarSemester.find((s) => s.id === v)?.aktif ? undefined : v); }}
+                            aria-label="Pilih semester" className="bg-white text-slate-800 rounded-full px-2 py-1 text-xs font-bold outline-none">
+                            {d.daftarSemester.map((s) => <option key={s.id} value={s.id}>{s.label}{s.aktif ? " (aktif)" : ""}</option>)}
+                        </select>
+                    </label>
                     {!kelola && (d.materi.length > 0 || d.tugas.length > 0) && (
                         <div className="mt-4 flex flex-wrap gap-4 text-xs">
                             <span className="bg-white/15 rounded-full px-3 py-1">Materi dibaca: <b>{dibaca}/{d.materi.length}</b></span>
@@ -143,6 +154,11 @@ export default function HalamanMapel() {
             </div>
 
             <main className="max-w-6xl mx-auto p-4 md:p-8">
+                {!d.semester.aktif && (
+                    <p className="mb-4 text-sm bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-4 py-3">
+                        Menampilkan semester <b>{d.semester.label}</b> (bukan semester aktif). Tugas, kuis, presensi, dan ujian yang dibuat sekarang tetap masuk ke semester aktif.
+                    </p>
+                )}
                 {/* BERANDA: pengumuman */}
                 {tab === "beranda" && (
                     <div className="grid lg:grid-cols-3 gap-6">
@@ -306,15 +322,13 @@ export default function HalamanMapel() {
                 {/* UJIAN */}
                 {tab === "ujian" && (
                     <div className="space-y-8">
-                    <UjianManual mapelId={d.mapel.id} onChange={refresh} />
+                    <UjianManual key={d.semester.id} mapelId={d.mapel.id} semesterId={d.semester.id} onChange={refresh} />
                     <section className="space-y-3">
-                        {(kelola || d.ujian.length > 0) && <h2 className="text-sm font-bold text-slate-500 uppercase tracking-wider">Ujian CAT (Komputer)</h2>}
-                        {kelola && (
-                            <p className="text-xs text-slate-500">
-                                Opsional. Ujian CAT untuk kelas ini dibuat admin di menu <b>Kelola Ujian</b> dengan memilih &quot;Untuk Kelas / Mapel&quot; = {d.mapel.kelas.nama} — {d.mapel.nama}.
-                            </p>
+                        {d.ujian.length > 0 && <h2 className="text-sm font-bold text-slate-500 uppercase tracking-wider">Ujian CAT Sekolah</h2>}
+                        {kelola && d.ujian.length > 0 && (
+                            <p className="text-xs text-slate-500">Ujian sekolah yang dikelola admin/panitia (menu Ujian CAT) dan ditautkan ke mapel ini.</p>
                         )}
-                        {d.ujian.length === 0 && (kelola || !d.jumlahUjianManual) && <p className="bg-white rounded-2xl border border-slate-200 p-6 text-center text-slate-400 italic text-sm">{kelola ? "Belum ada ujian CAT untuk mapel ini." : "Belum ada ujian untuk mapel ini."}</p>}
+                        {d.ujian.length === 0 && !kelola && !d.jumlahUjianManual && <p className="bg-white rounded-2xl border border-slate-200 p-6 text-center text-slate-400 italic text-sm">Belum ada ujian untuk mapel ini.</p>}
                         {d.ujian.map((u) => (
                             <div key={u.id} className={`bg-white rounded-xl border shadow-sm p-4 flex flex-col sm:flex-row sm:items-center gap-3 ${u.isActive ? "border-emerald-400" : "border-slate-200"}`}>
                                 <div className="flex-1 min-w-0">
@@ -340,10 +354,10 @@ export default function HalamanMapel() {
                 )}
 
                 {/* PRESENSI */}
-                {tab === "presensi" && <Presensi mapelId={d.mapel.id} kodeAwal={awal.kode} />}
+                {tab === "presensi" && <Presensi key={d.semester.id} mapelId={d.mapel.id} kodeAwal={awal.kode} semesterId={d.semester.id} />}
 
                 {/* NILAI */}
-                {tab === "nilai" && <RekapNilai mapelId={d.mapel.id} />}
+                {tab === "nilai" && <RekapNilai key={d.semester.id} mapelId={d.mapel.id} semesterId={d.semester.id} />}
 
                 {/* ANGGOTA + progres belajar */}
                 {tab === "anggota" && kelola && (

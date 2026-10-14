@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { semesterAktif } from '@/lib/semester';
 import { verifyLmsSession, aksesMapel } from '@/lib/lms';
 import { dataKuis } from '@/lib/kuis';
 import { createAuditLog, getAuditIP } from '@/lib/audit-log';
@@ -18,7 +19,7 @@ export async function POST(request: Request) {
     if ('error' in hasil) return NextResponse.json({ message: hasil.error }, { status: 400 });
 
     // Kuis baru belum punya soal -> selalu draf
-    const kuis = await prisma.kuis.create({ data: { ...hasil.data, terbit: false, mapelId: akses.mapel.id } });
+    const kuis = await prisma.kuis.create({ data: { ...hasil.data, terbit: false, mapelId: akses.mapel.id, semesterId: (await semesterAktif()).id } });
     await createAuditLog({ action: 'CREATE_KUIS', target: `Kuis #${kuis.id} ${kuis.judul}`, ipAddress: getAuditIP(request) });
     return NextResponse.json({ success: true, data: kuis });
   } catch (error) {
@@ -42,7 +43,22 @@ export async function PUT(request: Request) {
       return NextResponse.json({ message: 'Tambahkan minimal satu soal sebelum menerbitkan kuis' }, { status: 400 });
     }
 
-    const kuis = await prisma.kuis.update({ where: { id: lama.id }, data: hasil.data });
+    // Mode ujian: satu kesempatan; token & batas pelanggaran bisa diatur
+    const ujian: Record<string, unknown> = {};
+    if (lama.modeUjian) {
+      ujian.maksPercobaan = 1;
+      if (typeof body.token === 'string') {
+        const token = body.token.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        if (token.length > 10) return NextResponse.json({ message: 'Token maksimal 10 huruf/angka' }, { status: 400 });
+        ujian.token = token;
+      }
+      if (body.maksPelanggaran !== undefined) {
+        const n = Number(body.maksPelanggaran);
+        if (!Number.isInteger(n) || n < 1 || n > 20) return NextResponse.json({ message: 'Batas pelanggaran 1–20' }, { status: 400 });
+        ujian.maksPelanggaran = n;
+      }
+    }
+    const kuis = await prisma.kuis.update({ where: { id: lama.id }, data: { ...hasil.data, ...ujian } });
     await createAuditLog({ action: 'UPDATE_KUIS', target: `Kuis #${kuis.id} ${kuis.judul}`, ipAddress: getAuditIP(request) });
     return NextResponse.json({ success: true, data: kuis });
   } catch (error) {
@@ -60,6 +76,7 @@ export async function DELETE(request: Request) {
     const kuis = await prisma.kuis.findUnique({ where: { id } });
     const akses = kuis ? await aksesMapel(auth.user, kuis.mapelId) : null;
     if (!kuis || akses?.peran !== 'kelola') return NextResponse.json({ message: 'Kuis tidak ditemukan' }, { status: 404 });
+    if (kuis.modeUjian) return NextResponse.json({ message: 'Ini kuis ujian CAT. Hapus lewat tab Ujian di halaman mapel.' }, { status: 400 });
 
     // Jawaban & nilai siswa ikut terhapus (UI meminta konfirmasi)
     await prisma.$transaction([

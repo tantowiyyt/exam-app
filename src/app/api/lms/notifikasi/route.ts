@@ -55,7 +55,7 @@ export async function GET() {
       });
       for (const n of nilaiUjian) out.push({ id: `u${n.id}`, jenis: 'nilai', judul: `Nilai ${n.ujian.judul}: ${n.nilai}/${n.ujian.nilaiMaks}`, isi: namaMapel.get(n.ujian.mapelId) ?? '', waktu: n.ujian.diumumkanAt!, href: `/kelas/${n.ujian.mapelId}?tab=ujian` });
       for (const p of presensi) out.push({ id: `a${p.id}`, jenis: 'presensi', judul: `Presensi dibuka: ${p.judul}`, isi: namaMapel.get(p.mapelId) ?? '', waktu: p.createdAt, href: `/kelas/${p.mapelId}?tab=presensi` });
-      for (const k of kuis) out.push({ id: `q${k.id}`, jenis: 'kuis', judul: `Kuis dibuka: ${k.judul}`, isi: namaMapel.get(k.mapelId) ?? '', waktu: k.mulai ?? k.createdAt, href: `/kelas/${k.mapelId}/kuis/${k.id}` });
+      for (const k of kuis) out.push({ id: `q${k.id}`, jenis: 'kuis', judul: `${k.modeUjian ? 'Ujian' : 'Kuis'} dibuka: ${k.judul}`, isi: namaMapel.get(k.mapelId) ?? '', waktu: k.mulai ?? k.createdAt, href: `/kelas/${k.mapelId}/kuis/${k.id}` });
       for (const t of tugas) out.push({ id: `t${t.id}`, jenis: 'tugas', judul: `Tugas baru: ${t.judul}`, isi: namaMapel.get(t.mapelId) ?? '', waktu: t.terbitPada ?? t.createdAt, href: `/kelas/${t.mapelId}/tugas/${t.id}` });
       for (const m of materi) out.push({ id: `m${m.id}`, jenis: 'materi', judul: `Materi baru: ${m.judul}`, isi: namaMapel.get(m.mapelId) ?? '', waktu: m.terbitPada ?? m.createdAt, href: `/kelas/${m.mapelId}/materi/${m.id}` });
       for (const p of pengumuman) out.push({ id: `p${p.id}`, jenis: 'pengumuman', judul: p.judul, isi: namaMapel.get(p.mapelId) ?? '', waktu: p.createdAt, href: `/kelas/${p.mapelId}` });

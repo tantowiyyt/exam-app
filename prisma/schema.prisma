@@ -258,6 +258,10 @@ model Mapel {
   bobotUjian    Int      @default(0)
   bobotPresensi Int      @default(0)
   kkm           Int      @default(0) // kriteria ketuntasan minimal (0 = tidak dipakai)
+  // Bobot per jenis ujian mapel (UH/UTS/UAS); bobotUjian = ujian lainnya + ujian CAT sekolah
+  bobotUH       Int      @default(0)
+  bobotUTS      Int      @default(0)
+  bobotUAS      Int      @default(0)
   createdAt     DateTime @default(now())
 
   kelas        Kelas          @relation(fields: [kelasId], references: [id])
@@ -323,6 +327,7 @@ model Tugas {
   terbit          Boolean   @default(true)
   terbitPada      DateTime? // terbit terjadwal
   topikId         Int?
+  semesterId      Int?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -404,6 +409,11 @@ model Kuis {
   tampilkanJawaban Boolean   @default(true) // siswa melihat kunci & pembahasan setelah selesai
   terbit           Boolean   @default(false)
   topikId          Int?
+  semesterId       Int?
+  // Mode ujian (CAT per mapel, dibuat dari tab Ujian): 1x kesempatan, token, layar penuh + deteksi pelanggaran
+  modeUjian        Boolean   @default(false)
+  token            String    @default("") // kosong = tanpa token
+  maksPelanggaran  Int       @default(5) // pelanggaran ke-N = jawaban dikumpulkan otomatis
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
@@ -431,18 +441,20 @@ model SoalKuis {
 }
 
 model PercobaanKuis {
-  id           Int       @id @default(autoincrement())
-  kuisId       Int
-  userId       Int
-  ke           Int       @default(1)
-  mulaiAt      DateTime  @default(now())
-  selesaiAt    DateTime?
-  jawaban      String    @default("{}") // JSON {soalId: jawaban}
-  skorEsai     String    @default("{}") // JSON {soalId: poin} — diisi guru
-  skor         Float? // poin diperoleh (esai yang belum dinilai = 0)
-  skorMaks     Float?
-  nilai        Float? // 0–100
-  perluDinilai Boolean   @default(false) // ada jawaban esai yang belum dinilai
+  id            Int       @id @default(autoincrement())
+  kuisId        Int
+  userId        Int
+  ke            Int       @default(1)
+  mulaiAt       DateTime  @default(now())
+  selesaiAt     DateTime?
+  jawaban       String    @default("{}") // JSON {soalId: jawaban}
+  skorEsai      String    @default("{}") // JSON {soalId: poin} — diisi guru
+  skor          Float? // poin diperoleh (esai yang belum dinilai = 0)
+  skorMaks      Float?
+  nilai         Float? // 0–100
+  perluDinilai  Boolean   @default(false) // ada jawaban esai yang belum dinilai
+  pelanggaran   Int       @default(0) // mode ujian: pindah tab / keluar layar penuh
+  tambahanMenit Int       @default(0) // mode ujian: tambahan waktu dari guru/pengawas
 
   kuis Kuis @relation(fields: [kuisId], references: [id])
   user User @relation(fields: [userId], references: [id])
@@ -460,6 +472,7 @@ model SesiPresensi {
   kode       String // kode presensi mandiri siswa
   bukaSampai DateTime? // presensi mandiri dibuka sampai waktu ini (null = hanya guru yang mengisi)
   catatan    String    @default("")
+  semesterId Int?
   createdAt  DateTime  @default(now())
 
   mapel    Mapel      @relation(fields: [mapelId], references: [id])
@@ -494,8 +507,12 @@ model UjianManual {
   tanggal     DateTime?
   nilaiMaks   Int       @default(100)
   keterangan  String    @default("")
-  terbit      Boolean   @default(false)
+  terbit      Boolean   @default(false) // nilai diumumkan ke siswa
   diumumkanAt DateTime?
+  jenis       String    @default("LAIN") // UH | UTS | UAS | LAIN
+  mode        String    @default("offline") // offline (nilai manual) | cat (dikerjakan di komputer = Kuis modeUjian)
+  kuisId      Int? // mode cat: kuis ujian yang dikerjakan siswa
+  semesterId  Int?
   createdAt   DateTime  @default(now())
 
   mapel Mapel              @relation(fields: [mapelId], references: [id])
@@ -517,6 +534,18 @@ model NilaiUjianManual {
 
   @@unique([ujianId, userId])
   @@index([userId])
+}
+
+// Tahun ajaran & semester. Tepat satu aktif: tugas/kuis/presensi/ujian baru tercatat di semester aktif,
+// rekap nilai & daftar di mapel bisa dipilih per semester. Kolom semesterId di tabel lain tanpa relasi FK.
+model Semester {
+  id          Int      @id @default(autoincrement())
+  tahunAjaran String // mis. "2026/2027"
+  semester    String // Ganjil | Genap
+  aktif       Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@unique([tahunAjaran, semester])
 }
 
 model Topik {

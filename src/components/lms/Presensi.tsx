@@ -29,15 +29,15 @@ function Lencana({ s }: { s: Status | null | undefined }) {
 }
 
 /** Tab "Presensi" di halaman mapel. */
-export function Presensi({ mapelId, kodeAwal }: { mapelId: number; kodeAwal?: string }) {
+export function Presensi({ mapelId, kodeAwal, semesterId }: { mapelId: number; kodeAwal?: string; semesterId?: number }) {
     const [d, setD] = useState<DataGuru | DataSiswa | null>(null);
     const [error, setError] = useState("");
 
     const muat = useCallback(async () => {
-        const res = await fetch(`/api/lms/presensi?mapelId=${mapelId}`);
+        const res = await fetch(`/api/lms/presensi?mapelId=${mapelId}${semesterId ? `&semester=${semesterId}` : ""}`);
         const data = await res.json().catch(() => ({}));
         return res.ok ? { data } : { error: data.message || "Gagal memuat presensi" };
-    }, [mapelId]);
+    }, [mapelId, semesterId]);
     const refresh = useCallback(async () => { const r = await muat(); if (r.data) setD(r.data); else setError(r.error); }, [muat]);
 
     useEffect(() => {

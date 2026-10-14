@@ -12,7 +12,7 @@ const TOLERANSI_MS = 30_000;
 
 type Soal = { id: number; tipe: string; pertanyaan: string; opsi: string; kunci: string; pembahasan: string; bobot: number; urutan: number };
 type Kuis = { durasiMenit: number; selesai: Date | null };
-type Percobaan = { id: number; mulaiAt: Date; selesaiAt: Date | null; jawaban: string; skorEsai: string };
+type Percobaan = { id: number; mulaiAt: Date; selesaiAt: Date | null; jawaban: string; skorEsai: string; tambahanMenit?: number };
 
 export function bacaJson<T>(s: string, cadangan: T): T {
   try {
@@ -97,15 +97,19 @@ export function hitungNilai(soal: Soal[], jawaban: Record<string, unknown>, skor
   return { skor, skorMaks, nilai, perluDinilai };
 }
 
-/** Batas waktu percobaan: durasi kuis & waktu tutup kuis (mana yang lebih dulu). null = tanpa batas. */
-export function batasWaktu(kuis: Kuis, p: { mulaiAt: Date }): Date | null {
+/**
+ * Batas waktu percobaan: durasi kuis & waktu tutup kuis (mana yang lebih dulu). null = tanpa batas.
+ * Tambahan waktu dari guru/pengawas (mode ujian) memperpanjang keduanya.
+ */
+export function batasWaktu(kuis: Kuis, p: { mulaiAt: Date; tambahanMenit?: number }): Date | null {
+  const tambah = (p.tambahanMenit ?? 0) * 60000;
   const batas: number[] = [];
-  if (kuis.durasiMenit > 0) batas.push(p.mulaiAt.getTime() + kuis.durasiMenit * 60000);
-  if (kuis.selesai) batas.push(kuis.selesai.getTime());
+  if (kuis.durasiMenit > 0) batas.push(p.mulaiAt.getTime() + kuis.durasiMenit * 60000 + tambah);
+  if (kuis.selesai) batas.push(kuis.selesai.getTime() + tambah);
   return batas.length ? new Date(Math.min(...batas)) : null;
 }
 
-export function waktuHabis(kuis: Kuis, p: { mulaiAt: Date }, toleransi = false) {
+export function waktuHabis(kuis: Kuis, p: { mulaiAt: Date; tambahanMenit?: number }, toleransi = false) {
   const b = batasWaktu(kuis, p);
   return !!b && Date.now() > b.getTime() + (toleransi ? TOLERANSI_MS : 0);
 }
@@ -177,6 +181,20 @@ export function nilaiTerbaik(list: { selesaiAt: Date | null; nilai: number | nul
   if (!selesai.length) return null;
   const best = selesai.reduce((a, b) => ((b.nilai ?? 0) > (a.nilai ?? 0) ? b : a));
   return { nilai: best.nilai as number, perluDinilai: selesai.some((p) => p.perluDinilai) };
+}
+
+/** Mode ujian: nilai & jawaban baru terlihat siswa setelah guru mengumumkan ujiannya (tab Ujian). */
+export async function hasilDiumumkan(kuis: { id: number; modeUjian: boolean }) {
+  if (!kuis.modeUjian) return true;
+  return !!(await prisma.ujianManual.findFirst({ where: { kuisId: kuis.id, terbit: true }, select: { id: true } }));
+}
+
+const HURUF_TOKEN = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+/** Token ujian 6 karakter (tanpa 0/O/1/I agar tidak tertukar). */
+export function tokenBaru() {
+  const b = new Uint8Array(6);
+  crypto.getRandomValues(b);
+  return Array.from(b, (x) => HURUF_TOKEN[x % HURUF_TOKEN.length]).join('');
 }
 
 /** Data kuis (pengaturan) dari body. */

@@ -3,9 +3,10 @@ import { createAuditLog, getAuditIP } from '@/lib/audit-log';
 import { prisma } from '@/lib/prisma';
 import { verifyLmsSession, aksesMapel, whereTugasSiswa, whereTerbit, idSiswa, ditugaskan } from '@/lib/lms';
 import { statusBuka, nilaiTerbaik, tutupYangKedaluwarsa } from '@/lib/kuis';
+import { semesterDipilih, daftarSemester } from '@/lib/semester';
 
 // Isi satu mapel: pengumuman, materi, tugas, ujian, (pengelola) daftar siswa
-export async function GET(_request: Request, ctx: RouteContext<'/api/lms/mapel/[id]'>) {
+export async function GET(request: Request, ctx: RouteContext<'/api/lms/mapel/[id]'>) {
   const auth = await verifyLmsSession();
   if (!auth.ok) return NextResponse.json({ message: auth.message }, { status: auth.status });
 
@@ -16,6 +17,9 @@ export async function GET(_request: Request, ctx: RouteContext<'/api/lms/mapel/[
     const { mapel, peran } = akses;
     const kelola = peran === 'kelola';
     const hanyaTerbit = kelola ? {} : { terbit: true };
+    // Tugas, kuis, & ujian ditampilkan per semester (?semester=id, bawaan = semester aktif)
+    const semester = await semesterDipilih(new URL(request.url).searchParams.get('semester'));
+    const diSemester = { semesterId: semester.id };
     const materiTerlihat = kelola ? {} : whereTerbit();
 
     // Percobaan siswa ini yang waktunya habis dinilai dulu agar statusnya benar
@@ -40,7 +44,7 @@ export async function GET(_request: Request, ctx: RouteContext<'/api/lms/mapel/[
         },
       }),
       prisma.tugas.findMany({
-        where: { mapelId: mapel.id, ...(kelola ? {} : whereTugasSiswa(user.id)) },
+        where: { mapelId: mapel.id, ...diSemester, ...(kelola ? {} : whereTugasSiswa(user.id)) },
         orderBy: [{ tenggat: 'asc' }, { createdAt: 'asc' }],
         select: {
           id: true, judul: true, terbit: true, terbitPada: true, topikId: true, tenggat: true, nilaiMaks: true, createdAt: true, untukSiswa: true, terimaTerlambat: true,
@@ -62,7 +66,8 @@ export async function GET(_request: Request, ctx: RouteContext<'/api/lms/mapel/[
         orderBy: { nama: 'asc' },
       }),
       prisma.kuis.findMany({
-        where: { mapelId: mapel.id, ...hanyaTerbit },
+        // Kuis mode ujian (CAT per mapel) tampil di tab Ujian, bukan di tab Kuis
+        where: { mapelId: mapel.id, ...diSemester, modeUjian: false, ...hanyaTerbit },
         orderBy: [{ mulai: 'asc' }, { createdAt: 'asc' }],
         include: {
           _count: { select: { soal: true } },
@@ -71,7 +76,7 @@ export async function GET(_request: Request, ctx: RouteContext<'/api/lms/mapel/[
       }),
       prisma.topik.findMany({ where: { mapelId: mapel.id }, orderBy: [{ urutan: 'asc' }, { id: 'asc' }] }),
     ]);
-    const jumlahUjianManual = await prisma.ujianManual.count({ where: { mapelId: mapel.id } });
+    const jumlahUjianManual = await prisma.ujianManual.count({ where: { mapelId: mapel.id, ...diSemester } });
 
     // Pengelola: progres tiap siswa (materi dibaca, tugas dikumpulkan, kuis selesai) atas item yang terlihat siswa
     let progres: { userId: number; materi: number; tugas: number; tugasTotal: number; kuis: number; persen: number | null }[] = [];
@@ -102,6 +107,8 @@ export async function GET(_request: Request, ctx: RouteContext<'/api/lms/mapel/[
       mapel: { id: mapel.id, nama: mapel.nama, deskripsi: mapel.deskripsi, kelas: { id: mapel.kelas.id, nama: mapel.kelas.nama }, guru: mapel.guru },
       jumlahSiswa: siswa.length,
       jumlahUjianManual,
+      semester: { id: semester.id, label: semester.label, aktif: semester.aktif },
+      daftarSemester: (await daftarSemester()).map((s) => ({ id: s.id, label: s.label, aktif: s.aktif })),
       siswa: kelola ? siswa : [],
       topik: topik.map((t) => ({ id: t.id, judul: t.judul, deskripsi: t.deskripsi })),
       progres,
@@ -163,6 +170,7 @@ export async function PUT(request: Request, ctx: RouteContext<'/api/lms/mapel/[i
     const data = {
       bobotTugas: angka(body.bobotTugas, 100), bobotKuis: angka(body.bobotKuis, 100),
       bobotUjian: angka(body.bobotUjian, 100), bobotPresensi: angka(body.bobotPresensi, 100), kkm: angka(body.kkm, 100),
+      bobotUH: angka(body.bobotUH, 100), bobotUTS: angka(body.bobotUTS, 100), bobotUAS: angka(body.bobotUAS, 100),
     };
     if (Object.values(data).some((v) => v === null)) return NextResponse.json({ message: 'Bobot & KKM harus bilangan bulat 0–100' }, { status: 400 });
     const mapel = await prisma.mapel.update({ where: { id: akses.mapel.id }, data: data as Record<string, number> });

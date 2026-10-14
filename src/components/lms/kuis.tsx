@@ -14,6 +14,8 @@ export interface SoalEdit { id?: number; kunciLokal: string; tipe: TipeSoal; per
 export interface KuisData {
     id?: number; judul: string; deskripsi: string; durasiMenit: number; mulai: string | null; selesai: string | null;
     maksPercobaan: number; acakSoal: boolean; tampilkanJawaban: boolean; terbit: boolean; topikId?: number | null;
+    /** Kuis ujian (CAT per mapel): satu kesempatan, token, layar penuh + batas pelanggaran */
+    modeUjian?: boolean; maksPelanggaran?: number;
 }
 
 let urut = 0;
@@ -46,12 +48,12 @@ export function FormKuis({ mapelId, awal, onClose, onSaved }: { mapelId: number;
         const body = { ...f, mapelId, mulai: mulai ? new Date(mulai).toISOString() : null, selesai: selesai ? new Date(selesai).toISOString() : null };
         const { ok, data } = await kirim("/api/lms/kuis", f.id ? "PUT" : "POST", body);
         setSimpan(false);
-        if (ok) { toast(f.id ? "Pengaturan kuis disimpan" : "Kuis dibuat — sekarang tambahkan soal", "success"); onSaved(data.data.id); }
+        if (ok) { toast(f.id ? (f.modeUjian ? "Pengaturan ujian disimpan" : "Pengaturan kuis disimpan") : "Kuis dibuat — sekarang tambahkan soal", "success"); onSaved(data.data.id); }
         else toast(data.message || "Gagal menyimpan", "error");
     };
 
     return (
-        <Modal judul={f.id ? "Pengaturan Kuis" : "Buat Kuis"} onClose={onClose}>
+        <Modal judul={f.modeUjian ? "Pengaturan Ujian CAT" : f.id ? "Pengaturan Kuis" : "Buat Kuis"} onClose={onClose}>
             <form onSubmit={submit} className="space-y-4">
                 <label className="block"><span className={labelClass}>Judul</span>
                     <input value={f.judul} onChange={(e) => setF({ ...f, judul: e.target.value })} required maxLength={200} className={inputClass} placeholder="mis. Kuis Bab 2 — Persamaan Linear" />
@@ -70,10 +72,17 @@ export function FormKuis({ mapelId, awal, onClose, onSaved }: { mapelId: number;
                     <label className="block"><span className={labelClass}>Durasi (menit, 0 = tanpa batas)</span>
                         <input type="number" min={0} max={600} value={f.durasiMenit} onChange={(e) => setF({ ...f, durasiMenit: Number(e.target.value) })} required className={inputClass} />
                     </label>
-                    <label className="block"><span className={labelClass}>Kesempatan mengerjakan</span>
-                        <input type="number" min={1} max={10} value={f.maksPercobaan} onChange={(e) => setF({ ...f, maksPercobaan: Number(e.target.value) })} required className={inputClass} />
-                        <span className="text-[10px] text-slate-400">Bila lebih dari 1, nilai yang dipakai = nilai tertinggi.</span>
-                    </label>
+                    {f.modeUjian ? (
+                        <label className="block"><span className={labelClass}>Batas pelanggaran</span>
+                            <input type="number" min={1} max={20} value={f.maksPelanggaran ?? 5} onChange={(e) => setF({ ...f, maksPelanggaran: Number(e.target.value) })} required className={inputClass} />
+                            <span className="text-[10px] text-slate-400">Pindah tab / keluar layar penuh ke-N = jawaban dikumpulkan otomatis. Ujian hanya 1 kali kesempatan.</span>
+                        </label>
+                    ) : (
+                        <label className="block"><span className={labelClass}>Kesempatan mengerjakan</span>
+                            <input type="number" min={1} max={10} value={f.maksPercobaan} onChange={(e) => setF({ ...f, maksPercobaan: Number(e.target.value) })} required className={inputClass} />
+                            <span className="text-[10px] text-slate-400">Bila lebih dari 1, nilai yang dipakai = nilai tertinggi.</span>
+                        </label>
+                    )}
                 </div>
                 <label className="flex items-center gap-2 text-sm text-slate-700">
                     <input type="checkbox" checked={f.acakSoal} onChange={(e) => setF({ ...f, acakSoal: e.target.checked })} />
@@ -87,7 +96,7 @@ export function FormKuis({ mapelId, awal, onClose, onSaved }: { mapelId: number;
                 {f.id && (
                     <label className="flex items-center gap-2 text-sm text-slate-700">
                         <input type="checkbox" checked={f.terbit} onChange={(e) => setF({ ...f, terbit: e.target.checked })} />
-                        Terbitkan (terlihat oleh siswa)
+                        {f.modeUjian ? "Terbitkan (siswa bisa mengerjakan sesuai jadwal)" : "Terbitkan (terlihat oleh siswa)"}
                     </label>
                 )}
                 <div className="flex justify-end gap-2">
@@ -295,7 +304,19 @@ Jawaban: 56
 // ---------- mengerjakan (siswa) ----------
 
 interface SoalSiswa { id: number; tipe: TipeSoal; pertanyaan: string; opsi: string[]; bobot: number }
-interface Sesi { percobaan: { id: number; ke: number; batas: string | null }; soal: SoalSiswa[]; jawaban: Record<string, string>; serverNow: string }
+interface Sesi {
+    percobaan: { id: number; ke: number; batas: string | null; pelanggaran?: number }; soal: SoalSiswa[]; jawaban: Record<string, string>; serverNow: string;
+    modeUjian?: boolean; maksPelanggaran?: number;
+}
+
+/** Layar penuh tersedia di perangkat ini (tidak di iPhone). */
+export const layarPenuhDidukung = () => typeof document !== "undefined" && !!document.fullscreenEnabled;
+export function masukLayarPenuh() {
+    if (layarPenuhDidukung() && !document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+}
+function keluarLayarPenuh() {
+    if (typeof document !== "undefined" && document.fullscreenElement) document.exitFullscreen().catch(() => {});
+}
 
 function fmtSisa(ms: number) {
     const t = Math.max(0, Math.floor(ms / 1000));
@@ -304,7 +325,7 @@ function fmtSisa(ms: number) {
     return j ? `${j}:${pad(m)}:${pad(d)}` : `${pad(m)}:${pad(d)}`;
 }
 
-export function KerjakanKuis({ kuisId, judul, onSelesai }: { kuisId: number; judul: string; onSelesai: (msg: string) => void }) {
+export function KerjakanKuis({ kuisId, judul, onSelesai, token }: { kuisId: number; judul: string; onSelesai: (msg: string) => void; token?: string }) {
     const { toast } = useToast();
     const [sesi, setSesi] = useState<Sesi | null>(null);
     const [gagal, setGagal] = useState("");
@@ -317,28 +338,79 @@ export function KerjakanKuis({ kuisId, judul, onSelesai }: { kuisId: number; jud
     const jawabanRef = useRef(jawaban);
     const selesaiRef = useRef(false);
     const kirimRef = useRef(false);
+    // Mode ujian
+    const [pelanggaran, setPelanggaran] = useState(0);
+    const [layarPenuh, setLayarPenuh] = useState(() => !layarPenuhDidukung() || !!document.fullscreenElement);
+    const [peringatan, setPeringatan] = useState("");
+    const terakhirLanggar = useRef(0);
 
     useEffect(() => {
         let ignore = false;
-        kirim(`/api/lms/kuis/${kuisId}/kerjakan`, "POST", { aksi: "mulai" }).then(({ ok, data }) => {
+        kirim(`/api/lms/kuis/${kuisId}/kerjakan`, "POST", { aksi: "mulai", token }).then(({ ok, data }) => {
             if (ignore) return;
-            if (!ok) { setGagal(data.message || "Gagal membuka kuis"); return; }
+            if (!ok) { keluarLayarPenuh(); setGagal(data.message || "Gagal membuka kuis"); return; }
             selisih.current = new Date(data.serverNow).getTime() - Date.now();
             jawabanRef.current = data.jawaban ?? {};
             setJawaban(data.jawaban ?? {});
+            setPelanggaran(data.percobaan?.pelanggaran ?? 0);
             setSesi(data);
         });
         return () => { ignore = true; };
-    }, [kuisId]);
+    }, [kuisId, token]);
+
+    const selesaiUjian = useCallback((msg: string) => {
+        selesaiRef.current = true;
+        keluarLayarPenuh();
+        onSelesai(msg);
+    }, [onSelesai]);
+
+    // Mode ujian: pindah tab / keluar layar penuh = pelanggaran (dicatat server); salin-tempel & klik kanan diblokir
+    const ujian = !!sesi?.modeUjian;
+    const maksPelanggaran = sesi?.maksPelanggaran ?? 5;
+    const laporPelanggaran = useCallback(async (jenis: string) => {
+        if (selesaiRef.current) return;
+        const now = Date.now();
+        if (now - terakhirLanggar.current < 2000) return; // pindah tab sekaligus keluar layar penuh = 1 pelanggaran
+        terakhirLanggar.current = now;
+        const { ok, data } = await kirim(`/api/lms/kuis/${kuisId}/kerjakan`, "POST", { aksi: "pelanggaran" });
+        if (!ok) return;
+        setPelanggaran(data.pelanggaran);
+        if (data.selesai) { selesaiUjian(data.message); return; }
+        setPeringatan(`${jenis}. Ini pelanggaran ke-${data.pelanggaran} dari batas ${maksPelanggaran}. Pada pelanggaran ke-${maksPelanggaran} jawaban Anda dikumpulkan otomatis.`);
+    }, [kuisId, maksPelanggaran, selesaiUjian]);
+
+    useEffect(() => {
+        if (!ujian) return;
+        const cekLayar = () => {
+            if (!layarPenuhDidukung()) return;
+            const penuh = !!document.fullscreenElement;
+            setLayarPenuh(penuh);
+            if (!penuh) laporPelanggaran("Anda keluar dari layar penuh");
+        };
+        const cekTab = () => { if (document.visibilityState === "hidden") laporPelanggaran("Anda berpindah tab/aplikasi"); };
+        const cegah = (e: Event) => e.preventDefault();
+        const jenisCegah = ["copy", "cut", "paste", "contextmenu"];
+        document.addEventListener("fullscreenchange", cekLayar);
+        document.addEventListener("visibilitychange", cekTab);
+        jenisCegah.forEach((j) => document.addEventListener(j, cegah));
+        // Layar penuh bisa sudah aktif sebelum pendengar terpasang (diminta saat tombol Mulai ditekan)
+        const sinkron = setTimeout(() => setLayarPenuh(!layarPenuhDidukung() || !!document.fullscreenElement), 300);
+        return () => {
+            clearTimeout(sinkron);
+            document.removeEventListener("fullscreenchange", cekLayar);
+            document.removeEventListener("visibilitychange", cekTab);
+            jenisCegah.forEach((j) => document.removeEventListener(j, cegah));
+        };
+    }, [ujian, laporPelanggaran]);
 
     const simpan = useCallback(async () => {
         if (selesaiRef.current) return;
         setStatus("menyimpan");
         const { ok, data } = await kirim(`/api/lms/kuis/${kuisId}/kerjakan`, "POST", { aksi: "simpan", jawaban: jawabanRef.current });
         if (ok) setStatus("tersimpan");
-        else if (data.message?.includes("habis")) { selesaiRef.current = true; onSelesai(data.message); }
+        else if (data.message?.includes("habis")) selesaiUjian(data.message);
         else setStatus("gagal");
-    }, [kuisId, onSelesai]);
+    }, [kuisId, selesaiUjian]);
 
     const kumpulkan = useCallback(async (otomatis = false) => {
         if (selesaiRef.current || kirimRef.current) return;
@@ -348,10 +420,9 @@ export function KerjakanKuis({ kuisId, judul, onSelesai }: { kuisId: number; jud
         kirimRef.current = false;
         setKirimProses(false);
         if (ok || data.message?.includes("habis")) {
-            selesaiRef.current = true;
-            onSelesai(ok ? (otomatis ? "Waktu habis — jawaban otomatis dikumpulkan" : "Jawaban dikumpulkan") : data.message);
+            selesaiUjian(ok ? (otomatis ? "Waktu habis — jawaban otomatis dikumpulkan" : "Jawaban dikumpulkan") : data.message);
         } else toast(data.message || "Gagal mengumpulkan, coba lagi", "error");
-    }, [kuisId, onSelesai, toast]);
+    }, [kuisId, selesaiUjian, toast]);
 
     // Simpan otomatis 1,5 detik setelah jawaban berubah
     useEffect(() => {
@@ -400,7 +471,25 @@ export function KerjakanKuis({ kuisId, judul, onSelesai }: { kuisId: number; jud
     };
 
     return (
-        <div className="grid lg:grid-cols-[1fr_260px] gap-4 items-start">
+        <div className={`grid lg:grid-cols-[1fr_260px] gap-4 items-start ${ujian ? "select-none" : ""}`}>
+            {ujian && !layarPenuh && (
+                <div className="fixed inset-0 z-50 bg-slate-900/95 text-white flex items-center justify-center p-6" role="alertdialog" aria-label="Kembali ke layar penuh">
+                    <div className="max-w-md text-center space-y-4">
+                        <p className="text-xl font-black">Ujian harus dikerjakan dalam layar penuh</p>
+                        <p className="text-sm text-white/80">Keluar dari layar penuh tercatat sebagai pelanggaran ({pelanggaran}/{maksPelanggaran}).</p>
+                        <button onClick={masukLayarPenuh} className="px-6 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 font-bold">Kembali ke Layar Penuh</button>
+                    </div>
+                </div>
+            )}
+            {peringatan && (
+                <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-6" role="alertdialog" aria-label="Peringatan pelanggaran">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-md p-6 space-y-4 text-center">
+                        <p className="text-lg font-black text-red-600">Peringatan Pelanggaran</p>
+                        <p className="text-sm text-slate-600">{peringatan}</p>
+                        <button onClick={() => { setPeringatan(""); masukLayarPenuh(); }} className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold">Saya mengerti, lanjutkan</button>
+                    </div>
+                </div>
+            )}
             <div className="space-y-4 order-2 lg:col-start-1 lg:row-start-1 lg:row-span-2">
                 <article className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
                     <div className="flex items-center gap-2 mb-3">
@@ -443,7 +532,7 @@ export function KerjakanKuis({ kuisId, judul, onSelesai }: { kuisId: number; jud
 
             <aside className="contents">
                 <div className="order-1 lg:col-start-2 lg:row-start-1 bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 truncate">{judul} · percobaan {sesi.percobaan.ke}</p>
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 truncate">{judul}{ujian ? " · ujian" : ` · percobaan ${sesi.percobaan.ke}`}</p>
                     {sisa !== null && (
                         <p className={`text-3xl font-black font-mono mt-1 ${sisa < 60000 ? "text-red-600 animate-pulse" : sisa < 300000 ? "text-amber-600" : "text-slate-800"}`} aria-live="polite">{fmtSisa(sisa)}</p>
                     )}
@@ -451,6 +540,7 @@ export function KerjakanKuis({ kuisId, judul, onSelesai }: { kuisId: number; jud
                     <p className={`text-[11px] mt-1 font-semibold ${status === "gagal" ? "text-red-600" : status === "tersimpan" ? "text-emerald-600" : "text-slate-400"}`}>
                         {status === "tersimpan" ? "✓ Jawaban tersimpan" : status === "menyimpan" ? "Menyimpan..." : status === "gagal" ? "Gagal menyimpan — periksa koneksi" : "Belum tersimpan"}
                     </p>
+                    {ujian && <p className={`text-[11px] mt-1 font-bold ${pelanggaran ? "text-red-600" : "text-slate-400"}`}>Pelanggaran: {pelanggaran}/{maksPelanggaran}</p>}
                 </div>
                 <div className="order-3 lg:col-start-2 lg:row-start-2 bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
                     <p className="text-xs font-bold text-slate-600 mb-2">{terjawab}/{sesi.soal.length} terjawab</p>

@@ -29,6 +29,7 @@ Runner (`tests/run.mjs`) otomatis:
 | `09-topik-jadwal` | Topik (buat, urut, pindah, hapus), terbit terjadwal materi & tugas, progres siswa, backup |
 | `10-kalender-nilai` | Kalender (rentang, isi per peran), rubrik tugas, bobot nilai akhir & KKM |
 | `11-ujian-manual` | Ujian offline / nilai manual: isi nilai, umumkan, rekap, kalender, notifikasi, akses, backup |
+| `12-ujian-cat-semester` | Semester aktif & filter per semester; ujian mapel UH/UTS/UAS mode CAT: token, 1 kesempatan, pelanggaran, monitoring (tambah waktu, kumpulkan, reset, token), nilai diumumkan, bobot per jenis ujian |
 | `beban` | Login, mulai, simpan, submit serentak (hanya dengan `--beban`) |
 
 Setiap baris hasil diawali `PASS` atau `FAIL`; runner keluar dengan kode 1 bila ada yang gagal.

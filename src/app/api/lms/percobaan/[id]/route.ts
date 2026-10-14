@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyLmsSession, aksesMapel } from '@/lib/lms';
-import { bacaJson, opsiSoal, poinSoal, hitungNilai } from '@/lib/kuis';
+import { bacaJson, opsiSoal, poinSoal, hitungNilai, hasilDiumumkan } from '@/lib/kuis';
 import { createAuditLog, getAuditIP } from '@/lib/audit-log';
 
 async function muat(id: number, user: { id: number; role: string }) {
@@ -25,6 +25,7 @@ export async function GET(_request: Request, ctx: RouteContext<'/api/lms/percoba
     const m = await muat(Number((await ctx.params).id), auth.user);
     if (!m || (!m.kelola && !m.p.selesaiAt)) return NextResponse.json({ message: 'Percobaan tidak ditemukan' }, { status: 404 });
     const { p, kelola } = m;
+    if (!kelola && !(await hasilDiumumkan(p.kuis))) return NextResponse.json({ message: 'Hasil ujian belum diumumkan guru' }, { status: 403 });
     const kunciTerbuka = kelola || (p.kuis.tampilkanJawaban && (!p.kuis.selesai || p.kuis.selesai < new Date()));
 
     const soal = await prisma.soalKuis.findMany({ where: { kuisId: p.kuisId }, orderBy: { urutan: 'asc' } });

@@ -6,7 +6,11 @@ import { useToast } from "@/components/Toast";
 import { Modal, kirim, inputClass, labelClass } from "./ui";
 
 type Nilai = number | "kumpul" | "revisi" | "na" | null;
-interface Kolom { kunci: string; jenis: "tugas" | "kuis" | "ujian"; id: number; judul: string; maks: number; terbit: boolean; offline?: boolean }
+interface Kolom { kunci: string; jenis: "tugas" | "kuis" | "ujian"; id: number; judul: string; maks: number; terbit: boolean; offline?: boolean; mapelUjian?: boolean; jenisUjian?: string; mode?: string }
+
+const LABEL_JENIS_UJIAN: Record<string, string> = { UH: "UH", UTS: "UTS", UAS: "UAS", LAIN: "Ujian" };
+/** Label kolom ujian: jenis + cara pelaksanaan (mis. "UTS · CAT", "UH · offline", "Ujian CAT sekolah"). */
+const labelUjian = (k: Kolom) => (k.mapelUjian ? `${LABEL_JENIS_UJIAN[k.jenisUjian ?? "LAIN"] ?? "Ujian"} · ${k.mode === "cat" ? "CAT" : "offline"}` : "Ujian CAT sekolah");
 interface Data {
     peran: "kelola" | "siswa";
     mapel: { id: number; nama: string; kelas: string };
@@ -15,24 +19,24 @@ interface Data {
     baris: { siswa: { id: number; nomorPeserta: string; nama: string }; nilai: Record<string, Nilai>; komponen: Record<Kat, number | null>; rataRata: number | null; tuntas: boolean | null }[];
     ringkasan: { rataKelas: number | null; tertinggi: number | null; terendah: number | null; tuntas: number | null };
 }
-type Kat = "tugas" | "kuis" | "ujian" | "presensi";
-interface Pengaturan { tugas: number; kuis: number; ujian: number; presensi: number; kkm: number }
-const KAT: [Kat, string][] = [["tugas", "Tugas"], ["kuis", "Kuis"], ["ujian", "Ujian"], ["presensi", "Presensi"]];
+type Kat = "tugas" | "kuis" | "uh" | "uts" | "uas" | "ujian" | "presensi";
+interface Pengaturan { tugas: number; kuis: number; uh: number; uts: number; uas: number; ujian: number; presensi: number; kkm: number }
+const KAT: [Kat, string][] = [["tugas", "Tugas"], ["kuis", "Kuis"], ["uh", "UH"], ["uts", "UTS"], ["uas", "UAS"], ["ujian", "Ujian lain"], ["presensi", "Presensi"]];
 
 /** Atur bobot nilai akhir per kategori & KKM. */
 function FormPengaturan({ mapelId, awal, onClose, onSaved }: { mapelId: number; awal: Pengaturan; onClose: () => void; onSaved: () => void }) {
     const { toast } = useToast();
     const [f, setF] = useState(awal);
-    const total = f.tugas + f.kuis + f.ujian + f.presensi;
+    const total = KAT.reduce((a, [k]) => a + (f[k] || 0), 0);
     const submit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const { ok, data } = await kirim(`/api/lms/mapel/${mapelId}`, "PUT", { bobotTugas: f.tugas, bobotKuis: f.kuis, bobotUjian: f.ujian, bobotPresensi: f.presensi, kkm: f.kkm });
+        const { ok, data } = await kirim(`/api/lms/mapel/${mapelId}`, "PUT", { bobotTugas: f.tugas, bobotKuis: f.kuis, bobotUjian: f.ujian, bobotPresensi: f.presensi, bobotUH: f.uh, bobotUTS: f.uts, bobotUAS: f.uas, kkm: f.kkm });
         if (ok) { toast("Pengaturan nilai disimpan", "success"); onSaved(); } else toast(data.message || "Gagal", "error");
     };
     return (
         <Modal judul="Pengaturan Nilai Akhir" onClose={onClose}>
             <form onSubmit={submit} className="space-y-4">
-                <p className="text-xs text-slate-500">Bobot tiap kategori (persen). Nilai akhir = rata-rata berbobot dari kategori yang sudah punya nilai. Biarkan semua 0 untuk rata-rata biasa semua tugas, kuis, dan ujian. Presensi = persentase hadir.</p>
+                <p className="text-xs text-slate-500">Bobot tiap kategori (persen). Nilai akhir = rata-rata berbobot dari kategori yang sudah punya nilai. Biarkan semua 0 untuk rata-rata biasa semua nilai. UH/UTS/UAS = ujian mapel sesuai jenisnya (offline maupun CAT); Ujian lain = ujian mapel berjenis lainnya + ujian CAT sekolah. Presensi = persentase hadir.</p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {KAT.map(([k, l]) => (
                         <label key={k} className="block"><span className={labelClass}>{l} (%)</span>
@@ -74,13 +78,13 @@ function Sel({ v, maks }: { v: Nilai; maks: number }) {
 }
 
 /** Tab "Nilai" di halaman mapel: rekap nilai tugas & ujian. */
-export function RekapNilai({ mapelId }: { mapelId: number }) {
+export function RekapNilai({ mapelId, semesterId }: { mapelId: number; semesterId?: number }) {
     const [d, setD] = useState<Data | null>(null);
     const [error, setError] = useState("");
     const [atur, setAtur] = useState(false);
 
-    const muat = useCallback(() => fetch(`/api/lms/mapel/${mapelId}/nilai`)
-        .then(async (r) => ({ ok: r.ok, data: await r.json().catch(() => ({})) })), [mapelId]);
+    const muat = useCallback(() => fetch(`/api/lms/mapel/${mapelId}/nilai${semesterId ? `?semester=${semesterId}` : ""}`)
+        .then(async (r) => ({ ok: r.ok, data: await r.json().catch(() => ({})) })), [mapelId, semesterId]);
 
     useEffect(() => {
         let ignore = false;
@@ -102,7 +106,7 @@ export function RekapNilai({ mapelId }: { mapelId: number }) {
 
     const unduhCsv = () => {
         const esc = (s: string) => `"${s.replace(/"/g, '""')}"`;
-        const out = [["No", "Nomor Peserta", "Nama", ...d.kolom.map((k) => esc(`${JENIS[k.jenis].label}: ${k.judul} (maks ${k.maks})`)),
+        const out = [["No", "Nomor Peserta", "Nama", ...d.kolom.map((k) => esc(`${k.jenis === "ujian" ? labelUjian(k) : JENIS[k.jenis].label}: ${k.judul} (maks ${k.maks})`)),
             ...katTampil.map(([, l]) => `${l} (bobot ${pg[katTampil.find((x) => x[1] === l)![0]]}%)`), labelAkhir, ...(pg.kkm ? [`Tuntas (KKM ${pg.kkm})`] : [])].join(",")];
         d.baris.forEach((b, i) => {
             out.push([
@@ -121,7 +125,7 @@ export function RekapNilai({ mapelId }: { mapelId: number }) {
         URL.revokeObjectURL(a.href);
     };
 
-    const pengaturanModal = atur && <FormPengaturan mapelId={mapelId} awal={{ tugas: pg.tugas, kuis: pg.kuis, ujian: pg.ujian, presensi: pg.presensi, kkm: pg.kkm }} onClose={() => setAtur(false)} onSaved={() => { setAtur(false); refresh(); }} />;
+    const pengaturanModal = atur && <FormPengaturan mapelId={mapelId} awal={{ tugas: pg.tugas, kuis: pg.kuis, uh: pg.uh ?? 0, uts: pg.uts ?? 0, uas: pg.uas ?? 0, ujian: pg.ujian, presensi: pg.presensi, kkm: pg.kkm }} onClose={() => setAtur(false)} onSaved={() => { setAtur(false); refresh(); }} />;
     if (d.kolom.length === 0 && !(pg.presensi > 0 && kelola)) {
         return (
             <>
@@ -162,7 +166,7 @@ export function RekapNilai({ mapelId }: { mapelId: number }) {
                                 <span className={`shrink-0 w-9 h-9 rounded-lg font-black text-xs flex items-center justify-center ${JENIS[k.jenis].cls}`}>{JENIS[k.jenis].huruf}</span>
                                 <span className="flex-1 min-w-0">
                                     <span className="block font-semibold text-slate-800 truncate">{k.judul}</span>
-                                    <span className="block text-[11px] text-slate-400">{k.jenis === "ujian" ? (k.offline ? "Ujian offline" : "Ujian CAT") : JENIS[k.jenis].label} · maks {k.maks}</span>
+                                    <span className="block text-[11px] text-slate-400">{k.jenis === "ujian" ? labelUjian(k) : JENIS[k.jenis].label} · maks {k.maks}</span>
                                 </span>
                                 <span className="text-lg"><Sel v={b?.nilai[k.kunci] ?? null} maks={k.maks} /></span>
                             </>
@@ -219,7 +223,7 @@ export function RekapNilai({ mapelId }: { mapelId: number }) {
                                         const label = <span className="line-clamp-2 normal-case font-semibold">{k.judul}</span>;
                                         return (
                                             <th key={k.kunci} className="px-3 py-2 text-center min-w-24 align-bottom" title={k.judul}>
-                                                <span className={`block text-[9px] font-black ${JENIS[k.jenis].teks}`}>{(k.offline ? "Ujian offline" : JENIS[k.jenis].label).toUpperCase()}{!k.terbit && (k.offline ? " · BELUM DIUMUMKAN" : " · DRAF")}</span>
+                                                <span className={`block text-[9px] font-black ${JENIS[k.jenis].teks}`}>{(k.jenis === "ujian" ? labelUjian(k) : JENIS[k.jenis].label).toUpperCase()}{!k.terbit && (k.mapelUjian ? " · BELUM DIUMUMKAN" : " · DRAF")}</span>
                                                 {h ? <Link href={h} className="hover:text-indigo-700">{label}</Link> : label}
                                                 <span className="block text-[9px] text-slate-400">maks {k.maks}</span>
                                             </th>

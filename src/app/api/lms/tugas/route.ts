@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { semesterAktif } from '@/lib/semester';
 import { verifyLmsSession, aksesMapel, teks, berkasDariBody, kolomBerkas, kodeSiswa, idSiswa, jadwalTerbit, topikValid, rubrikDariBody } from '@/lib/lms';
 import { createAuditLog, getAuditIP } from '@/lib/audit-log';
 
@@ -64,8 +65,9 @@ async function salinTugas(request: Request, user: { id: number; role: string }, 
   }
 
   const { judul, deskripsi, lampiran, namaLampiran, lampiranLain, tenggat, terimaTerlambat, nilaiMaks, rubrik } = sumber;
+  const semesterId = (await semesterAktif()).id;
   const dibuat = await prisma.$transaction(tujuan.map((mapelId) => prisma.tugas.create({
-    data: { mapelId, judul, deskripsi, lampiran, namaLampiran, lampiranLain, tenggat, terimaTerlambat, nilaiMaks, rubrik, terbit: false },
+    data: { mapelId, judul, deskripsi, lampiran, namaLampiran, lampiranLain, tenggat, terimaTerlambat, nilaiMaks, rubrik, terbit: false, semesterId },
   })));
   await createAuditLog({ action: 'SALIN_TUGAS', target: `Tugas #${sumber.id} ${sumber.judul}`, details: { ke: tujuan }, ipAddress: getAuditIP(request) });
   return NextResponse.json({ success: true, message: `Tugas disalin ke ${dibuat.length} mapel sebagai draf`, data: dibuat });
@@ -84,7 +86,7 @@ export async function POST(request: Request) {
     const hasil = await dataTugas(body, akses.mapel.kelas.nama, akses.mapel.id);
     if ('error' in hasil) return NextResponse.json({ message: hasil.error }, { status: 400 });
 
-    const tugas = await prisma.tugas.create({ data: { ...hasil.data, mapelId: akses.mapel.id } });
+    const tugas = await prisma.tugas.create({ data: { ...hasil.data, mapelId: akses.mapel.id, semesterId: (await semesterAktif()).id } });
     await createAuditLog({ action: 'CREATE_TUGAS', target: `Tugas #${tugas.id} ${tugas.judul}`, ipAddress: getAuditIP(request) });
     return NextResponse.json({ success: true, data: tugas });
   } catch (error) {

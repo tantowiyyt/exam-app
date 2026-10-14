@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { randomInt } from 'crypto';
 import { prisma } from '@/lib/prisma';
+import { semesterAktif, semesterDipilih } from '@/lib/semester';
 import { verifyLmsSession, aksesMapel, teks } from '@/lib/lms';
 import { checkRateLimit, resetRateLimit } from '@/lib/rate-limit';
 import { createAuditLog, getAuditIP } from '@/lib/audit-log';
@@ -38,13 +39,15 @@ export async function GET(request: Request) {
 
   try {
     const { user } = auth;
-    const akses = await aksesMapel(user, Number(new URL(request.url).searchParams.get('mapelId')));
+    const q = new URL(request.url).searchParams;
+    const akses = await aksesMapel(user, Number(q.get('mapelId')));
     if (!akses) return NextResponse.json({ message: 'Mapel tidak ditemukan atau bukan kelas Anda' }, { status: 404 });
     const kelola = akses.peran === 'kelola';
     const now = new Date();
+    const semester = await semesterDipilih(q.get('semester'));
 
     const sesi = await prisma.sesiPresensi.findMany({
-      where: { mapelId: akses.mapel.id },
+      where: { mapelId: akses.mapel.id, semesterId: semester.id },
       orderBy: [{ tanggal: 'desc' }, { id: 'desc' }],
       include: { presensi: { where: kelola ? {} : { userId: user.id } } },
     });
@@ -122,7 +125,7 @@ export async function POST(request: Request) {
     if (akses.peran !== 'kelola') return NextResponse.json({ message: 'Tidak memiliki akses ke mapel ini' }, { status: 403 });
     const hasil = dataSesi(body);
     if ('error' in hasil) return NextResponse.json({ message: hasil.error }, { status: 400 });
-    const sesi = await prisma.sesiPresensi.create({ data: { ...hasil.data, mapelId: akses.mapel.id, kode: kodeBaru() } });
+    const sesi = await prisma.sesiPresensi.create({ data: { ...hasil.data, mapelId: akses.mapel.id, kode: kodeBaru(), semesterId: (await semesterAktif()).id } });
     await createAuditLog({ action: 'CREATE_PRESENSI', target: `Presensi #${sesi.id} ${sesi.judul}`, ipAddress: getAuditIP(request) });
     return NextResponse.json({ success: true, data: sesi });
   } catch (error) {

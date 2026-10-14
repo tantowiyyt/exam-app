@@ -2,10 +2,12 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyLmsSession, aksesMapel, whereTugasSiswa, ditugaskan, sudahTerbit, urutUjianManual } from '@/lib/lms';
 import { nilaiTerbaik } from '@/lib/kuis';
+import { semesterDipilih } from '@/lib/semester';
 
-// Rekap nilai satu mapel: nilai tugas + kuis + ujian (CAT & offline/manual) per siswa.
+// Rekap nilai satu mapel per semester (?semester=id, bawaan semester aktif): tugas + kuis + presensi +
+// ujian mapel (UH/UTS/UAS/lainnya, offline atau CAT) + ujian CAT sekolah (hanya di semester aktif).
 // Pengelola melihat semua siswa kelas; siswa hanya baris miliknya.
-export async function GET(_request: Request, ctx: RouteContext<'/api/lms/mapel/[id]/nilai'>) {
+export async function GET(request: Request, ctx: RouteContext<'/api/lms/mapel/[id]/nilai'>) {
   const auth = await verifyLmsSession();
   if (!auth.ok) return NextResponse.json({ message: auth.message }, { status: auth.status });
 
@@ -24,18 +26,21 @@ export async function GET(_request: Request, ctx: RouteContext<'/api/lms/mapel/[
       })
       : await prisma.user.findMany({ where: { id: user.id }, select: { id: true, nomorPeserta: true, nama: true } });
     const ids = siswa.map((s) => s.id);
+    const semester = await semesterDipilih(new URL(request.url).searchParams.get('semester'));
+    const diSemester = { semesterId: semester.id };
 
     const [tugas, ujian, kuis, ujianManual] = await Promise.all([
       prisma.tugas.findMany({
-        where: { mapelId: mapel.id, ...(kelola ? {} : whereTugasSiswa(user.id)) },
+        where: { mapelId: mapel.id, ...diSemester, ...(kelola ? {} : whereTugasSiswa(user.id)) },
         orderBy: [{ createdAt: 'asc' }],
         select: {
           id: true, judul: true, nilaiMaks: true, tenggat: true, terbit: true, terbitPada: true, untukSiswa: true,
           pengumpulan: { where: { userId: { in: ids } }, select: { userId: true, nilai: true, dikumpulkanAt: true, status: true } },
         },
       }),
+      // Ujian CAT sekolah (dikelola admin) belum bersemester: ditampilkan di semester aktif saja
       prisma.ujian.findMany({
-        where: { mapelId: mapel.id },
+        where: { mapelId: semester.aktif ? mapel.id : -1 },
         orderBy: { createdAt: 'asc' },
         select: {
           id: true, nama: true,
@@ -43,7 +48,7 @@ export async function GET(_request: Request, ctx: RouteContext<'/api/lms/mapel/[
         },
       }),
       prisma.kuis.findMany({
-        where: { mapelId: mapel.id, ...(kelola ? {} : { terbit: true }) },
+        where: { mapelId: mapel.id, ...diSemester, modeUjian: false, ...(kelola ? {} : { terbit: true }) },
         orderBy: { createdAt: 'asc' },
         select: {
           id: true, judul: true, terbit: true, selesai: true,
@@ -51,27 +56,41 @@ export async function GET(_request: Request, ctx: RouteContext<'/api/lms/mapel/[
         },
       }),
       prisma.ujianManual.findMany({
-        where: { mapelId: mapel.id, ...(kelola ? {} : { terbit: true }) },
-        select: { id: true, judul: true, tanggal: true, nilaiMaks: true, terbit: true, nilai: { where: { userId: { in: ids } }, select: { userId: true, nilai: true } } },
+        where: { mapelId: mapel.id, ...diSemester, ...(kelola ? {} : { terbit: true }) },
+        select: {
+          id: true, judul: true, tanggal: true, nilaiMaks: true, terbit: true, jenis: true, mode: true, kuisId: true,
+          nilai: { where: { userId: { in: ids } }, select: { userId: true, nilai: true } },
+        },
       }),
     ]);
 
     // Presensi: % hadir dari pertemuan yang sudah berlangsung
     const sesiPresensi = await prisma.sesiPresensi.findMany({
-      where: { mapelId: mapel.id, tanggal: { lte: new Date() } },
+      where: { mapelId: mapel.id, ...diSemester, tanggal: { lte: new Date() } },
       select: { presensi: { where: { userId: { in: ids }, status: 'H' }, select: { userId: true } } },
     });
     const presensiSiswa = (id: number) => (sesiPresensi.length
       ? Math.round((sesiPresensi.filter((x) => x.presensi.some((p) => p.userId === id)).length / sesiPresensi.length) * 1000) / 10
       : null);
-    const bobot = { tugas: mapel.bobotTugas, kuis: mapel.bobotKuis, ujian: mapel.bobotUjian, presensi: mapel.bobotPresensi };
+    // Ujian mode CAT: nilai dari hasil mengerjakan kuis ujiannya
+    const kuisUjian = ujianManual.filter((u) => u.mode === 'cat' && u.kuisId).map((u) => u.kuisId!);
+    const hasilCat = kuisUjian.length
+      ? await prisma.percobaanKuis.findMany({ where: { kuisId: { in: kuisUjian }, userId: { in: ids } }, select: { kuisId: true, userId: true, selesaiAt: true, nilai: true, perluDinilai: true } })
+      : [];
+    const bobot = {
+      tugas: mapel.bobotTugas, kuis: mapel.bobotKuis, presensi: mapel.bobotPresensi,
+      uh: mapel.bobotUH, uts: mapel.bobotUTS, uas: mapel.bobotUAS, ujian: mapel.bobotUjian,
+    };
     const berbobot = Object.values(bobot).some((w) => w > 0);
 
     const kolom = [
       ...tugas.map((t) => ({ kunci: `t${t.id}`, jenis: 'tugas' as const, id: t.id, judul: t.judul, maks: t.nilaiMaks, terbit: t.terbit })),
       ...kuis.map((k) => ({ kunci: `k${k.id}`, jenis: 'kuis' as const, id: k.id, judul: k.judul, maks: 100, terbit: k.terbit })),
       ...ujian.map((u) => ({ kunci: `u${u.id}`, jenis: 'ujian' as const, id: u.id, judul: u.nama, maks: 100, terbit: true })),
-      ...urutUjianManual(ujianManual).map((u) => ({ kunci: `m${u.id}`, jenis: 'ujian' as const, id: u.id, judul: u.judul, maks: u.nilaiMaks, terbit: u.terbit, offline: true })),
+      ...urutUjianManual(ujianManual).map((u) => ({
+        kunci: `m${u.id}`, jenis: 'ujian' as const, id: u.id, judul: u.judul, maks: u.mode === 'cat' ? 100 : u.nilaiMaks, terbit: u.terbit,
+        offline: u.mode !== 'cat', mapelUjian: true, jenisUjian: u.jenis, mode: u.mode,
+      })),
     ];
 
     const baris = siswa.map((s) => {
@@ -80,7 +99,7 @@ export async function GET(_request: Request, ctx: RouteContext<'/api/lms/mapel/[
       const nilai: Record<string, number | 'kumpul' | 'revisi' | 'na' | null> = {};
       const persen: number[] = [];
       // Per kategori untuk nilai akhir berbobot
-      const kat: Record<'tugas' | 'kuis' | 'ujian', number[]> = { tugas: [], kuis: [], ujian: [] };
+      const kat: Record<'tugas' | 'kuis' | 'uh' | 'uts' | 'uas' | 'ujian', number[]> = { tugas: [], kuis: [], uh: [], uts: [], uas: [], ujian: [] };
       for (const t of tugas) {
         const p = t.pengumpulan.find((x) => x.userId === s.id);
         if (!p && !ditugaskan(t, s.id)) { nilai[`t${t.id}`] = 'na'; continue; }
@@ -108,16 +127,27 @@ export async function GET(_request: Request, ctx: RouteContext<'/api/lms/mapel/[
         if (h) kat.ujian.push(h.nilaiAkhir);
       }
       for (const u of ujianManual) {
-        // Ujian offline: siswa tanpa nilai (mis. belum ikut susulan) tidak dihitung
+        // Siswa tanpa nilai (mis. belum ikut / susulan) tidak dihitung
+        const k = ({ UH: 'uh', UTS: 'uts', UAS: 'uas' } as const)[u.jenis as 'UH' | 'UTS' | 'UAS'] ?? 'ujian';
+        if (u.mode === 'cat') {
+          const best = nilaiTerbaik(hasilCat.filter((x) => x.kuisId === u.kuisId && x.userId === s.id));
+          if (best?.perluDinilai) { nilai[`m${u.id}`] = 'kumpul'; continue; }
+          nilai[`m${u.id}`] = best ? best.nilai : null;
+          if (best) kat[k].push(best.nilai);
+          continue;
+        }
         const n = u.nilai.find((x) => x.userId === s.id);
         nilai[`m${u.id}`] = n ? n.nilai : null;
-        if (n) kat.ujian.push((n.nilai / u.nilaiMaks) * 100);
+        if (n) kat[k].push((n.nilai / u.nilaiMaks) * 100);
       }
-      persen.push(...kat.tugas, ...kat.kuis, ...kat.ujian);
+      persen.push(...kat.tugas, ...kat.kuis, ...kat.uh, ...kat.uts, ...kat.uas, ...kat.ujian);
       const rataList = (l: number[]) => (l.length ? l.reduce((a, b) => a + b, 0) / l.length : null);
       const bulat = (n: number | null) => (n === null ? null : Math.round(n * 10) / 10);
       const hadir = presensiSiswa(s.id);
-      const komponen = { tugas: bulat(rataList(kat.tugas)), kuis: bulat(rataList(kat.kuis)), ujian: bulat(rataList(kat.ujian)), presensi: hadir };
+      const komponen = {
+        tugas: bulat(rataList(kat.tugas)), kuis: bulat(rataList(kat.kuis)), presensi: hadir,
+        uh: bulat(rataList(kat.uh)), uts: bulat(rataList(kat.uts)), uas: bulat(rataList(kat.uas)), ujian: bulat(rataList(kat.ujian)),
+      };
 
       // Tanpa bobot: rata-rata semua nilai. Dengan bobot: rata-rata berbobot kategori yang sudah punya nilai.
       let rataRata: number | null;
@@ -137,6 +167,7 @@ export async function GET(_request: Request, ctx: RouteContext<'/api/lms/mapel/[
     return NextResponse.json({
       peran,
       mapel: { id: mapel.id, nama: mapel.nama, kelas: mapel.kelas.nama },
+      semester: { id: semester.id, label: semester.label, aktif: semester.aktif },
       pengaturan: { ...bobot, kkm: mapel.kkm, berbobot },
       kolom,
       baris,

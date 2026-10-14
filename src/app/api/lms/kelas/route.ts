@@ -15,7 +15,7 @@ export async function GET() {
 
     // Siswa: tugas yang belum dikumpulkan / diminta revisi (jumlah per mapel + daftar terdekat tenggatnya)
     let tugasBelum: Record<number, number> = {};
-    let agenda: { id: number; jenis: 'tugas' | 'kuis'; judul: string; tenggat: Date | null; revisi: boolean; mapel: { id: number; nama: string } }[] = [];
+    let agenda: { id: number; jenis: 'tugas' | 'kuis'; ujian?: boolean; judul: string; tenggat: Date | null; revisi: boolean; mapel: { id: number; nama: string } }[] = [];
     if (user.role === 'PESERTA' && mapel.length) {
       const rows = await prisma.tugas.findMany({
         where: {
@@ -39,8 +39,8 @@ export async function GET() {
           AND: [{ OR: [{ mulai: null }, { mulai: { lte: now } }] }, { OR: [{ selesai: null }, { selesai: { gt: now } }] }],
           percobaan: { none: { userId: user.id, selesaiAt: { not: null } } },
         },
-        select: { id: true, judul: true, selesai: true, mapel: { select: { id: true, nama: true } } },
-      })).map((k) => ({ id: k.id, jenis: 'kuis' as const, judul: k.judul, tenggat: k.selesai, revisi: false, mapel: k.mapel }));
+        select: { id: true, judul: true, selesai: true, modeUjian: true, mapel: { select: { id: true, nama: true } } },
+      })).map((k) => ({ id: k.id, jenis: 'kuis' as const, ujian: k.modeUjian, judul: k.judul, tenggat: k.selesai, revisi: false, mapel: k.mapel }));
       tugasBelum = [...tugas, ...kuis].reduce<Record<number, number>>((acc, t) => ({ ...acc, [t.mapel.id]: (acc[t.mapel.id] ?? 0) + 1 }), {});
       // Revisi dulu, lalu tenggat terdekat (yang sudah lewat paling atas), tanpa tenggat di akhir
       agenda = [...tugas, ...kuis]

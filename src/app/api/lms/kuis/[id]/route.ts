@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyLmsSession, aksesMapel } from '@/lib/lms';
-import { opsiSoal, statusBuka, tutupYangKedaluwarsa, batasWaktu, nilaiTerbaik } from '@/lib/kuis';
+import { opsiSoal, statusBuka, tutupYangKedaluwarsa, batasWaktu, nilaiTerbaik, hasilDiumumkan } from '@/lib/kuis';
 
-const pilihPercobaan = { id: true, userId: true, ke: true, mulaiAt: true, selesaiAt: true, nilai: true, skor: true, skorMaks: true, perluDinilai: true } as const;
+const pilihPercobaan = { id: true, userId: true, ke: true, mulaiAt: true, selesaiAt: true, nilai: true, skor: true, skorMaks: true, perluDinilai: true, pelanggaran: true, tambahanMenit: true } as const;
 
 // Detail kuis: pengelola melihat soal + kunci + hasil semua siswa; siswa melihat info & percobaannya sendiri
 export async function GET(_request: Request, ctx: RouteContext<'/api/lms/kuis/[id]'>) {
@@ -31,18 +31,23 @@ export async function GET(_request: Request, ctx: RouteContext<'/api/lms/kuis/[i
     };
 
     if (!kelola) {
-      const percobaan = await prisma.percobaanKuis.findMany({ where: { kuisId: kuis.id, userId: user.id }, orderBy: { ke: 'asc' }, select: pilihPercobaan });
-      const aktif = percobaan.find((p) => !p.selesaiAt);
+      const semua = await prisma.percobaanKuis.findMany({ where: { kuisId: kuis.id, userId: user.id }, orderBy: { ke: 'asc' }, select: pilihPercobaan });
+      const aktif = semua.find((p) => !p.selesaiAt);
+      // Mode ujian: nilai disembunyikan sampai guru mengumumkan
+      const umum = await hasilDiumumkan(kuis);
+      const percobaan = umum ? semua : semua.map((p) => ({ ...p, nilai: null, skor: null, skorMaks: null }));
+      const { token, ...infoSiswa } = info;
       return NextResponse.json({
         peran: akses.peran,
         mapel,
-        kuis: info,
+        kuis: { ...infoSiswa, perluToken: !!token },
         percobaan,
+        hasilDiumumkan: umum,
         aktif: aktif ? { id: aktif.id, batas: batasWaktu(kuis, aktif) } : null,
-        sisaPercobaan: Math.max(0, kuis.maksPercobaan - percobaan.length),
-        terbaik: nilaiTerbaik(percobaan),
+        sisaPercobaan: Math.max(0, kuis.maksPercobaan - semua.length),
+        terbaik: umum ? nilaiTerbaik(semua) : null,
         // Kunci jawaban dibuka setelah kuis ditutup (bila ada waktu tutup)
-        kunciTerbuka: kuis.tampilkanJawaban && (!kuis.selesai || kuis.selesai < new Date()),
+        kunciTerbuka: umum && kuis.tampilkanJawaban && (!kuis.selesai || kuis.selesai < new Date()),
       });
     }
 

@@ -6,6 +6,7 @@ import { prisma } from '@/lib/prisma';
 import { verifyAdminSession } from '@/lib/admin-auth';
 import { cache } from '@/lib/cache';
 import { createAuditLog, getAuditIP, AUDIT_ACTIONS } from '@/lib/audit-log';
+import { isiSemesterKosong, semesterAktif } from '@/lib/semester';
 
 type Row = Record<string, unknown> & { id: number };
 
@@ -44,7 +45,7 @@ type TableName =
   | 'users' | 'ujian' | 'bagianUjian' | 'soal' | 'jawabanUjian'
   | 'historiUjian' | 'sesiUjian' | 'pelanggaran' | 'userActivity' | 'ipRules' | 'auditLogs'
   | 'kelas' | 'mapel' | 'materi' | 'tugas' | 'pengumpulanTugas' | 'pengumuman' | 'komentar'
-  | 'kuis' | 'soalKuis' | 'percobaanKuis' | 'sesiPresensi' | 'presensi' | 'topik' | 'ujianManual' | 'nilaiUjianManual';
+  | 'kuis' | 'soalKuis' | 'percobaanKuis' | 'sesiPresensi' | 'presensi' | 'topik' | 'ujianManual' | 'nilaiUjianManual' | 'semester';
 
 export async function GET(request: Request) {
   const auth = await verifyAdminSession();
@@ -86,6 +87,7 @@ export async function GET(request: Request) {
       prisma.sesiPresensi.findMany({ orderBy: { id: 'asc' } }),
       prisma.presensi.findMany({ orderBy: { id: 'asc' } }),
     ]);
+    const semester = await prisma.semester.findMany({ orderBy: { id: 'asc' } });
     const [ujianManual, nilaiUjianManual] = await Promise.all([
       prisma.ujianManual.findMany({ orderBy: { id: 'asc' } }),
       prisma.nilaiUjianManual.findMany({ orderBy: { id: 'asc' } }),
@@ -98,7 +100,7 @@ export async function GET(request: Request) {
       lampiranLms: await bacaFolder(LMS_DIR, LMS_NAME),
       data: {
         users, ujian, bagianUjian, soal, jawabanUjian, historiUjian, sesiUjian, pelanggaran, userActivity, ipRules, auditLogs, pengaturanAplikasi,
-        kelas, mapel, materi, materiDibaca, tugas, pengumpulanTugas, pengumuman, komentar, kuis, soalKuis, percobaanKuis, sesiPresensi, presensi, topik, ujianManual, nilaiUjianManual,
+        kelas, mapel, materi, materiDibaca, tugas, pengumpulanTugas, pengumuman, komentar, kuis, soalKuis, percobaanKuis, sesiPresensi, presensi, topik, ujianManual, nilaiUjianManual, semester,
       },
     };
 
@@ -164,6 +166,7 @@ export async function POST(request: Request) {
         await tx.bagianUjian.deleteMany();
         await tx.ujian.deleteMany();
         await tx.topik.deleteMany();
+        await tx.semester.deleteMany();
         await tx.mapel.deleteMany();
         await tx.kelas.deleteMany();
         await tx.user.deleteMany();
@@ -180,6 +183,7 @@ export async function POST(request: Request) {
       await upsertAll('users', (r) => tx.user.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
       await upsertAll('kelas', (r) => tx.kelas.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
       await upsertAll('mapel', (r) => tx.mapel.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
+      await upsertAll('semester', (r) => tx.semester.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
       await upsertAll('topik', (r) => tx.topik.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
       await upsertAll('ujian', (r) => tx.ujian.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
       await upsertAll('bagianUjian', (r) => tx.bagianUjian.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
@@ -232,6 +236,9 @@ export async function POST(request: Request) {
     // Pulihkan file foto & lampiran LMS
     if (fotos) counts.fotos = await tulisFolder(FOTO_DIR, FOTO_NAME, fotos);
     if (lampiranLms) counts.lampiranLms = await tulisFolder(LMS_DIR, LMS_NAME, lampiranLms);
+
+    // Backup lama (sebelum fitur semester): data tanpa semester masuk ke semester aktif
+    await isiSemesterKosong((await semesterAktif()).id);
 
     cache.clear();
     await createAuditLog({

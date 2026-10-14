@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/Toast";
 import { HeaderHalaman } from "@/components/AppShell";
+import { PengaturanSemester } from "@/components/Semester";
 
 // Pengaturan identitas aplikasi: nama aplikasi, nama & alamat sekolah, logo, modul ujian CAT.
 // Disimpan di tabel PengaturanAplikasi (kunci instansi.*), dipakai juga untuk kop kartu ujian.
@@ -114,6 +115,7 @@ export default function PengaturanPage() {
                         </div>
                     </form>
                 )}
+                <div className="mt-6"><PengaturanSemester /></div>
             </main>
         </div>
     );

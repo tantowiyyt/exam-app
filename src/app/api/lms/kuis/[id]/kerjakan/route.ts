@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
-import { verifyLmsSession, aksesMapel } from '@/lib/lms';
+import { verifyLmsSession, aksesMapel, teks } from '@/lib/lms';
+import { checkRateLimit, resetRateLimit } from '@/lib/rate-limit';
 import { bacaJson, batasWaktu, waktuHabis, selesaikan, soalTanpaKunci, statusBuka } from '@/lib/kuis';
 
 /** Jawaban dari body: hanya id soal kuis ini, teks dibatasi. */
@@ -19,6 +20,8 @@ function bersihkan(raw: unknown, ids: Set<number>): Record<string, string> {
  * aksi "mulai": buka percobaan baru (atau lanjutkan yang sedang berjalan) -> soal tanpa kunci.
  * aksi "simpan": simpan jawaban sementara. aksi "selesai": kumpulkan & nilai.
  * Waktu dihitung server; percobaan yang lewat batas dinilai dari jawaban tersimpan.
+ * Mode ujian (CAT per mapel): mulai butuh token (bila diatur), aksi "pelanggaran" mencatat pindah tab /
+ * keluar layar penuh — pelanggaran ke-N (maksPelanggaran) = jawaban dikumpulkan otomatis.
  */
 export async function POST(request: Request, ctx: RouteContext<'/api/lms/kuis/[id]/kerjakan'>) {
   const auth = await verifyLmsSession();
@@ -45,7 +48,15 @@ export async function POST(request: Request, ctx: RouteContext<'/api/lms/kuis/[i
         const status = statusBuka(kuis);
         if (status === 'belum') return NextResponse.json({ message: 'Kuis belum dibuka' }, { status: 409 });
         if (status === 'tutup') return NextResponse.json({ message: 'Kuis sudah ditutup' }, { status: 409 });
-        if (semua.length >= kuis.maksPercobaan) return NextResponse.json({ message: 'Kesempatan mengerjakan sudah habis' }, { status: 409 });
+        if (semua.length >= kuis.maksPercobaan) return NextResponse.json({ message: kuis.modeUjian ? 'Anda sudah mengerjakan ujian ini' : 'Kesempatan mengerjakan sudah habis' }, { status: 409 });
+        if (kuis.modeUjian && kuis.token) {
+          const batasCoba = checkRateLimit(`token-ujian:${user.id}`);
+          if (!batasCoba.allowed) return NextResponse.json({ message: `Terlalu banyak percobaan token. Coba lagi dalam ${Math.ceil(batasCoba.retryAfterMs / 60000)} menit.` }, { status: 429 });
+          if (teks(body.token, 20).toUpperCase().replace(/\s+/g, '') !== kuis.token) {
+            return NextResponse.json({ message: 'Token ujian salah. Minta token kepada guru/pengawas.', perluToken: true }, { status: 403 });
+          }
+          resetRateLimit(`token-ujian:${user.id}`);
+        }
         const ke = Math.max(0, ...semua.map((p) => p.ke)) + 1;
         try {
           aktif = await prisma.percobaanKuis.create({ data: { kuisId: kuis.id, userId: user.id, ke } });
@@ -57,7 +68,9 @@ export async function POST(request: Request, ctx: RouteContext<'/api/lms/kuis/[i
       }
       const soal = await prisma.soalKuis.findMany({ where: { kuisId: kuis.id } });
       return NextResponse.json({
-        percobaan: { id: aktif.id, ke: aktif.ke, mulaiAt: aktif.mulaiAt, batas: batasWaktu(kuis, aktif) },
+        percobaan: { id: aktif.id, ke: aktif.ke, mulaiAt: aktif.mulaiAt, batas: batasWaktu(kuis, aktif), pelanggaran: aktif.pelanggaran },
+        modeUjian: kuis.modeUjian,
+        maksPelanggaran: kuis.maksPelanggaran,
         soal: soalTanpaKunci(soal, kuis.acakSoal, aktif.id),
         jawaban: bacaJson(aktif.jawaban, {}),
         serverNow: new Date(),
@@ -65,6 +78,16 @@ export async function POST(request: Request, ctx: RouteContext<'/api/lms/kuis/[i
     }
 
     if (!aktif) return NextResponse.json({ message: 'Tidak ada kuis yang sedang dikerjakan' }, { status: 409 });
+
+    if (body.aksi === 'pelanggaran') {
+      if (!kuis.modeUjian) return NextResponse.json({ message: 'Aksi tidak dikenal' }, { status: 400 });
+      const p = await prisma.percobaanKuis.update({ where: { id: aktif.id }, data: { pelanggaran: { increment: 1 } } });
+      if (p.pelanggaran >= kuis.maksPelanggaran) {
+        await selesaikan(p, kuis.id);
+        return NextResponse.json({ success: true, pelanggaran: p.pelanggaran, selesai: true, message: `Batas pelanggaran (${kuis.maksPelanggaran}) tercapai. Jawaban dikumpulkan otomatis.` });
+      }
+      return NextResponse.json({ success: true, pelanggaran: p.pelanggaran, selesai: false });
+    }
     const ids = new Set((await prisma.soalKuis.findMany({ where: { kuisId: kuis.id }, select: { id: true } })).map((s) => s.id));
     const jawaban = bersihkan(body.jawaban, ids);
 
@@ -74,7 +97,9 @@ export async function POST(request: Request, ctx: RouteContext<'/api/lms/kuis/[i
     }
     if (body.aksi === 'selesai') {
       const hasil = await selesaikan(aktif, kuis.id, jawaban);
-      return NextResponse.json({ success: true, data: { id: hasil.id, nilai: hasil.nilai, perluDinilai: hasil.perluDinilai } });
+      // Mode ujian: nilai baru terlihat setelah guru mengumumkan
+      const umum = !kuis.modeUjian || !!(await prisma.ujianManual.findFirst({ where: { kuisId: kuis.id, terbit: true } }));
+      return NextResponse.json({ success: true, data: { id: hasil.id, nilai: umum ? hasil.nilai : null, perluDinilai: hasil.perluDinilai } });
     }
     return NextResponse.json({ message: 'Aksi tidak dikenal' }, { status: 400 });
   } catch (error) {
