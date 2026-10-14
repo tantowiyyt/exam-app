@@ -1,0 +1,224 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id             Int      @id @default(autoincrement())
+  nomorPeserta   String   @unique
+  nama           String
+  password       String
+  role           String   @default("PESERTA") // ADMIN atau PESERTA
+  foto           String?  // Path foto profil
+  nik            String?  // Nomor Induk Kependudukan
+  tempatLahir    String?
+  tanggalLahir   DateTime?
+  jenisKelamin   String?  // L atau P
+  alamat         String?
+  noHp           String?
+  kelas          String   @default("") // Kelas/rombel peserta, mis. "XII IPA 1"
+  ruang          String   @default("")
+  sesi           String   @default("")
+  tanggalUjian   String?  // Tanggal ujian (YYYY-MM-DD) untuk auto-assign
+  nilai          Int?
+  sudahUjian     Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  jawaban        JawabanUjian[]
+  histori        HistoriUjian[]
+  pelanggaran    Pelanggaran[]
+  activities     UserActivity[]
+  auditLogs      AuditLog[]
+  sesiUjian      SesiUjian[]
+
+  @@index([role])
+  @@index([sudahUjian])
+  @@index([ruang])
+  @@index([sesi])
+  @@index([tanggalUjian])
+}
+
+model Soal {
+  id             Int      @id @default(autoincrement())
+  ujianId        Int?     // null = soal global, ada = soal ujian tertentu
+  bagianId       Int?     // null = tidak ada bagian, ada = bagian ujian tertentu
+  pertanyaan     String
+  opsiA          String
+  opsiB          String
+  opsiC          String
+  opsiD          String
+  jawabanBenar   String
+  mataPelajaran  String   @default("Umum")
+  bobot          Float    @default(1)
+  createdAt      DateTime @default(now())
+  jawaban        JawabanUjian[]
+  ujian          Ujian?   @relation(fields: [ujianId], references: [id])
+  bagian         BagianUjian? @relation(fields: [bagianId], references: [id])
+
+  @@index([mataPelajaran])
+  @@index([ujianId])
+  @@index([bagianId])
+}
+
+model BagianUjian {
+  id             Int      @id @default(autoincrement())
+  ujianId        Int
+  nama           String   // Nama bagian bebas (contoh: "Pengetahuan Dasar", "Tes Skolastik")
+  urutan         Int      @default(1) // Urutan tampil
+  durasiMenit    Int?     // null = gunakan durasi ujian utama
+  batasSoal      Int?     // null = ambil semua soal di bagian ini
+  createdAt      DateTime @default(now())
+  soal           Soal[]
+  ujian          Ujian?   @relation(fields: [ujianId], references: [id])
+
+  @@index([ujianId])
+}
+
+model JawabanUjian {
+  id             Int      @id @default(autoincrement())
+  userId         Int
+  soalId         Int
+  ujianId        Int?     // null = ujian lama, ada = ujian tertentu
+  jawabanPeserta String?  // 'A','B','C','D' atau null (tidak dijawab)
+  jawabanBenar   String
+  benar          Boolean
+  mataPelajaran  String
+  createdAt      DateTime @default(now())
+
+  user           User     @relation(fields: [userId], references: [id])
+  soal           Soal     @relation(fields: [soalId], references: [id])
+  ujian          Ujian?   @relation(fields: [ujianId], references: [id])
+
+  @@unique([userId, soalId])
+  @@index([userId])
+  @@index([soalId])
+  @@index([ujianId])
+  @@index([mataPelajaran])
+}
+
+model Ujian {
+  id             Int       @id @default(autoincrement())
+  nama           String    // Nama ujian: "Ujian TIK Semester 1"
+  durasiMenit    Int       @default(60)
+  jadwalMulai    DateTime? // Waktu mulai ujian (null = belum dijadwalkan)
+  jadwalSelesai  DateTime? // Waktu selesai ujian
+  isActive       Boolean   @default(false) // Ujian yang aktif saat ini
+  poolSize       Int?      // Jumlah soal yang diambil dari pool (null = semua soal)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  soal           Soal[]
+  jawaban        JawabanUjian[]
+  histori        HistoriUjian[]
+  bagian         BagianUjian[]
+  sesiUjian      SesiUjian[]
+
+  @@index([isActive])
+}
+
+model HistoriUjian {
+  id             Int      @id @default(autoincrement())
+  userId         Int
+  ujianId        Int?     // null = ujian lama, ada = ujian tertentu
+  waktuMulai     DateTime
+  waktuSelesai   DateTime @default(now())
+  totalSoal      Int
+  jumlahBenar    Int
+  jumlahSalah    Int
+  nilaiAkhir     Int
+  skorPerMapel   String?  // JSON string: {"TIK":80,"Matematika":90,...}
+  skorPerBagian  String?  // JSON string: {"Bagian 1":85,"Bagian 2":90,...}
+
+  user           User     @relation(fields: [userId], references: [id])
+  ujian          Ujian?   @relation(fields: [ujianId], references: [id])
+
+  @@index([userId])
+}
+
+// Sesi pengerjaan ujian di server: waktu mulai resmi, jawaban tersimpan otomatis, tahap bagian
+model SesiUjian {
+  id             Int       @id @default(autoincrement())
+  userId         Int
+  ujianId        Int?
+  waktuMulai     DateTime  @default(now())
+  tambahanMenit  Int       @default(0)  // perpanjangan waktu dari pengawas
+  jawaban        String    @default("{}") // JSON {soalId: "A"}
+  ragu           String    @default("[]") // JSON [soalId]
+  tahap          Int       @default(0)  // indeks bagian aktif (mode bagian berwaktu)
+  tahapMulai     DateTime  @default(now())
+  selesai        Boolean   @default(false)
+  updatedAt      DateTime  @updatedAt
+
+  user           User      @relation(fields: [userId], references: [id])
+  ujian          Ujian?    @relation(fields: [ujianId], references: [id])
+
+  @@index([userId, selesai])
+  @@index([ujianId])
+}
+
+// Pengaturan aplikasi (key-value): identitas instansi, penandatangan kartu, dll.
+model PengaturanAplikasi {
+  key            String   @id
+  value          String
+  updatedAt      DateTime @updatedAt
+}
+
+model Pelanggaran {
+  id             Int      @id @default(autoincrement())
+  userId         Int
+  jenis          String   // TAB_SWITCH, PASTE, RIGHT_CLICK, KEYBOARD_SHORTCUT, FULLSCREEN_EXIT
+  keterangan     String?
+  createdAt      DateTime @default(now())
+
+  user           User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model UserActivity {
+  id             Int      @id @default(autoincrement())
+  userId         Int
+  activity       String   // LOGIN, LOGOUT, START_UJIAN, ANSWER_SOAL, SUBMIT_UJIAN, IDLE
+  details        String?  // JSON string untuk detail tambahan
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime @default(now())
+
+  user           User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([activity])
+  @@index([createdAt])
+}
+
+model IPRule {
+  id             Int      @id @default(autoincrement())
+  ipAddress      String   // IP address atau CIDR (e.g., 192.168.1.0/24)
+  type           String   // WHITELIST atau BLACKLIST
+  keterangan     String?  // Keterangan/rule name
+  createdBy      String?  // Admin yang membuat rule
+  createdAt      DateTime @default(now())
+
+  @@index([ipAddress])
+  @@index([type])
+}
+
+model AuditLog {
+  id             Int      @id @default(autoincrement())
+  userId         Int?
+  action         String   // LOGIN, LOGOUT, CREATE_SOAL, DELETE_SOAL, EDIT_UJIAN, etc.
+  target         String?  // Target yang diubah (e.g., "Soal #123", "Peserta ABC")
+  details        String?  // JSON string untuk detail tambahan
+  ipAddress      String?
+  createdAt      DateTime @default(now())
+
+  user           User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
