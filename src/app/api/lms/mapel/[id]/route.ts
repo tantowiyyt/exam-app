@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { verifyLmsSession, aksesMapel, whereTugasSiswa, whereTerbit, idSiswa, ditugaskan } from '@/lib/lms';
 import { statusBuka, nilaiTerbaik, tutupYangKedaluwarsa } from '@/lib/kuis';
 import { semesterDipilih, daftarSemester } from '@/lib/semester';
+import { whereAnggota } from '@/lib/anggota';
 
 // Isi satu mapel: pengumuman, materi, tugas, ujian, (pengelola) daftar siswa
 export async function GET(request: Request, ctx: RouteContext<'/api/lms/mapel/[id]'>) {
@@ -61,7 +62,7 @@ export async function GET(request: Request, ctx: RouteContext<'/api/lms/mapel/[i
         },
       }),
       prisma.user.findMany({
-        where: { role: 'PESERTA', kelas: mapel.kelas.nama },
+        where: await whereAnggota(mapel.kelas.nama, semester),
         select: { id: true, nomorPeserta: true, nama: true },
         orderBy: { nama: 'asc' },
       }),

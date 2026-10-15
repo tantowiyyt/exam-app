@@ -214,6 +214,12 @@ export function opsHapusDataLms(userId: number) {
     prisma.bankSoal.deleteMany({ where: { pemilikId: userId } }),
     prisma.deskripsiRapor.deleteMany({ where: { userId } }),
     prisma.catatanRapor.deleteMany({ where: { userId } }),
+    prisma.dataRapor.deleteMany({ where: { userId } }),
+    prisma.anggotaKelas.deleteMany({ where: { userId } }),
+    prisma.permintaanReset.deleteMany({ where: { userId } }),
+    prisma.kodeReset.deleteMany({ where: { userId } }),
+    prisma.jurnalMengajar.deleteMany({ where: { guruId: userId } }),
+    prisma.kelas.updateMany({ where: { waliId: userId }, data: { waliId: null } }),
     prisma.pengumuman.updateMany({ where: { userId }, data: { userId: null } }),
     prisma.mapel.updateMany({ where: { guruId: userId }, data: { guruId: null } }),
   ];

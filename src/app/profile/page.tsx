@@ -21,6 +21,8 @@ export default function ProfilePage() {
   const [jenisKelamin, setJenisKelamin] = useState("");
   const [alamat, setAlamat] = useState("");
   const [noHp, setNoHp] = useState("");
+  const [email, setEmail] = useState("");
+  const [notifWa, setNotifWa] = useState(true);
   const [error, setError] = useState("");
   const [sukses, setSukses] = useState("");
   const [loading, setLoading] = useState(false);
@@ -43,6 +45,8 @@ export default function ProfilePage() {
         setJenisKelamin(d.jenisKelamin || "");
         setAlamat(d.alamat || "");
         setNoHp(d.noHp || "");
+        setEmail(d.email || "");
+        setNotifWa(d.notifWa !== false);
       })
       .catch(() => { if (!ignore) router.push("/login"); })
       .finally(() => { if (!ignore) setFetching(false); });
@@ -78,7 +82,7 @@ export default function ProfilePage() {
       const res = await fetch("/api/me", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ foto, nik, tempatLahir, tanggalLahir, jenisKelamin, alamat, noHp }),
+        body: JSON.stringify({ foto, nik, tempatLahir, tanggalLahir, jenisKelamin, alamat, noHp, email, notifWa }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.message || "Gagal menyimpan data."); return; }
@@ -160,6 +164,14 @@ export default function ProfilePage() {
                   <label htmlFor="hp" className={labelClass}>No. HP / WhatsApp</label>
                   <input id="hp" type="tel" required value={noHp} onChange={(e) => setNoHp(e.target.value)} placeholder="08xxxxxxxxxx" className={`${inputClass} font-mono`} />
                 </div>
+              </div>
+              <div>
+                <label htmlFor="email" className={labelClass}>Email (opsional)</label>
+                <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="nama@contoh.com" className={inputClass} />
+                <p className="text-[11px] text-slate-500 mt-1">Email dan No. HP dipakai untuk kode lupa password dan pengingat tugas/ujian (bila diaktifkan sekolah).</p>
+                <label className="mt-2 flex items-center gap-2 text-sm text-slate-700">
+                  <input type="checkbox" checked={notifWa} onChange={(e) => setNotifWa(e.target.checked)} /> Terima pengingat lewat WhatsApp/email
+                </label>
               </div>
               <div>
                 <label htmlFor="alamat" className={labelClass}>Alamat Lengkap</label>

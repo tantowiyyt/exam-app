@@ -4,6 +4,7 @@ import { verifyAdminSession } from '@/lib/admin-auth';
 import { createAuditLog, getAuditIP } from '@/lib/audit-log';
 import { teks } from '@/lib/lms';
 
+
 // Kelola Kelas & Mapel (LMS). Anggota kelas = peserta dengan User.kelas == Kelas.nama.
 
 async function guruValid(guruId: unknown): Promise<number | null | false> {
@@ -69,7 +70,9 @@ export async function POST(request: Request) {
       if (await prisma.kelas.findUnique({ where: { nama } })) {
         return NextResponse.json({ message: 'Kelas dengan nama itu sudah ada' }, { status: 400 });
       }
-      const kelas = await prisma.kelas.create({ data: { nama, keterangan: teks(body.keterangan, 200) } });
+      const waliId = await guruValid(body.waliId);
+      if (waliId === false) return NextResponse.json({ message: 'Wali kelas tidak valid' }, { status: 400 });
+      const kelas = await prisma.kelas.create({ data: { nama, keterangan: teks(body.keterangan, 200), waliId } });
       await createAuditLog({ action: 'CREATE_KELAS', target: `Kelas ${nama}`, ipAddress: getAuditIP(request) });
       return NextResponse.json({ success: true, data: kelas });
     }
@@ -114,10 +117,14 @@ export async function PUT(request: Request) {
       if (nama !== lama.nama && (await prisma.kelas.findUnique({ where: { nama } }))) {
         return NextResponse.json({ message: 'Kelas dengan nama itu sudah ada' }, { status: 400 });
       }
+      const waliId = body.waliId === undefined ? lama.waliId : await guruValid(body.waliId);
+      if (waliId === false) return NextResponse.json({ message: 'Wali kelas tidak valid' }, { status: 400 });
       // Ganti nama kelas -> kelas peserta anggotanya ikut diganti
       const [kelas] = await prisma.$transaction([
-        prisma.kelas.update({ where: { id }, data: { nama, keterangan: teks(body.keterangan, 200) } }),
+        prisma.kelas.update({ where: { id }, data: { nama, keterangan: teks(body.keterangan, 200), waliId } }),
         prisma.user.updateMany({ where: { role: 'PESERTA', kelas: lama.nama }, data: { kelas: nama } }),
+        // Arsip anggota semester lalu ikut berganti nama (mapel tetap milik kelas yang sama)
+        prisma.anggotaKelas.updateMany({ where: { kelas: lama.nama }, data: { kelas: nama } }),
       ]);
       await createAuditLog({ action: 'UPDATE_KELAS', target: `Kelas ${lama.nama}`, details: { namaBaru: nama }, ipAddress: getAuditIP(request) });
       return NextResponse.json({ success: true, data: kelas });

@@ -6,6 +6,7 @@ lalu memanggil API seperti browser. Database asli (`prisma/dev.db`) dan folder u
 ```bash
 npm run build        # wajib, tes memakai hasil build terbaru
 npm run test:e2e     # semua suite fungsional (±1–2 menit)
+node tests/run.mjs --hanya 16,17   # hanya suite tertentu
 npm run test:beban   # + uji beban 150 peserta serentak
 node tests/run.mjs --beban 300   # jumlah peserta lain
 ```
@@ -33,6 +34,7 @@ Runner (`tests/run.mjs`) otomatis:
 | `13-rapor` | Rapor lintas mapel: akses admin/guru/wali/siswa, nilai akhir & KKM, nilai belum diumumkan, kehadiran, peringkat, predikat & batasnya, deskripsi capaian, catatan wali kelas, semester |
 | `12-ujian-cat-semester` | Semester aktif & filter per semester; ujian mapel UH/UTS/UAS mode CAT: token, 1 kesempatan, pelanggaran, monitoring (tambah waktu, kumpulkan, reset, token), nilai diumumkan, bobot per jenis ujian |
 | `15-multi-ujian` | Ujian CAT sekolah per kelas: beberapa ujian aktif bersamaan (kelas tidak beririsan), status sudah per ujian, riwayat & review, Peserta Ujian (ruang/sesi per kelas/siswa, reset per ujian), ujian beririsan menonaktifkan yang lain |
+| `16-akun-media-arsip` | Kehadiran siswa lintas mapel, wali kelas, lupa password (wali & kode WhatsApp via gateway tiruan), notifikasi admin, email data diri, media soal (gambar/audio, Range), arsip anggota kelas per semester setelah kenaikan kelas, panduan, backup |
 | `beban` | Login, mulai, simpan, submit serentak (hanya dengan `--beban`) |
 
 Setiap baris hasil diawali `PASS` atau `FAIL`; runner keluar dengan kode 1 bila ada yang gagal.

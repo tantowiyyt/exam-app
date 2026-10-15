@@ -4,6 +4,7 @@ import { verifyAdminSession } from '@/lib/admin-auth';
 import bcrypt from 'bcryptjs';
 import { createAuditLog, getAuditIP, AUDIT_ACTIONS } from '@/lib/audit-log';
 import { opsHapusDataLms } from '@/lib/lms';
+import { arsipkanSemesterAktif } from '@/lib/anggota';
 
 /**
  * Data diri opsional yang boleh diisi/dikoreksi admin (biasanya diisi peserta di /profile).
@@ -21,6 +22,11 @@ function parseDataDiri(body: Record<string, unknown>): { error: string } | { dat
   for (const k of ['tempatLahir', 'alamat', 'noHp']) {
     const v = str(k);
     if (v !== undefined) data[k] = v ? v.slice(0, 255) : null;
+  }
+  const email = str('email');
+  if (email !== undefined) {
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: 'Email tidak valid' };
+    data.email = email.slice(0, 200);
   }
   const tgl = str('tanggalLahir');
   if (tgl !== undefined) {
@@ -284,6 +290,8 @@ export async function PATCH(request: Request) {
       if (kelas && !(await prisma.kelas.findUnique({ where: { nama: kelas } }))) {
         return NextResponse.json({ message: 'Kelas tidak ditemukan' }, { status: 400 });
       }
+      // Simpan keanggotaan semester aktif dulu agar rekap & rapor semester ini tidak ikut berubah
+      await arsipkanSemesterAktif();
       const n = await prisma.user.updateMany({ where: { id: { in: ids }, role: 'PESERTA' }, data: { kelas } });
       await createAuditLog({ action: 'PINDAH_KELAS', target: kelas || '(tanpa kelas)', details: { jumlah: n.count }, ipAddress: getAuditIP(request) });
       return NextResponse.json({ success: true, message: `${n.count} siswa dipindah ke ${kelas || 'tanpa kelas'}`, jumlah: n.count });

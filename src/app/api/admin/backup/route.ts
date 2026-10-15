@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { readdir, readFile, writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
-import { FOTO_DIR, LMS_DIR } from '@/lib/storage';
+import { FOTO_DIR, LMS_DIR, MEDIA_DIR } from '@/lib/storage';
 import { prisma } from '@/lib/prisma';
 import { verifyAdminSession } from '@/lib/admin-auth';
 import { cache } from '@/lib/cache';
@@ -12,6 +12,7 @@ type Row = Record<string, unknown> & { id: number };
 
 const FOTO_NAME = /^[\w-]+\.(jpg|jpeg|png|webp)$/i;
 const LMS_NAME = /^[\w-]+\.(pdf|docx?|xlsx?|pptx?|zip|jpe?g|png|txt)$/i;
+const MEDIA_NAME = /^[\w-]+\.(jpe?g|png|gif|webp|mp3|ogg|wav|m4a)$/i;
 
 /** File upload (foto peserta, lampiran LMS) sebagai base64 agar ikut dalam file backup. */
 async function bacaFolder(dir: string, pola: RegExp): Promise<Record<string, string>> {
@@ -45,7 +46,8 @@ type TableName =
   | 'users' | 'ujian' | 'bagianUjian' | 'soal' | 'jawabanUjian'
   | 'historiUjian' | 'sesiUjian' | 'pelanggaran' | 'userActivity' | 'ipRules' | 'auditLogs'
   | 'kelas' | 'mapel' | 'materi' | 'tugas' | 'pengumpulanTugas' | 'pengumuman' | 'komentar'
-  | 'kuis' | 'soalKuis' | 'percobaanKuis' | 'sesiPresensi' | 'presensi' | 'topik' | 'ujianManual' | 'nilaiUjianManual' | 'semester' | 'bankSoal' | 'deskripsiRapor' | 'catatanRapor';
+  | 'kuis' | 'soalKuis' | 'percobaanKuis' | 'sesiPresensi' | 'presensi' | 'topik' | 'ujianManual' | 'nilaiUjianManual' | 'semester' | 'bankSoal' | 'deskripsiRapor' | 'catatanRapor'
+  | 'anggotaKelas' | 'dataRapor' | 'jadwalPelajaran' | 'jurnalMengajar' | 'beritaAcara';
 
 export async function GET(request: Request) {
   const auth = await verifyAdminSession();
@@ -93,6 +95,14 @@ export async function GET(request: Request) {
       prisma.deskripsiRapor.findMany({ orderBy: { id: 'asc' } }),
       prisma.catatanRapor.findMany({ orderBy: { id: 'asc' } }),
     ]);
+    // Administrasi sekolah (Phase 20+)
+    const [anggotaKelas, dataRapor, jadwalPelajaran, jurnalMengajar, beritaAcara] = await Promise.all([
+      prisma.anggotaKelas.findMany({ orderBy: { id: 'asc' } }),
+      prisma.dataRapor.findMany({ orderBy: { id: 'asc' } }),
+      prisma.jadwalPelajaran.findMany({ orderBy: { id: 'asc' } }),
+      prisma.jurnalMengajar.findMany({ orderBy: { id: 'asc' } }),
+      prisma.beritaAcara.findMany({ orderBy: { id: 'asc' } }),
+    ]);
     const [ujianManual, nilaiUjianManual] = await Promise.all([
       prisma.ujianManual.findMany({ orderBy: { id: 'asc' } }),
       prisma.nilaiUjianManual.findMany({ orderBy: { id: 'asc' } }),
@@ -103,9 +113,11 @@ export async function GET(request: Request) {
       timestamp: new Date().toISOString(),
       fotos: await bacaFolder(FOTO_DIR, FOTO_NAME),
       lampiranLms: await bacaFolder(LMS_DIR, LMS_NAME),
+      mediaSoal: await bacaFolder(MEDIA_DIR, MEDIA_NAME),
       data: {
         users, ujian, bagianUjian, soal, jawabanUjian, historiUjian, sesiUjian, pelanggaran, userActivity, ipRules, auditLogs, pengaturanAplikasi,
         kelas, mapel, materi, materiDibaca, tugas, pengumpulanTugas, pengumuman, komentar, kuis, soalKuis, percobaanKuis, sesiPresensi, presensi, topik, ujianManual, nilaiUjianManual, semester, bankSoal, deskripsiRapor, catatanRapor,
+        anggotaKelas, dataRapor, jadwalPelajaran, jurnalMengajar, beritaAcara,
       },
     };
 
@@ -128,7 +140,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { data, replaceAll, fotos, lampiranLms } = body;
+    const { data, replaceAll, fotos, lampiranLms, mediaSoal } = body;
 
     if (!data || typeof data !== 'object' || !Array.isArray(data.users)) {
       return NextResponse.json({ message: 'Data backup tidak valid' }, { status: 400 });
@@ -147,6 +159,11 @@ export async function POST(request: Request) {
     await prisma.$transaction(async (tx) => {
       if (replaceAll) {
         await tx.komentar.deleteMany();
+        await tx.anggotaKelas.deleteMany();
+        await tx.dataRapor.deleteMany();
+        await tx.jadwalPelajaran.deleteMany();
+        await tx.jurnalMengajar.deleteMany();
+        await tx.beritaAcara.deleteMany();
         await tx.bankSoal.deleteMany();
         await tx.deskripsiRapor.deleteMany();
         await tx.catatanRapor.deleteMany();
@@ -218,6 +235,11 @@ export async function POST(request: Request) {
       await upsertAll('catatanRapor', (r) => tx.catatanRapor.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
       await upsertAll('bankSoal', (r) => tx.bankSoal.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
       await upsertAll('nilaiUjianManual', (r) => tx.nilaiUjianManual.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
+      await upsertAll('anggotaKelas', (r) => tx.anggotaKelas.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
+      await upsertAll('dataRapor', (r) => tx.dataRapor.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
+      await upsertAll('jadwalPelajaran', (r) => tx.jadwalPelajaran.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
+      await upsertAll('jurnalMengajar', (r) => tx.jurnalMengajar.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
+      await upsertAll('beritaAcara', (r) => tx.beritaAcara.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
 
       // Tanda "sudah dibaca" memakai kunci gabungan (tanpa id)
       const dibaca = Array.isArray(data.materiDibaca) ? data.materiDibaca : [];
@@ -247,6 +269,7 @@ export async function POST(request: Request) {
     // Pulihkan file foto & lampiran LMS
     if (fotos) counts.fotos = await tulisFolder(FOTO_DIR, FOTO_NAME, fotos);
     if (lampiranLms) counts.lampiranLms = await tulisFolder(LMS_DIR, LMS_NAME, lampiranLms);
+    if (mediaSoal) counts.mediaSoal = await tulisFolder(MEDIA_DIR, MEDIA_NAME, mediaSoal);
 
     // Backup lama (sebelum fitur semester): data tanpa semester masuk ke semester aktif
     await isiSemesterKosong((await semesterAktif()).id);

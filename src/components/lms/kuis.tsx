@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/Toast";
-import { Modal, IsiTeks, PilihTopik, kirim, toLocalInput, inputClass, labelClass } from "./ui";
+import { KontenSoal, TextareaSoal } from "@/components/KontenSoal";
+import { Modal, PilihTopik, kirim, toLocalInput, inputClass, labelClass } from "./ui";
 
 // ---------- tipe ----------
 
@@ -232,7 +233,7 @@ export function EditorSoal({ kuisId, awal, adaPercobaan = false, onSaved, simpan
                             <button type="button" onClick={() => ganti(list.filter((_, j) => j !== i))} className="px-3 h-8 rounded-lg text-xs font-bold text-red-600 hover:bg-red-50">Hapus</button>
                         </div>
                     </div>
-                    <textarea value={s.pertanyaan} onChange={(e) => set(i, { pertanyaan: e.target.value })} rows={2} placeholder="Tulis pertanyaan..." aria-label={`Pertanyaan ${i + 1}`} className={`${inputClass} resize-y`} />
+                    <TextareaSoal value={s.pertanyaan} onChange={(v) => set(i, { pertanyaan: v })} rows={2} placeholder="Tulis pertanyaan..." label={`Pertanyaan ${i + 1}`} className={`${inputClass} resize-y`} />
 
                     {s.tipe === "pg" && (
                         <div className="space-y-2">
@@ -272,7 +273,7 @@ export function EditorSoal({ kuisId, awal, adaPercobaan = false, onSaved, simpan
 
                     <details className="text-sm" open={!!s.pembahasan}>
                         <summary className="text-xs font-bold text-slate-500 cursor-pointer">Pembahasan (opsional)</summary>
-                        <textarea value={s.pembahasan} onChange={(e) => set(i, { pembahasan: e.target.value })} rows={2} placeholder="Penjelasan jawaban yang ditampilkan setelah kuis selesai" className={`${inputClass} resize-y mt-2`} />
+                        <div className="mt-2"><TextareaSoal value={s.pembahasan} onChange={(v) => set(i, { pembahasan: v })} rows={2} placeholder="Penjelasan jawaban yang ditampilkan setelah kuis selesai" label={`Pembahasan soal ${i + 1}`} className={`${inputClass} resize-y`} /></div>
                     </details>
                 </div>
             ))}
@@ -524,7 +525,7 @@ export function KerjakanKuis({ kuisId, judul, onSelesai, token }: { kuisId: numb
                         <span className="text-xs font-black text-indigo-700 bg-indigo-50 rounded-lg px-2 py-1">Soal {no + 1} / {sesi.soal.length}</span>
                         <span className="text-[11px] text-slate-400">{LABEL_TIPE[s.tipe]} · bobot {s.bobot}</span>
                     </div>
-                    <IsiTeks teks={s.pertanyaan} className="text-slate-800 text-base" />
+                    <KontenSoal teks={s.pertanyaan} className="text-slate-800 text-base" />
                     <div className="mt-4 space-y-2">
                         {s.tipe === "pg" && s.opsi.map((o, k) => {
                             const pilih = jawaban[s.id] === String(k);
@@ -532,7 +533,7 @@ export function KerjakanKuis({ kuisId, judul, onSelesai, token }: { kuisId: numb
                                 <label key={k} className={`flex items-start gap-3 rounded-xl border-2 px-3 py-2.5 cursor-pointer ${pilih ? "border-indigo-500 bg-indigo-50" : "border-slate-200 hover:border-slate-300"}`}>
                                     <input type="radio" className="sr-only" name={`j-${s.id}`} checked={pilih} onChange={() => jawab(s.id, String(k))} />
                                     <span className={`shrink-0 w-7 h-7 rounded-full font-bold text-xs flex items-center justify-center ${pilih ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600"}`}>{HURUF[k]}</span>
-                                    <span className="text-sm text-slate-700 pt-1 whitespace-pre-wrap">{o}</span>
+                                    <KontenSoal teks={o} className="text-sm text-slate-700 pt-1" />
                                 </label>
                             );
                         })}
@@ -659,15 +660,15 @@ export function RincianPercobaan({ id, onClose, onChanged }: { id: number; onClo
                                 <li key={s.id} className={`rounded-xl border-2 ${warna} p-3`}>
                                     <div className="flex items-start gap-2">
                                         <span className="shrink-0 text-xs font-black text-slate-500 mt-0.5">{i + 1}.</span>
-                                        <IsiTeks teks={s.pertanyaan} className="text-sm text-slate-800 flex-1" />
+                                        <KontenSoal teks={s.pertanyaan} className="text-sm text-slate-800 flex-1" />
                                         {s.poin !== undefined && <span className="shrink-0 text-xs font-bold text-slate-600">{s.poin === null ? "?" : s.poin}/{s.bobot}</span>}
                                     </div>
                                     <div className="mt-2 pl-5 space-y-1 text-sm">
-                                        <p><span className="text-slate-400 text-xs">Jawaban: </span>{jaw === null ? <i className="text-slate-400">tidak dijawab</i> : <span className="whitespace-pre-wrap text-slate-700">{jaw}</span>}</p>
+                                        <p><span className="text-slate-400 text-xs">Jawaban: </span>{jaw === null ? <i className="text-slate-400">tidak dijawab</i> : <KontenSoal teks={jaw} className="text-slate-700" sebaris />}</p>
                                         {d.kunciTerbuka && s.tipe !== "esai" && s.kunci !== undefined && (
                                             <p className="text-emerald-700"><span className="text-slate-400 text-xs">Kunci: </span>{s.tipe === "isian" ? s.kunci.split("|").join(" / ") : teksJawaban(s.tipe, s.opsi, s.kunci)}</p>
                                         )}
-                                        {s.pembahasan && <p className="text-xs text-slate-600 bg-slate-50 rounded-lg px-2 py-1.5 whitespace-pre-wrap"><b>Pembahasan:</b> {s.pembahasan}</p>}
+                                        {s.pembahasan && <p className="text-xs text-slate-600 bg-slate-50 rounded-lg px-2 py-1.5 whitespace-pre-wrap"><b>Pembahasan:</b> <KontenSoal teks={s.pembahasan} sebaris /></p>}
                                         {d.kelola && s.tipe === "esai" && p.selesaiAt && (
                                             <label className="flex items-center gap-2 text-xs font-bold text-fuchsia-700">Nilai esai
                                                 <input type="number" min={0} max={s.bobot} step={0.5} value={esai[s.id] ?? ""} onChange={(e) => setEsai({ ...esai, [s.id]: e.target.value })}
@@ -764,7 +765,7 @@ export function PilihBankSoal({ mapel, onClose, onPilih }: { mapel: string; onCl
                                     <label className={`flex items-start gap-3 px-3 py-2.5 cursor-pointer ${pilih.has(s.id) ? "bg-indigo-50" : "hover:bg-slate-50"}`}>
                                         <input type="checkbox" className="mt-1" checked={pilih.has(s.id)} onChange={() => toggle(s.id)} />
                                         <span className="flex-1 min-w-0">
-                                            <span className="block text-sm text-slate-800 line-clamp-2">{s.pertanyaan}</span>
+                                            <KontenSoal teks={s.pertanyaan} className="block text-sm text-slate-800 max-h-24 overflow-hidden" />
                                             <span className="block text-[11px] text-slate-400 mt-0.5">
                                                 {LABEL_TIPE[s.tipe]} · bobot {s.bobot}{s.label && ` · ${s.label}`} · kunci: {teksKunci(s)}{!s.milikSaya && ` · dari ${s.pemilik}`}
                                             </span>

@@ -6,6 +6,8 @@ import { hitungRekapMapel, type Komponen } from '@/lib/rekap';
 import { getInstansi } from '@/lib/pengaturan-aplikasi';
 import { batasPredikat, predikat } from '@/lib/rapor';
 import { createAuditLog, getAuditIP } from '@/lib/audit-log';
+import { whereAnggota, kelasSiswaDi } from '@/lib/anggota';
+import { kelasBolehDibuka, namaWali } from '@/lib/wali';
 
 // Rapor (laporan hasil belajar) per siswa lintas mapel dalam satu semester.
 // GET ?kelas=id&semester=id[&siswa=id]
@@ -14,21 +16,6 @@ import { createAuditLog, getAuditIP } from '@/lib/audit-log';
 // Tanpa ?kelas (admin/guru): daftar kelas yang bisa dibuka.
 
 const KOMPONEN: (keyof Komponen)[] = ['tugas', 'kuis', 'uh', 'uts', 'uas', 'ujian', 'presensi'];
-
-/** Nama wali kelas dari keterangan kelas, mis. "Wali kelas: Siti Nurhaliza". */
-function waliKelas(keterangan: string) {
-  const m = /wali\s*kelas\s*:?\s*(.+)/i.exec(keterangan);
-  return m ? m[1].trim() : '';
-}
-
-async function kelasBolehDibuka(user: { id: number; role: string; nama: string }) {
-  const semua = await prisma.kelas.findMany({ orderBy: { nama: 'asc' }, include: { mapel: { select: { guruId: true } } } });
-  if (user.role === 'ADMIN') return semua;
-  if (user.role === 'GURU') {
-    return semua.filter((k) => k.mapel.some((m) => m.guruId === user.id) || (user.nama && waliKelas(k.keterangan).toLowerCase() === user.nama.toLowerCase()));
-  }
-  return [];
-}
 
 export async function GET(request: Request) {
   const auth = await verifyLmsSession();
@@ -51,13 +38,14 @@ export async function GET(request: Request) {
       kelas = boleh.find((k) => k.id === Number(q.get('kelas')));
       if (!kelas) return NextResponse.json({ message: 'Kelas tidak ditemukan atau bukan kelas Anda' }, { status: 404 });
     } else {
-      const u = await prisma.user.findUnique({ where: { id: user.id }, select: { kelas: true } });
-      kelas = u?.kelas ? await prisma.kelas.findUnique({ where: { nama: u.kelas } }) : null;
+      // Kelas siswa pada semester yang dibuka (arsip bila semester lalu)
+      const namaKelas = await kelasSiswaDi(user.id, semester);
+      kelas = namaKelas ? await prisma.kelas.findUnique({ where: { nama: namaKelas } }) : null;
       if (!kelas) return NextResponse.json({ message: 'Kelas Anda belum diatur. Hubungi admin.' }, { status: 404 });
     }
 
     const siswaWhere = staf
-      ? { role: 'PESERTA', kelas: kelas.nama, ...(q.get('siswa') ? { id: Number(q.get('siswa')) } : {}) }
+      ? { AND: [await whereAnggota(kelas.nama, semester), ...(q.get('siswa') ? [{ id: Number(q.get('siswa')) }] : [])] }
       : { id: user.id };
     const siswa = await prisma.user.findMany({
       where: siswaWhere,
@@ -119,7 +107,7 @@ export async function GET(request: Request) {
       semester: { id: semester.id, label: semester.label, tahunAjaran: semester.tahunAjaran, semester: semester.semester, aktif: semester.aktif },
       semesterList,
       kelasList,
-      kelas: { id: kelas.id, nama: kelas.nama, wali: waliKelas(kelas.keterangan) },
+      kelas: { id: kelas.id, nama: kelas.nama, wali: await namaWali(kelas) },
       sekolah: {
         nama: i.namaInstansi, alamat: i.alamat, kota: i.kota, logo: i.logo, namaAplikasi: i.namaAplikasi,
         penandatangan: { jabatan: i.jabatanPenandatangan, nama: i.namaPenandatangan, nip: i.nipPenandatangan },
@@ -143,9 +131,10 @@ export async function PUT(request: Request) {
     if (user.role === 'PESERTA') return NextResponse.json({ message: 'Tidak diizinkan' }, { status: 403 });
     const body = await request.json();
     const siswa = await prisma.user.findFirst({ where: { id: Number(body.siswa), role: 'PESERTA' }, select: { id: true, nama: true, kelas: true } });
-    const boleh = siswa && (await kelasBolehDibuka(user)).some((k) => k.nama === siswa.kelas);
-    if (!siswa || !boleh) return NextResponse.json({ message: 'Siswa tidak ditemukan atau bukan kelas Anda' }, { status: 404 });
     const semester = await semesterDipilih(body.semester === undefined ? null : String(body.semester));
+    const kelasDi = siswa ? await kelasSiswaDi(siswa.id, semester) : '';
+    const boleh = siswa && (await kelasBolehDibuka(user)).some((k) => k.nama === kelasDi);
+    if (!siswa || !boleh) return NextResponse.json({ message: 'Siswa tidak ditemukan atau bukan kelas Anda' }, { status: 404 });
     const catatan = teks(body.catatan, 1000);
     const where = { userId_semesterId: { userId: siswa.id, semesterId: semester.id } };
     if (catatan) await prisma.catatanRapor.upsert({ where, update: { catatan }, create: { userId: siswa.id, semesterId: semester.id, catatan } });

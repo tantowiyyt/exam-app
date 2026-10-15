@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { verifyLmsSession, aksesMapel } from '@/lib/lms';
 import { semesterDipilih } from '@/lib/semester';
 import { hitungRekapMapel } from '@/lib/rekap';
+import { whereAnggota } from '@/lib/anggota';
 
 // Rekap nilai satu mapel per semester (?semester=id, bawaan semester aktif) — perhitungan di lib/rekap.ts.
 // Pengelola melihat semua siswa kelas; siswa hanya baris miliknya.
@@ -17,14 +18,14 @@ export async function GET(request: Request, ctx: RouteContext<'/api/lms/mapel/[i
     const { mapel, peran } = akses;
     const kelola = peran === 'kelola';
 
+    const semester = await semesterDipilih(new URL(request.url).searchParams.get('semester'));
     const siswa = kelola
       ? await prisma.user.findMany({
-        where: { role: 'PESERTA', kelas: mapel.kelas.nama },
+        where: await whereAnggota(mapel.kelas.nama, semester),
         select: { id: true, nomorPeserta: true, nama: true },
         orderBy: { nama: 'asc' },
       })
       : await prisma.user.findMany({ where: { id: user.id }, select: { id: true, nomorPeserta: true, nama: true } });
-    const semester = await semesterDipilih(new URL(request.url).searchParams.get('semester'));
     const { kolom, baris, bobot, berbobot } = await hitungRekapMapel(mapel, siswa, semester, { kelola, userId: user.id });
 
     const rata = baris.map((b) => b.rataRata).filter((x): x is number => x !== null);

@@ -27,7 +27,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 **Repo:** https://github.com/tantowiyyt/exam-app (branch `main`). Database, foto upload, dan `.env` sengaja tidak di-commit.
 
-**Kondisi:** fitur lengkap + LMS (Phase 16), build & lint bersih, `npm run test:e2e` 667 tes lulus, uji beban 150 peserta serentak 0 gagal (sebelum LMS).
+**Kondisi:** fitur lengkap + LMS (Phase 16), build & lint bersih, `npm run test:e2e` 736 tes lulus, uji beban 150 peserta serentak 0 gagal (sebelum LMS).
 Siap untuk **simulasi**, belum untuk ujian sungguhan — selesaikan daftar di bawah dulu.
 
 **Belum dilakukan (oleh pemilik proyek):**
@@ -58,7 +58,7 @@ Siap untuk **simulasi**, belum untuk ujian sungguhan — selesaikan daftar di ba
   lampiran yang tertaut hanya untuk anggota/pengelola mapelnya.
 
 **Backup DB lokal** (di-ignore git): `prisma/dev.db.bak-20261014063026`, `-065253`, `-071034`, `-090459` (sebelum skema LMS), `-115525` (sebelum fitur tugas lanjutan), `-132330` (sebelum kuis), `-134625` (sebelum presensi), `-135714` (sebelum topik & jadwal terbit), `-140714` (sebelum bobot nilai & rubrik) — boleh dihapus bila tidak diperlukan.
-**PERHATIAN:** backup `-115525` s/d `-164000` dibuat dengan menyalin `dev.db` saja padahal perubahan masih di `dev.db-wal`, sehingga isinya SAMA (kondisi 09:29, sebelum kelas/kuis/dst). Backup lengkap yang valid (via `VACUUM INTO`): `-164500` (63 akun, 21 kelas), `-170000` (sebelum 273 mapel), `-173000` (sebelum 630 siswa), `-174500` (sebelum skema ujian offline), `-190000` (sebelum skema semester & ujian CAT mapel), `-203000` (sebelum bank soal & tautan kelas virtual), `-213000` (sebelum deskripsi & catatan rapor), `-223000` (sebelum skema ujian sekolah per kelas).
+**PERHATIAN:** backup `-115525` s/d `-164000` dibuat dengan menyalin `dev.db` saja padahal perubahan masih di `dev.db-wal`, sehingga isinya SAMA (kondisi 09:29, sebelum kelas/kuis/dst). Backup lengkap yang valid (via `VACUUM INTO`): `-164500` (63 akun, 21 kelas), `-170000` (sebelum 273 mapel), `-173000` (sebelum 630 siswa), `-174500` (sebelum skema ujian offline), `-190000` (sebelum skema semester & ujian CAT mapel), `-203000` (sebelum bank soal & tautan kelas virtual), `-213000` (sebelum deskripsi & catatan rapor), `-223000` (sebelum skema ujian sekolah per kelas), `-20261015100954` (sebelum skema administrasi Phase 20+).
 **Data contoh di dev.db (2026-10-14):** 21 kelas X–XII IPA/IPS/Bahasa, 273 mapel ber-guru, 25 guru + 25 pengawas (`storage/akun-guru-pengawas.csv`), 630 siswa 30/kelas (`storage/akun-siswa.csv`), pembagian mapel di `storage/pembagian-mapel.csv`. Ruang/sesi ujian siswa baru masih kosong.
 Backup berikutnya pakai `VACUUM INTO` / `sqlite3 .backup` (lihat `DEPLOY.md`), **jangan `cp dev.db`**.
 
@@ -191,6 +191,19 @@ Backup berikutnya pakai `VACUUM INTO` / `sqlite3 .backup` (lihat `DEPLOY.md`), *
 | Hapus soal yang sudah dijawab ditolak dengan pesan jelas (sebelumnya error FK) | ✅ | `src/app/api/admin/soal/route.ts` |
 
 **Durasi per bagian** kini diterapkan — lihat Phase 12.
+
+### Phase 20 — Akun, Media Soal, Arsip Semester (2026-10-15)
+| Item | Files |
+|------|-------|
+| **Kehadiran Saya** (siswa): rekap H/I/S/A & % lintas mapel per semester + riwayat per pertemuan (menu Kehadiran) | `src/app/api/lms/kehadiran/route.ts`, `src/app/kelas/kehadiran/page.tsx` |
+| **Wali kelas** = `Kelas.waliId` (pilih guru di Kelas & Mapel; data lama "Wali kelas: Nama" di keterangan tetap dikenali) | `src/lib/wali.ts`, `src/app/api/admin/kelas/route.ts`, `src/app/admin/kelas/page.tsx` |
+| **Lupa password** (`/lupa-password`, publik): bila email/WA aktif & akun punya kontak → kode 6 angka (15 menit, 5 percobaan, sekali pakai); selain itu permintaan ke wali kelas/admin. Menu **Reset Password Siswa** (wali: siswa perwaliannya; admin: semua) → password sementara. `User.email`, `User.notifWa` di Data Diri & form admin | `src/app/api/lupa-password/route.ts`, `src/app/api/lms/reset-password/route.ts`, `src/app/lupa-password/page.tsx`, `src/app/kelas/reset-password/page.tsx` |
+| **Notifikasi luar aplikasi** (dasar): email SMTP (nodemailer) & WhatsApp gateway (Fonnte / Wablas / URL lain JSON `{target,message}`), log & anti-kirim-ganda (`NotifKeluar.kunci`). API admin: pengaturan (rahasia tidak dikirim balik) + kirim uji | `src/lib/notif-keluar.ts`, `src/app/api/admin/notifikasi/route.ts` |
+| **Soal bergambar, berumus, beraudio**: unggah `/api/media` (admin/guru; JPG/PNG/GIF/WEBP 5 MB, MP3/OGG/WAV/M4A 15 MB, cek magic bytes) → disisipkan `[gambar:URL]`/`[audio:URL]`; rumus LaTeX `$...$`, `$$...$$`, `\(...\)` dirender KaTeX. Editor (tombol + Gambar/Audio, + Rumus, pratinjau) di soal kuis/ujian CAT mapel, bank soal, & Bank Soal CAT admin; tampil di ujian CAT, review, kuis, bank soal. Media dilayani untuk pengguna login dengan dukungan Range (audio Safari) | `src/components/KontenSoal.tsx`, `src/app/api/media/**`, `src/lib/storage.ts` (`MEDIA_DIR`) |
+| **Arsip anggota kelas per semester** (`AnggotaKelas`): disalin otomatis saat ganti semester aktif & sebelum pindah/naik kelas massal (tidak menimpa arsip lama); rekap nilai, presensi, deskripsi, anggota mapel, rapor, & kehadiran semester lalu memakai arsip → data tahun lalu utuh setelah kenaikan kelas. Ganti nama kelas ikut mengganti arsip | `src/lib/anggota.ts` |
+| **Panduan** per peran (siswa, guru, wali kelas, pengawas, admin), bisa dicetak/simpan PDF (menu Panduan) | `src/app/akun/panduan/page.tsx` |
+| Backup memuat tabel baru (arsip anggota, data rapor, jadwal, jurnal, berita acara) & folder media soal (`mediaSoal`); runner tes `--hanya 16` | `src/app/api/admin/backup/route.ts`, `tests/run.mjs` |
+| Tes E2E (69 tes) | `tests/e2e/16-akun-media-arsip.mjs` |
 
 ### Phase 19 — Ujian CAT Sekolah per Kelas (2026-10-15)
 | Item | Files |
@@ -484,7 +497,7 @@ src/proxy.ts                          # Next.js 16 route protection (dipindah da
 
 ## Build Status
 - `npm run build` passes ✅
-- `npm run test:e2e` (butuh build): 667 tes lulus — lihat `tests/README.md`
+- `npm run test:e2e` (butuh build): 736 tes lulus — lihat `tests/README.md`
 - Deploy: lihat `DEPLOY.md`
 - ±60 routes (halaman statis + API dinamis)
 - `npx eslint src`: 0 error (sisa warning ringan, mis. `<img>`)

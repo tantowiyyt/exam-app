@@ -15,7 +15,7 @@ export async function GET() {
       select: {
         id: true, nama: true, role: true, ruang: true, sesi: true, tanggalUjian: true, kelas: true,
         foto: true, nik: true, tempatLahir: true, tanggalLahir: true,
-        jenisKelamin: true, alamat: true, noHp: true,
+        jenisKelamin: true, alamat: true, noHp: true, email: true, notifWa: true,
       },
     });
 
@@ -40,6 +40,8 @@ export async function GET() {
       jenisKelamin: user?.jenisKelamin ?? '',
       alamat: user?.alamat ?? '',
       noHp: user?.noHp ?? '',
+      email: user?.email ?? '',
+      notifWa: user?.notifWa ?? true,
       profilLengkap,
     });
   } catch (error) {
@@ -57,6 +59,10 @@ export async function PUT(request: Request) {
 
     const body = await request.json();
     const { foto, nik, tempatLahir, tanggalLahir, jenisKelamin, alamat, noHp } = body;
+    const email = typeof body.email === 'string' ? body.email.trim().slice(0, 200) : undefined;
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return NextResponse.json({ message: 'Email tidak valid' }, { status: 400 });
+    }
 
     if (!nik || !tempatLahir || !tanggalLahir || !jenisKelamin || !alamat || !noHp) {
       return NextResponse.json({ message: 'Semua field wajib diisi' }, { status: 400 });
@@ -80,6 +86,8 @@ export async function PUT(request: Request) {
     const updateData: Record<string, unknown> = {
       foto: foto || null, nik: String(nik), tempatLahir, tanggalLahir: tglLahir,
       jenisKelamin, alamat, noHp,
+      ...(email !== undefined ? { email } : {}),
+      ...(typeof body.notifWa === 'boolean' ? { notifWa: body.notifWa } : {}),
     };
 
     const user = await prisma.user.findUnique({

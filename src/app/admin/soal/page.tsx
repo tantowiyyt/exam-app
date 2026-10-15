@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useToast } from "@/components/Toast";
 import { HeaderHalaman } from "@/components/AppShell";
+import { KontenSoal, TextareaSoal } from "@/components/KontenSoal";
 
 interface Soal {
     id: number;
@@ -328,8 +329,8 @@ export default function SoalManagement() {
 
                             <div>
                                 <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Pertanyaan</label>
-                                <textarea rows={4} value={form.pertanyaan} onChange={(e) => setForm({ ...form, pertanyaan: e.target.value })}
-                                    className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 outline-none focus:ring-2 focus:ring-indigo-500 resize-none" placeholder="Tuliskan pertanyaan ujian di sini..." required />
+                                <TextareaSoal rows={4} value={form.pertanyaan} onChange={(v) => setForm({ ...form, pertanyaan: v })} label="Pertanyaan"
+                                    className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 outline-none focus:ring-2 focus:ring-indigo-500 resize-y" placeholder="Tuliskan pertanyaan ujian di sini..." required />
                             </div>
 
                             <div className="space-y-2 pt-2 border-t border-slate-100">
@@ -340,6 +341,7 @@ export default function SoalManagement() {
                                             className="w-full px-3 py-1.5 text-sm rounded border border-slate-300 outline-none focus:ring-2 focus:ring-indigo-500" required placeholder={`Pilihan jawaban ${opt}`} />
                                     </div>
                                 ))}
+                                <p className="text-[10px] text-slate-400">Pilihan jawaban juga bisa berisi rumus <code>$...$</code> atau <code>[gambar:...]</code> (salin dari tombol + Gambar di atas).</p>
                             </div>
 
                             <div className="pt-2 border-t border-slate-100">
@@ -501,7 +503,7 @@ export default function SoalManagement() {
                                                 className="w-4 h-4 mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                                             />
                                             <p className="text-sm font-bold text-slate-800">
-                                                <span className="text-indigo-600 mr-1">{(currentPage - 1) * itemsPerPage + index + 1}.</span> {s.pertanyaan}
+                                                <span className="text-indigo-600 mr-1">{(currentPage - 1) * itemsPerPage + index + 1}.</span> <KontenSoal teks={s.pertanyaan} sebaris />
                                             </p>
                                         </div>
                                         <div className="flex gap-2 shrink-0 items-start">
@@ -522,7 +524,7 @@ export default function SoalManagement() {
                                     <div className="grid grid-cols-2 gap-2 text-xs">
                                         {(['A', 'B', 'C', 'D'] as const).map((opt) => (
                                             <div key={opt} className={`px-2 py-1.5 rounded border ${s.jawabanBenar === opt ? 'bg-emerald-100 border-emerald-300 text-emerald-800 font-bold' : 'bg-white border-slate-200 text-slate-600'}`}>
-                                                <span className="mr-1">{opt}.</span> {s[`opsi${opt}` as "opsiA"]}
+                                                <span className="mr-1">{opt}.</span> <KontenSoal teks={s[`opsi${opt}` as "opsiA"]} sebaris />
                                                 {s.jawabanBenar === opt && <span className="float-right">&#10003;</span>}
                                             </div>
                                         ))}

@@ -14,6 +14,8 @@ interface Item { href: string; label: string; ikon: keyof typeof IKON; aktif?: (
 interface Grup { judul?: string; item: Item[] }
 
 const IKON = {
+    centang: "M4 12l5 5L20 6",
+    buku: "M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2zm0 0v16M8 7h7",
     rumah: "M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z",
     kalender: "M7 3v3m10-3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z",
     ujian: "M9 4h6a1 1 0 0 1 1 1v1H8V5a1 1 0 0 1 1-1zM6 6h12v15H6zM9 11h6M9 15h4",
@@ -34,16 +36,18 @@ function menu(role: string, cat: boolean): Grup[] {
     const beranda: Item = { href: "/kelas", label: "Beranda", ikon: "rumah", aktif: (p) => p === "/kelas" || (/^\/kelas\/\d/.test(p)) };
     const kalender: Item = { href: "/kelas/kalender", label: "Kalender", ikon: "kalender" };
     const password: Item = { href: "/akun/password", label: "Ganti Password", ikon: "kunci" };
+    const panduan: Item = { href: "/akun/panduan", label: "Panduan", ikon: "buku" };
     const rapor: Item = { href: "/kelas/rapor", label: "Rapor", ikon: "nilai" };
     const bankSoal: Item = { href: "/kelas/bank-soal", label: "Bank Soal", ikon: "soal" };
     if (role === "PESERTA") {
         return [
-            { item: [beranda, kalender, rapor, ...(cat ? [{ href: "/dashboard", label: "Ujian CAT", ikon: "ujian" as const, aktif: (p: string) => p.startsWith("/dashboard") || p.startsWith("/ujian") }] : [])] },
-            { judul: "Akun", item: [{ href: "/profile", label: "Data Diri", ikon: "profil" }, password] },
+            { item: [beranda, kalender, { href: "/kelas/kehadiran", label: "Kehadiran", ikon: "centang" }, rapor, ...(cat ? [{ href: "/dashboard", label: "Ujian CAT", ikon: "ujian" as const, aktif: (p: string) => p.startsWith("/dashboard") || p.startsWith("/ujian") }] : [])] },
+            { judul: "Akun", item: [{ href: "/profile", label: "Data Diri", ikon: "profil" }, password, panduan] },
         ];
     }
-    if (role === "GURU") return [{ item: [beranda, kalender, bankSoal, rapor] }, { judul: "Akun", item: [password] }];
-    if (role === "PENGAWAS") return [{ item: [{ href: "/admin/monitoring", label: "Monitoring Ujian", ikon: "monitor" }] }, { judul: "Akun", item: [password] }];
+    const resetPw: Item = { href: "/kelas/reset-password", label: "Reset Password Siswa", ikon: "kunci" };
+    if (role === "GURU") return [{ item: [beranda, kalender, bankSoal, rapor] }, { judul: "Akun", item: [resetPw, password, panduan] }];
+    if (role === "PENGAWAS") return [{ item: [{ href: "/admin/monitoring", label: "Monitoring Ujian", ikon: "monitor" }] }, { judul: "Akun", item: [password, panduan] }];
     // ADMIN
     return [
         { item: [beranda, kalender] },
@@ -54,6 +58,7 @@ function menu(role: string, cat: boolean): Grup[] {
                 { ...bankSoal, label: "Bank Soal Guru" },
                 { href: "/admin/peserta", label: "Siswa", ikon: "siswa" },
                 { href: "/admin/akun", label: "Guru & Staf", ikon: "guru" },
+                { ...resetPw, label: "Reset Password" },
             ],
         },
         ...(cat ? [{
@@ -79,6 +84,7 @@ function menu(role: string, cat: boolean): Grup[] {
                 { href: "/admin/audit-logs", label: "Audit Log", ikon: "soal" },
                 { href: "/admin/ip-rules", label: "Aturan IP", ikon: "kunci" },
                 password,
+                panduan,
             ],
         },
     ];

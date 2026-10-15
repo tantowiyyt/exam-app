@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { decrypt } from '@/lib/session';
 
-const publicRoutes = ['/', '/login', '/daftar'];
+const publicRoutes = ['/', '/login', '/daftar', '/lupa-password'];
 
 // Halaman yang boleh dibuka tiap role (prefix). Role diperiksa ulang dari database di setiap API.
 const aksesRole: Record<string, string[]> = {

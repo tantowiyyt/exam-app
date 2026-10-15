@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { verifyAdminSession } from '@/lib/admin-auth';
 import { createAuditLog, getAuditIP } from '@/lib/audit-log';
 import { daftarSemester, labelSemester, NAMA_SEMESTER, validTahunAjaran } from '@/lib/semester';
+import { arsipkanSemesterAktif } from '@/lib/anggota';
 
 // Tahun ajaran & semester (admin). Tepat satu semester aktif.
 
@@ -42,6 +43,7 @@ export async function POST(request: Request) {
     if (await prisma.semester.findUnique({ where: { tahunAjaran_semester: { tahunAjaran, semester: body.semester } } })) {
       return NextResponse.json({ message: 'Semester itu sudah ada' }, { status: 400 });
     }
+    if (body.aktif === true) await arsipkanSemesterAktif();
     const baru = await prisma.$transaction(async (tx) => {
       if (body.aktif === true) await tx.semester.updateMany({ data: { aktif: false } });
       return tx.semester.create({ data: { tahunAjaran, semester: body.semester, aktif: body.aktif === true } });
@@ -62,6 +64,8 @@ export async function PUT(request: Request) {
     const body = await request.json();
     const s = await prisma.semester.findUnique({ where: { id: Number(body.id) } });
     if (!s) return NextResponse.json({ message: 'Semester tidak ditemukan' }, { status: 404 });
+    // Keanggotaan kelas semester yang ditinggalkan diarsipkan (data tahun lalu tetap utuh setelah kenaikan kelas)
+    await arsipkanSemesterAktif();
     await prisma.$transaction([
       prisma.semester.updateMany({ data: { aktif: false } }),
       prisma.semester.update({ where: { id: s.id }, data: { aktif: true } }),
@@ -86,7 +90,11 @@ export async function DELETE(request: Request) {
     const where = { semesterId: id };
     const isi = (await Promise.all([prisma.tugas.count({ where }), prisma.kuis.count({ where }), prisma.sesiPresensi.count({ where }), prisma.ujianManual.count({ where })])).reduce((a, b) => a + b, 0);
     if (isi) return NextResponse.json({ message: `Semester masih berisi ${isi} tugas/kuis/pertemuan/ujian` }, { status: 400 });
-    await prisma.semester.delete({ where: { id } });
+    await prisma.$transaction([
+      prisma.anggotaKelas.deleteMany({ where }),
+      prisma.dataRapor.deleteMany({ where }),
+      prisma.semester.delete({ where: { id } }),
+    ]);
     await createAuditLog({ action: 'DELETE_SEMESTER', target: labelSemester(s), ipAddress: getAuditIP(request) });
     return NextResponse.json({ success: true, message: 'Semester dihapus' });
   } catch (error) {

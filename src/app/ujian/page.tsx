@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
+import { KontenSoal } from "@/components/KontenSoal";
 
 interface SoalItem {
     id: number;
@@ -738,8 +739,8 @@ export default function HalamanUjian() {
 
                         {/* Pertanyaan */}
                         <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 mb-6">
-                            <h2 className="text-base md:text-lg font-bold text-slate-800 leading-relaxed whitespace-pre-line">
-                                <span className="text-indigo-600 mr-2">{currentIndex + 1}.</span>{soalAktif.pertanyaan}
+                            <h2 className="text-base md:text-lg font-bold text-slate-800 leading-relaxed flex gap-2">
+                                <span className="text-indigo-600 shrink-0">{currentIndex + 1}.</span><KontenSoal teks={soalAktif.pertanyaan} className="flex-1 min-w-0" />
                             </h2>
                         </div>
 
@@ -749,7 +750,7 @@ export default function HalamanUjian() {
                                 <label key={opt} className={`flex items-center gap-4 p-4 md:p-5 rounded-xl border cursor-pointer transition-all ${jawabanPeserta[soalAktif.id] === opt ? "bg-indigo-50 border-indigo-500 ring-1 ring-indigo-500/20" : "bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50"}`}>
                                     <input type="radio" name={`soal-${soalAktif.id}`} value={opt} checked={jawabanPeserta[soalAktif.id] === opt} onChange={() => handlePilihJawaban(soalAktif.id, opt)} className="w-5 h-5 text-indigo-600" />
                                     <span className="font-bold text-slate-700 w-6 shrink-0">{opt}.</span>
-                                    <span className="text-slate-600 text-sm leading-relaxed">{soalAktif[`opsi${opt}` as keyof SoalItem]}</span>
+                                    <KontenSoal teks={String(soalAktif[`opsi${opt}` as keyof SoalItem] ?? "")} className="text-slate-600 text-sm flex-1 min-w-0" />
                                 </label>
                             ))}
                         </div>

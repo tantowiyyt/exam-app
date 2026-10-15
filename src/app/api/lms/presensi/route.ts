@@ -5,6 +5,7 @@ import { semesterAktif, semesterDipilih } from '@/lib/semester';
 import { verifyLmsSession, aksesMapel, teks, linkValid } from '@/lib/lms';
 import { checkRateLimit, resetRateLimit } from '@/lib/rate-limit';
 import { createAuditLog, getAuditIP } from '@/lib/audit-log';
+import { whereAnggota } from '@/lib/anggota';
 
 // Presensi per pertemuan. Guru membuat sesi & mengisi status (H/I/S/A);
 // siswa bisa presensi mandiri dengan kode selama sesi dibuka.
@@ -75,7 +76,7 @@ export async function GET(request: Request) {
     }
 
     const siswa = await prisma.user.findMany({
-      where: { role: 'PESERTA', kelas: akses.mapel.kelas.nama },
+      where: await whereAnggota(akses.mapel.kelas.nama, semester),
       select: { id: true, nomorPeserta: true, nama: true },
       orderBy: { nama: 'asc' },
     });

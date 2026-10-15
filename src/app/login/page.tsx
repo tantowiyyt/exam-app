@@ -124,6 +124,9 @@ export default function LoginPage() {
               )}
             </button>
           </form>
+          <p className="mt-4 text-center">
+            <Link href="/lupa-password" className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline">Lupa password?</Link>
+          </p>
 
           <div className="mt-8 text-center border-t border-slate-200 dark:border-slate-800/60 pt-6 space-y-3">
             <Link

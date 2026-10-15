@@ -17,6 +17,7 @@ interface Kelas {
     id: number;
     nama: string;
     keterangan: string;
+    waliId: number | null;
     jumlahSiswa: number;
     mapel: Mapel[];
 }
@@ -27,7 +28,7 @@ interface Data {
     kelasBelumDibuat: { nama: string; jumlahSiswa: number }[];
 }
 
-const KOSONG_KELAS = { id: 0, nama: "", keterangan: "" };
+const KOSONG_KELAS = { id: 0, nama: "", keterangan: "", waliId: "" as number | "" };
 const KOSONG_MAPEL = { id: 0, kelasId: 0, nama: "", guruId: "", deskripsi: "" };
 
 async function muat(): Promise<Data | null> {
@@ -130,8 +131,15 @@ export default function KelasMapelPage() {
                             <input value={formKelas.nama} onChange={(e) => setFormKelas({ ...formKelas, nama: e.target.value })} required maxLength={50} className={inputClass} placeholder="mis. X IPA 1" />
                             <span className="text-[10px] text-slate-400">Harus sama persis dengan kolom Kelas pada data peserta.{formKelas.id ? " Mengganti nama ikut mengganti kelas peserta anggotanya." : ""}</span>
                         </label>
+                        <label className="block"><span className={labelClass}>Wali Kelas</span>
+                            <select value={formKelas.waliId} onChange={(e) => setFormKelas({ ...formKelas, waliId: e.target.value ? Number(e.target.value) : "" })} className={inputClass}>
+                                <option value="">— Belum ditentukan —</option>
+                                {data?.guru.map((g) => <option key={g.id} value={g.id}>{g.nama}</option>)}
+                            </select>
+                            <span className="text-[10px] text-slate-400">Wali kelas membuka rapor kelasnya, mengisi data rapor, dan menangani permintaan reset password siswanya.</span>
+                        </label>
                         <label className="block"><span className={labelClass}>Keterangan (opsional)</span>
-                            <input value={formKelas.keterangan} onChange={(e) => setFormKelas({ ...formKelas, keterangan: e.target.value })} maxLength={200} className={inputClass} placeholder="mis. Wali kelas: Bu Sari" />
+                            <input value={formKelas.keterangan} onChange={(e) => setFormKelas({ ...formKelas, keterangan: e.target.value })} maxLength={200} className={inputClass} placeholder="mis. Ruang 12" />
                         </label>
                         <div className="flex gap-2">
                             <button type="submit" className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg text-sm font-bold">{formKelas.id ? "Simpan" : "Tambah Kelas"}</button>
@@ -228,11 +236,12 @@ export default function KelasMapelPage() {
                                     <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-sky-100 text-sky-700">{k.jumlahSiswa} siswa</span>
                                     <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-slate-200 text-slate-600">{k.mapel.length} mapel</span>
                                     {tanpaGuru > 0 && <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-700">{tanpaGuru} tanpa guru</span>}
+                                    {k.waliId && <span className="text-xs text-slate-500">· Wali: {data?.guru.find((g) => g.id === k.waliId)?.nama ?? "?"}</span>}
                                     {k.keterangan && <span className="text-xs text-slate-500">· {k.keterangan}</span>}
                                 </button>
                                 <div className="ml-auto flex gap-1">
                                     <button onClick={() => setFormMapel({ ...KOSONG_MAPEL, kelasId: k.id })} className="text-[10px] bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold px-2 py-1 rounded-md">+ Mapel</button>
-                                    <button onClick={() => setFormKelas({ id: k.id, nama: k.nama, keterangan: k.keterangan })} className="text-[10px] bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold px-2 py-1 rounded-md">Edit</button>
+                                    <button onClick={() => setFormKelas({ id: k.id, nama: k.nama, keterangan: k.keterangan, waliId: k.waliId ?? "" })} className="text-[10px] bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold px-2 py-1 rounded-md">Edit</button>
                                     <button onClick={() => hapus("kelas", k.id, k.nama)} className="text-[10px] bg-red-100 hover:bg-red-200 text-red-800 font-bold px-2 py-1 rounded-md">Hapus</button>
                                 </div>
                             </header>

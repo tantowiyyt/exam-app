@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { KontenSoal } from "@/components/KontenSoal";
 
 interface JawabanItem {
     soalId: number;
@@ -158,13 +159,13 @@ export default function ReviewJawabanPage() {
                                 </div>
                             </div>
 
-                            <h3 className="text-sm font-bold text-slate-800 mb-3 leading-relaxed">{item.pertanyaan}</h3>
+                            <KontenSoal teks={item.pertanyaan} className="text-sm font-bold text-slate-800 mb-3" />
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                 {(["A", "B", "C", "D"] as const).map((opt) => (
                                     <div key={opt} className={`flex items-center gap-2 p-2.5 rounded-lg border text-sm ${getOpsiClass(opt, item.jawabanPeserta, item.jawabanBenar)}`}>
                                         <span className="font-bold w-5">{opt}.</span>
-                                        <span className="flex-1">{item[`opsi${opt}` as keyof JawabanItem] as string}</span>
+                                        <KontenSoal teks={item[`opsi${opt}` as keyof JawabanItem] as string} className="flex-1" sebaris />
                                         {opt === item.jawabanBenar && <span className="text-emerald-600 font-bold">&#10003;</span>}
                                         {opt === item.jawabanPeserta && opt !== item.jawabanBenar && <span className="text-red-600 font-bold">&#10007;</span>}
                                     </div>

@@ -72,7 +72,10 @@ if (!siap) {
 }
 
 // 4. Jalankan suite
-const suites = readdirSync(join(ROOT, 'tests', 'e2e')).filter((f) => /^\d+-.*\.mjs$/.test(f)).sort();
+let suites = readdirSync(join(ROOT, 'tests', 'e2e')).filter((f) => /^\d+-.*\.mjs$/.test(f)).sort();
+// --hanya 16,17 = jalankan suite yang namanya diawali angka itu saja
+const iHanya = process.argv.indexOf('--hanya');
+if (iHanya > 0) { const pilih = String(process.argv[iHanya + 1] ?? '').split(','); suites = suites.filter((f) => pilih.some((p) => f.startsWith(p))); }
 if (jumlahBeban) suites.push('beban.mjs');
 
 let totalLulus = 0;

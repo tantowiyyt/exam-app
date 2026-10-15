@@ -27,6 +27,8 @@ model User {
   nilai            Int?
   sudahUjian       Boolean            @default(false)
   notifDibacaAt    DateTime? // LMS: notifikasi sebelum waktu ini dianggap sudah dibaca
+  email            String             @default("") // untuk lupa password & notifikasi email (opsional)
+  notifWa          Boolean            @default(true) // terima notifikasi WhatsApp/email bila kanal aktif
   createdAt        DateTime           @default(now())
   jawaban          JawabanUjian[]
   histori          HistoriUjian[]
@@ -248,6 +250,7 @@ model Kelas {
   id         Int      @id @default(autoincrement())
   nama       String   @unique // mis. "X IPA 1" — sama dengan User.kelas
   keterangan String   @default("")
+  waliId     Int? // wali kelas (akun guru); fallback: "Wali kelas: Nama" di keterangan
   createdAt  DateTime @default(now())
   mapel      Mapel[]
 }
@@ -268,6 +271,8 @@ model Mapel {
   bobotUH       Int      @default(0)
   bobotUTS      Int      @default(0)
   bobotUAS      Int      @default(0)
+  // Nilai remedial yang masuk rapor: maksKkm = tertinggi tetapi maks KKM | maks = tertinggi | ganti = nilai remedial
+  aturanRemedial String  @default("maksKkm")
   createdAt     DateTime @default(now())
 
   kelas        Kelas          @relation(fields: [kelasId], references: [id])
@@ -328,6 +333,8 @@ model Tugas {
   tenggat         DateTime?
   terimaTerlambat Boolean   @default(true) // false = pengumpulan setelah tenggat ditolak
   untukSiswa      String    @default("") // "" = semua siswa kelas; ",3,7," = hanya siswa id 3 & 7
+  indukId         Int? // tugas remedial/pengayaan/susulan dari tugas ini
+  tipeSusulan     String    @default("") // "" | remedial | pengayaan | susulan
   nilaiMaks       Int       @default(100)
   rubrik          String    @default("[]") // JSON [{kriteria, deskripsi, maks}] — bila ada, nilaiMaks = jumlah maks
   terbit          Boolean   @default(true)
@@ -420,6 +427,7 @@ model Kuis {
   modeUjian        Boolean   @default(false)
   token            String    @default("") // kosong = tanpa token
   maksPelanggaran  Int       @default(5) // pelanggaran ke-N = jawaban dikumpulkan otomatis
+  untukSiswa       String    @default("") // "" = semua siswa kelas; ",3,7," = siswa tertentu (ujian remedial/susulan)
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
@@ -519,6 +527,9 @@ model UjianManual {
   jenis       String    @default("LAIN") // UH | UTS | UAS | LAIN
   mode        String    @default("offline") // offline (nilai manual) | cat (dikerjakan di komputer = Kuis modeUjian)
   kuisId      Int? // mode cat: kuis ujian yang dikerjakan siswa
+  indukId     Int? // ujian remedial/pengayaan/susulan dari ujian ini
+  tipeSusulan String    @default("") // "" | remedial | pengayaan | susulan
+  untukSiswa  String    @default("") // "" = semua siswa kelas; ",3,7," = siswa tertentu
   semesterId  Int?
   createdAt   DateTime  @default(now())
 
@@ -612,4 +623,129 @@ model Topik {
   mapel Mapel @relation(fields: [mapelId], references: [id])
 
   @@index([mapelId])
+}
+
+// ---------- Phase 20+: administrasi sekolah ----------
+
+// Lupa password: permintaan reset ke wali kelas/admin, atau kode sekali pakai lewat email/WhatsApp
+model PermintaanReset {
+  id         Int       @id @default(autoincrement())
+  userId     Int
+  createdAt  DateTime  @default(now())
+  selesai    Boolean   @default(false)
+  selesaiAt  DateTime?
+  ditangani  Int? // id staf yang mereset
+  ipAddress  String    @default("")
+
+  @@index([userId])
+  @@index([selesai])
+}
+
+model KodeReset {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  kodeHash   String
+  kanal      String // email | wa
+  kadaluarsa DateTime
+  percobaan  Int      @default(0)
+  dipakai    Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+}
+
+// Jadwal pelajaran mingguan (roster) per kelas; hari 1 = Senin ... 7 = Minggu
+model JadwalPelajaran {
+  id         Int    @id @default(autoincrement())
+  kelasId    Int
+  mapelId    Int
+  hari       Int
+  jamMulai   String // "07:00"
+  jamSelesai String // "08:30"
+  ruang      String @default("")
+  semesterId Int?
+
+  @@index([kelasId])
+  @@index([mapelId])
+}
+
+// Jurnal / agenda mengajar guru per pertemuan
+model JurnalMengajar {
+  id             Int      @id @default(autoincrement())
+  mapelId        Int
+  guruId         Int
+  tanggal        DateTime
+  jamKe          String   @default("")
+  materi         String
+  kegiatan       String   @default("")
+  catatan        String   @default("")
+  sesiPresensiId Int? // pertemuan presensi yang dipakai untuk daftar siswa tidak hadir
+  semesterId     Int?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([mapelId])
+  @@index([guruId])
+}
+
+// Data rapor tambahan per siswa per semester (diisi wali kelas)
+model DataRapor {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  semesterId  Int
+  sakit       Int? // null = dihitung dari presensi
+  izin        Int?
+  alpa        Int?
+  ekskul      String   @default("[]") // JSON [{nama, predikat, keterangan}]
+  prestasi    String   @default("[]") // JSON [{jenis, keterangan}]
+  kokurikuler String   @default("")
+  keputusan   String   @default("") // "" | naik | tinggal | lulus
+  keKelas     String   @default("")
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, semesterId])
+}
+
+// Arsip anggota kelas per semester (agar data tahun lalu tetap utuh setelah kenaikan kelas)
+model AnggotaKelas {
+  id         Int    @id @default(autoincrement())
+  semesterId Int
+  userId     Int
+  kelas      String
+
+  @@unique([semesterId, userId])
+  @@index([semesterId, kelas])
+}
+
+// Berita acara ujian CAT sekolah per ruang & sesi (diisi pengawas)
+model BeritaAcara {
+  id           Int       @id @default(autoincrement())
+  ujianId      Int
+  ruang        String
+  sesi         String
+  pengawasId   Int?
+  namaPengawas String    @default("")
+  mulai        DateTime?
+  selesai      DateTime?
+  catatan      String    @default("") // catatan kejadian
+  tidakHadir   String    @default("[]") // JSON [{userId, keterangan}] tambahan keterangan
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([ujianId, ruang, sesi])
+}
+
+// Notifikasi di luar aplikasi (WhatsApp/email) yang sudah dikirim; kunci mencegah kirim ganda
+model NotifKeluar {
+  id        Int      @id @default(autoincrement())
+  kunci     String   @unique
+  userId    Int
+  kanal     String // email | wa
+  tujuan    String
+  judul     String
+  status    String // terkirim | gagal
+  error     String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
 }

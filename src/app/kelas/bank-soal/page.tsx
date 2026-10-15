@@ -5,6 +5,7 @@ import { useToast } from "@/components/Toast";
 import { HeaderHalaman } from "@/components/AppShell";
 import { Modal, kirim, inputClass, labelClass } from "@/components/lms/ui";
 import { EditorSoal, LABEL_TIPE, teksKunci, type ItemBank, type SoalEdit } from "@/components/lms/kuis";
+import { KontenSoal } from "@/components/KontenSoal";
 
 // Bank soal guru per mapel (lintas kelas): kelola soal, label bab/topik, bagikan ke guru lain dengan mapel sama.
 // Soal dipakai lewat tombol "Ambil dari Bank Soal" di editor soal kuis / ujian CAT.
@@ -148,7 +149,7 @@ export default function HalamanBankSoal() {
                                             {s.bersama && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">Dibagikan</span>}
                                             {!s.milikSaya && <span className="text-[10px] text-slate-400">dari {s.pemilik}</span>}
                                         </div>
-                                        <p className="text-sm text-slate-800 whitespace-pre-wrap">{s.pertanyaan}</p>
+                                        <KontenSoal teks={s.pertanyaan} className="text-sm text-slate-800" />
                                         {s.tipe === "pg" && (
                                             <ol className="mt-1 text-xs text-slate-600 grid sm:grid-cols-2 gap-x-4">
                                                 {s.opsi.map((o, k) => <li key={k} className={String(k) === s.kunci ? "font-bold text-emerald-700" : ""}>{HURUF[k]}. {o}</li>)}

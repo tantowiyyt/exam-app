@@ -6,6 +6,7 @@ import { hitungRekapMapel } from '@/lib/rekap';
 import { getInstansi } from '@/lib/pengaturan-aplikasi';
 import { batasPredikat, predikat, saranDeskripsi } from '@/lib/rapor';
 import { createAuditLog, getAuditIP } from '@/lib/audit-log';
+import { whereAnggota } from '@/lib/anggota';
 
 // Deskripsi capaian rapor per siswa untuk satu mapel & semester (ditulis guru pengampu / admin).
 // GET: nilai akhir, predikat, deskripsi tersimpan, dan saran otomatis. PUT: simpan banyak deskripsi.
@@ -24,7 +25,7 @@ export async function GET(request: Request, ctx: RouteContext<'/api/lms/mapel/[i
     const s = await siapkan(request, ctx, new URL(request.url).searchParams.get('semester'));
     if ('error' in s) return s.error;
     const { akses, semester } = s;
-    const siswa = await prisma.user.findMany({ where: { role: 'PESERTA', kelas: akses.mapel.kelas.nama }, select: { id: true, nomorPeserta: true, nama: true }, orderBy: { nama: 'asc' } });
+    const siswa = await prisma.user.findMany({ where: await whereAnggota(akses.mapel.kelas.nama, semester), select: { id: true, nomorPeserta: true, nama: true }, orderBy: { nama: 'asc' } });
     const [rekap, tersimpan, instansi] = await Promise.all([
       hitungRekapMapel(akses.mapel, siswa, semester, { kelola: true }),
       prisma.deskripsiRapor.findMany({ where: { mapelId: akses.mapel.id, semesterId: semester.id } }),
@@ -63,7 +64,7 @@ export async function PUT(request: Request, ctx: RouteContext<'/api/lms/mapel/[i
     const { akses, semester } = s;
     const list: unknown[] = Array.isArray(body.data) ? body.data : [];
     if (list.length > 1000) return NextResponse.json({ message: 'Terlalu banyak data' }, { status: 400 });
-    const anggota = new Set((await prisma.user.findMany({ where: { role: 'PESERTA', kelas: akses.mapel.kelas.nama }, select: { id: true } })).map((u) => u.id));
+    const anggota = new Set((await prisma.user.findMany({ where: await whereAnggota(akses.mapel.kelas.nama, semester), select: { id: true } })).map((u) => u.id));
     const ops = [];
     for (const raw of list) {
       const r = (raw ?? {}) as Record<string, unknown>;
