@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAdminSession } from '@/lib/admin-auth';
 import { createAuditLog, getAuditIP } from '@/lib/audit-log';
+import { jalankanPengingat } from '@/lib/pengingat';
 import { getNotif, setNotif, RAHASIA, PENYEDIA_WA, emailValid, nomorWa, kirimEmail, kirimWa, type PengaturanNotif } from '@/lib/notif-keluar';
 
 // Pengaturan notifikasi di luar aplikasi (email SMTP & WhatsApp gateway). Rahasia (password SMTP, token WA)
@@ -53,12 +54,17 @@ export async function PUT(request: Request) {
   }
 }
 
-// Kirim pesan uji: { kanal: 'email' | 'wa', tujuan }
+// Kirim pesan uji: { kanal: 'email' | 'wa', tujuan } | jalankan pengingat sekarang: { aksi: 'jalankan' }
 export async function POST(request: Request) {
   const auth = await verifyAdminSession();
   if (!auth.ok) return NextResponse.json({ message: auth.message }, { status: auth.status });
   try {
-    const { kanal, tujuan } = await request.json();
+    const body = await request.json();
+    if (body.aksi === 'jalankan') {
+      const hasil = await jalankanPengingat();
+      return NextResponse.json({ success: true, ...hasil, message: `Pengingat dijalankan: ${hasil.dikirim} pesan terkirim` });
+    }
+    const { kanal, tujuan } = body;
     const c = await getNotif();
     const isi = 'Pesan uji dari aplikasi sekolah. Bila pesan ini sampai, pengaturan notifikasi sudah benar.';
     if (kanal === 'email') {

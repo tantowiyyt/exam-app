@@ -9,15 +9,15 @@ import { HeaderHalaman } from "@/components/AppShell";
 
 interface Siswa {
     id: number; nomorPeserta: string; nama: string; kelas: string; jenisKelamin: string | null;
-    nik: string | null; tempatLahir: string | null; tanggalLahir: string | null; alamat: string | null; noHp: string | null; email?: string; foto: string | null;
+    nik: string | null; tempatLahir: string | null; tanggalLahir: string | null; alamat: string | null; noHp: string | null; email?: string; nisn?: string; foto: string | null;
     createdAt: string;
 }
 interface Form {
     id: number; nomorPeserta: string; nama: string; password: string; kelas: string; jenisKelamin: string;
-    nik: string; tempatLahir: string; tanggalLahir: string; alamat: string; noHp: string; email: string; foto: string;
+    nik: string; tempatLahir: string; tanggalLahir: string; alamat: string; noHp: string; email: string; nisn: string; foto: string;
 }
 
-const KOSONG: Form = { id: 0, nomorPeserta: "", nama: "", password: "", kelas: "", jenisKelamin: "", nik: "", tempatLahir: "", tanggalLahir: "", alamat: "", noHp: "", email: "", foto: "" };
+const KOSONG: Form = { id: 0, nomorPeserta: "", nama: "", password: "", kelas: "", jenisKelamin: "", nik: "", tempatLahir: "", tanggalLahir: "", alamat: "", noHp: "", email: "", nisn: "", foto: "" };
 const inputClass = "w-full px-3 py-2 text-sm rounded-lg border border-slate-300 outline-none focus:ring-2 focus:ring-indigo-500 bg-white";
 const labelClass = "block text-xs font-bold text-slate-600 uppercase mb-1";
 const PER_HALAMAN = 30;
@@ -76,7 +76,7 @@ export default function DataSiswa() {
     const edit = (s: Siswa) => setForm({
         id: s.id, nomorPeserta: s.nomorPeserta, nama: s.nama, password: "", kelas: s.kelas, jenisKelamin: s.jenisKelamin ?? "",
         nik: s.nik ?? "", tempatLahir: s.tempatLahir ?? "", tanggalLahir: s.tanggalLahir ? s.tanggalLahir.slice(0, 10) : "",
-        alamat: s.alamat ?? "", noHp: s.noHp ?? "", email: s.email ?? "", foto: s.foto ?? "",
+        alamat: s.alamat ?? "", noHp: s.noHp ?? "", email: s.email ?? "", nisn: s.nisn ?? "", foto: s.foto ?? "",
     });
 
     const hapus = async (s: Siswa) => {
@@ -233,6 +233,7 @@ export default function DataSiswa() {
                                 <label className="block"><span className={labelClass}>Tanggal Lahir</span><input type="date" value={form.tanggalLahir} onChange={(e) => setForm({ ...form, tanggalLahir: e.target.value })} className={inputClass} /></label>
                                 <label className="block"><span className={labelClass}>No. HP / WA</span><input value={form.noHp} onChange={(e) => setForm({ ...form, noHp: e.target.value })} className={inputClass} /></label>
                                 <label className="block"><span className={labelClass}>Email</span><input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={inputClass} /></label>
+                                <label className="block"><span className={labelClass}>NISN</span><input value={form.nisn} onChange={(e) => setForm({ ...form, nisn: e.target.value })} inputMode="numeric" className={inputClass} /></label>
                                 <label className="block sm:col-span-2"><span className={labelClass}>Alamat</span><textarea value={form.alamat} onChange={(e) => setForm({ ...form, alamat: e.target.value })} rows={2} className={`${inputClass} resize-y`} /></label>
                             </div>
                             <div className="flex flex-col items-center gap-2">

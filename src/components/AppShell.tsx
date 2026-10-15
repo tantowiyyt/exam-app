@@ -15,6 +15,7 @@ interface Grup { judul?: string; item: Item[] }
 
 const IKON = {
     centang: "M4 12l5 5L20 6",
+    pesan: "M4 5h16v11H8l-4 4z",
     jam: "M12 7v5l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z",
     buku: "M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2zm0 0v16M8 7h7",
     rumah: "M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z",
@@ -50,7 +51,7 @@ function menu(role: string, cat: boolean): Grup[] {
     const jadwal: Item = { href: "/kelas/jadwal", label: "Jadwal", ikon: "jam" };
     const jurnal: Item = { href: "/kelas/jurnal", label: "Jurnal Mengajar", ikon: "buku" };
     if (role === "GURU") return [{ item: [beranda, jadwal, kalender, jurnal, bankSoal, rapor] }, { judul: "Akun", item: [resetPw, password, panduan] }];
-    if (role === "PENGAWAS") return [{ item: [{ href: "/admin/monitoring", label: "Monitoring Ujian", ikon: "monitor" }] }, { judul: "Akun", item: [password, panduan] }];
+    if (role === "PENGAWAS") return [{ item: [{ href: "/admin/monitoring", label: "Monitoring Ujian", ikon: "monitor" }, { href: "/admin/berita-acara", label: "Berita Acara", ikon: "kartu" }] }, { judul: "Akun", item: [password, panduan] }];
     // ADMIN
     return [
         { item: [beranda, kalender] },
@@ -62,6 +63,7 @@ function menu(role: string, cat: boolean): Grup[] {
                 rapor,
                 { ...bankSoal, label: "Bank Soal Guru" },
                 { href: "/admin/peserta", label: "Siswa", ikon: "siswa" },
+                { href: "/admin/dapodik", label: "Impor Dapodik", ikon: "siswa" },
                 { href: "/admin/akun", label: "Guru & Staf", ikon: "guru" },
                 { ...resetPw, label: "Reset Password" },
             ],
@@ -73,6 +75,7 @@ function menu(role: string, cat: boolean): Grup[] {
                 { href: "/admin/soal", label: "Bank Soal", ikon: "soal" as const },
                 { href: "/admin/peserta-ujian", label: "Peserta Ujian", ikon: "siswa" as const },
                 { href: "/admin/monitoring", label: "Monitoring", ikon: "monitor" as const },
+                { href: "/admin/berita-acara", label: "Berita Acara", ikon: "kartu" as const },
                 { href: "/admin/kartu", label: "Kartu Ujian", ikon: "kartu" as const },
                 { href: "/admin/nilai", label: "Hasil Ujian", ikon: "nilai" as const },
                 { href: "/admin/bagian", label: "Bagian Ujian", ikon: "kelas" as const },
@@ -84,6 +87,7 @@ function menu(role: string, cat: boolean): Grup[] {
         {
             judul: "Sistem", item: [
                 { href: "/admin/pengaturan", label: "Pengaturan", ikon: "sistem" },
+                { href: "/admin/notifikasi", label: "Notifikasi WA/Email", ikon: "pesan" },
                 { href: "/admin/backup", label: "Backup & Restore", ikon: "kunci" },
                 { href: "/admin/activity", label: "Aktivitas", ikon: "monitor" },
                 { href: "/admin/audit-logs", label: "Audit Log", ikon: "soal" },

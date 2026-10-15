@@ -38,8 +38,22 @@ Dibangun dengan Next.js 16, React 19, Prisma + SQLite, dan Tailwind CSS 4. Tidak
 - **Bank soal guru**: simpan soal per mapel (lintas kelas), beri label bab, bagikan ke guru lain.
 - **Nilai**: rekap per mapel dengan bobot tugas/kuis/UH/UTS/UAS/presensi dan **KKM**, ekspor CSV.
 - **Ujian per mapel** (UH/UTS/UAS): offline (guru mengisi nilai) atau CAT (token, layar penuh, deteksi pelanggaran, monitoring guru).
+- **Soal bergambar, beraudio (listening), dan berumus** (notasi LaTeX `$x^2$`) di kuis, ujian, dan bank soal.
+- **Remedial, pengayaan, dan susulan** dari tugas/ujian untuk siswa tertentu; nilai yang masuk rapor mengikuti aturan mapel
+  (nilai tertinggi dibatasi KKM, nilai tertinggi, atau mengganti).
 - **Semester** aktif dan **rapor** lintas mapel: format **Kurikulum Merdeka** (nilai akhir, predikat, capaian kompetensi)
-  atau rinci per komponen, deskripsi capaian per siswa, catatan wali kelas, kehadiran, peringkat, siap cetak A4.
+  atau rinci per komponen, deskripsi capaian, catatan wali kelas, **ekstrakurikuler, prestasi, kokurikuler, ketidakhadiran S/I/A,
+  keputusan naik kelas**, peringkat, siap cetak A4. Data tahun lalu tetap utuh setelah kenaikan kelas (arsip anggota kelas per semester).
+
+### Administrasi sekolah
+- **Jadwal pelajaran** (roster) per kelas & per guru dengan cek bentrok; "Jadwal Hari Ini" di beranda.
+- **Jurnal mengajar** guru: materi & kegiatan per pertemuan, siswa tidak hadir otomatis dari presensi; tampilan supervisi & cetak.
+- **Rekap kehadiran** siswa lintas mapel.
+- **Impor siswa dari Dapodik** (file Excel unduhan Dapodik) dan **ekspor nilai untuk e-Rapor** (Excel per kelas: nilai akhir, predikat,
+  capaian, kehadiran, ekskul).
+- **Lupa password mandiri**: kode lewat WhatsApp/email, atau permintaan ke wali kelas yang bisa mereset password siswanya.
+- **Notifikasi WhatsApp & email** (opsional): tugas baru, pengumuman, pengingat tenggat H-1, jadwal ujian H-1.
+- **Panduan penggunaan** per peran di dalam aplikasi (bisa dicetak/PDF).
 
 ### Ujian CAT sekolah
 - Kelola ujian: durasi, jadwal mulai/selesai, **pool soal** (soal acak per siswa), bagian ujian (bisa berwaktu sendiri).
@@ -49,6 +63,7 @@ Dibangun dengan Next.js 16, React 19, Prisma + SQLite, dan Tailwind CSS 4. Tidak
 - **Anti-curang**: deteksi pindah tab & keluar layar penuh, blokir salin-tempel/klik kanan/shortcut, watermark nama,
   otomatis dikumpulkan pada pelanggaran ke-5. (Untuk penguncian perangkat penuh, gunakan [Safe Exam Browser](https://safeexambrowser.org).)
 - **Peserta Ujian**: atur ruang & sesi per kelas/siswa, reset per siswa atau per ujian.
+- **Berita acara & daftar hadir** per ruang/sesi untuk pengawas (kehadiran otomatis, catatan kejadian, siap cetak).
 - **Monitoring real-time** untuk pengawas: progres, sisa waktu, pelanggaran; tambah waktu, kumpulkan paksa, reset sesi.
 - **Kartu ujian A4** (kop sekolah, foto, QR, tata tertib), rekap nilai + CSV, histori, statistik & analisis tingkat kesulitan soal,
   review jawaban oleh siswa.
@@ -65,10 +80,11 @@ Dibangun dengan Next.js 16, React 19, Prisma + SQLite, dan Tailwind CSS 4. Tidak
 
 | Peran | Akses |
 |---|---|
-| **Admin** | Semua menu: akun, kelas & mapel, semester, ujian CAT sekolah, kartu, nilai, rapor, pengaturan, backup |
-| **Guru** | Mapel yang diampu (materi, tugas, kuis, presensi, ujian mapel, nilai), bank soal, rapor kelas yang diajar/diwalikan |
-| **Pengawas** | Monitoring ujian CAT (dibatasi ke ruangnya bila diisi) |
-| **Siswa** | Ruang belajar kelasnya, ujian CAT, nilai & rapor sendiri, data diri |
+| **Admin** | Semua menu: akun, kelas & mapel, jadwal, jurnal (supervisi), semester, impor Dapodik, ujian CAT sekolah, kartu, berita acara, nilai, rapor & ekspor e-Rapor, notifikasi, pengaturan, backup |
+| **Guru** | Mapel yang diampu (materi, tugas, kuis, presensi, ujian mapel, remedial, nilai), jadwal & jurnal mengajar, bank soal, rapor kelas yang diajar |
+| **Wali kelas** (guru) | Ditambah: data rapor (ekskul, prestasi, ketidakhadiran, kenaikan kelas), reset password siswa perwaliannya |
+| **Pengawas** | Monitoring ujian CAT dan berita acara/daftar hadir (dibatasi ke ruangnya bila diisi) |
+| **Siswa** | Ruang belajar kelasnya, jadwal, kehadiran, ujian CAT, nilai & rapor sendiri, data diri |
 
 ---
 
@@ -127,10 +143,14 @@ backup terjadwal, kapasitas, dan checklist sebelum ujian — ada di **[DEPLOY.md
 1. **Pengaturan** → isi nama aplikasi, nama & alamat sekolah, logo, kop dan penandatangan kartu/rapor.
 2. **Pengaturan → Semester** → pastikan semester aktif sudah benar.
 3. **Guru & Staf** → buat akun guru dan pengawas (pengawas bisa dibatasi per ruang).
-4. **Siswa** → tambah atau impor siswa dari CSV, isi kolom kelas.
-5. **Kelas & Mapel** → buat kelas (bisa otomatis dari data siswa), mapel, guru pengampu, dan wali kelas.
-6. Untuk ujian CAT sekolah: **Kelola Ujian** → buat ujian & pilih kelas peserta → **Bank Soal** (tambah/impor soal) →
-   **Peserta Ujian** (atur ruang & sesi) → **Kartu Ujian** (cetak) → aktifkan ujian.
+4. **Impor Dapodik** → unggah file unduhan Dapodik (atau **Siswa** → tambah/impor CSV).
+5. **Kelas & Mapel** → buat kelas (bisa otomatis dari data siswa), mapel, guru pengampu, dan **wali kelas**.
+   **Jadwal Pelajaran** → isi roster per kelas.
+6. (Opsional) **Notifikasi WA/Email** → isi token gateway WhatsApp (mis. Fonnte) dan/atau SMTP email, lalu kirim pesan uji.
+7. Untuk ujian CAT sekolah: **Kelola Ujian** → buat ujian & pilih kelas peserta → **Bank Soal** (tambah/impor soal) →
+   **Peserta Ujian** (atur ruang & sesi) → **Kartu Ujian** (cetak) → aktifkan ujian → pengawas mengisi **Berita Acara**.
+
+Panduan langkah demi langkah untuk tiap peran ada di menu **Panduan** di dalam aplikasi.
 
 Lupa password admin? Jalankan lagi `npm run admin:buat -- admin "PasswordBaru"`.
 
@@ -165,7 +185,7 @@ Tes end-to-end menjalankan server produksi terhadap **salinan** database (data a
 
 ```bash
 npm run build
-npm run test:e2e      # ±667 tes fungsional
+npm run test:e2e      # ±869 tes fungsional
 npm run test:beban    # + uji beban 150 peserta serentak
 ```
 
@@ -192,3 +212,5 @@ AGENTS.md              catatan pengembangan rinci per fase
 - Aturan IP membaca header `X-Forwarded-For` — gunakan reverse proxy agar tidak bisa dipalsukan.
 - Layar penuh tidak didukung di iPhone (hanya deteksi pindah tab).
 - Penguncian perangkat ala Safe Exam Browser tidak dibangun; gunakan Safe Exam Browser resmi bila diperlukan.
+- Notifikasi WhatsApp memerlukan layanan gateway pihak ketiga (umumnya berbayar) dan akses internet dari server.
+- File ekspor e-Rapor berupa Excel umum; sesuaikan/salin kolomnya ke template e-Rapor versi sekolah Anda.

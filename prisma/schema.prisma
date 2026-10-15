@@ -15,6 +15,7 @@ model User {
   role             String             @default("PESERTA") // ADMIN, PENGAWAS, GURU, atau PESERTA
   foto             String? // Path foto profil
   nik              String? // Nomor Induk Kependudukan
+  nisn             String             @default("") // Nomor Induk Siswa Nasional (Dapodik / e-Rapor)
   tempatLahir      String?
   tanggalLahir     DateTime?
   jenisKelamin     String? // L atau P

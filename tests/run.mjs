@@ -29,7 +29,8 @@ if (!existsSync(join(ROOT, '.next', 'BUILD_ID'))) {
 const tmp = mkdtempSync(join(tmpdir(), 'cat-uji-'));
 const testDb = join(tmp, 'test.db').replace(/\\/g, '/');
 const sumber = resolve(ROOT, process.env.SOURCE_DB || 'prisma/dev.db');
-const env = { ...process.env, DATABASE_URL: `file:${testDb}`, STORAGE_DIR: join(tmp, 'storage'), NODE_ENV: 'production' };
+// Penjadwal notifikasi dimatikan; tes memicunya lewat API agar hasilnya pasti
+const env = { ...process.env, DATABASE_URL: `file:${testDb}`, STORAGE_DIR: join(tmp, 'storage'), NODE_ENV: 'production', NOTIF_PENJADWAL: 'off' };
 if (existsSync(sumber)) {
   copyFileSync(sumber, testDb);
   for (const ext of ['-wal', '-shm']) if (existsSync(sumber + ext)) copyFileSync(sumber + ext, testDb + ext);

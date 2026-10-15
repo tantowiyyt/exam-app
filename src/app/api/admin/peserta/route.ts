@@ -23,6 +23,11 @@ function parseDataDiri(body: Record<string, unknown>): { error: string } | { dat
     const v = str(k);
     if (v !== undefined) data[k] = v ? v.slice(0, 255) : null;
   }
+  const nisn = str('nisn');
+  if (nisn !== undefined) {
+    if (nisn && !/^\d{1,20}$/.test(nisn)) return { error: 'NISN harus berupa angka' };
+    data.nisn = nisn;
+  }
   const email = str('email');
   if (email !== undefined) {
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: 'Email tidak valid' };

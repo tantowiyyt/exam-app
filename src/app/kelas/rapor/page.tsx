@@ -102,6 +102,7 @@ export default function HalamanRapor() {
                         <option value="rinci">Format rinci per komponen</option>
                     </select>
                 )}
+                {staf && kelas && <a href={`/api/lms/rapor/ekspor?kelas=${kelas}&semester=${d.semester.id}`} className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold" title="Nilai, capaian, kehadiran, ekskul dalam Excel untuk disalin ke e-Rapor">Ekspor e-Rapor</a>}
                 {dicetak.length > 0 && <button onClick={() => window.print()} className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold">Cetak / PDF</button>}
             </HeaderHalaman>
 

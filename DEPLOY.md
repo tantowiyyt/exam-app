@@ -81,6 +81,12 @@ User=cat
 WantedBy=multi-user.target
 ```
 
+### Notifikasi WhatsApp / email (opsional)
+
+Diatur di menu admin **Notifikasi WA/Email**. Server perlu akses internet keluar ke gateway WhatsApp (mis. `api.fonnte.com`)
+dan/atau server SMTP. Pengingat diperiksa otomatis tiap 10 menit oleh proses aplikasi (satu instance);
+isi `NOTIF_PENJADWAL=off` di `.env` untuk mematikan penjadwal (pengiriman manual dari menu tetap bisa).
+
 ## 5. Backup
 
 Database memakai SQLite mode **WAL** (otomatis aktif). Saat aplikasi berjalan, data terbaru bisa

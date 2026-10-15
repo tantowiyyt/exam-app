@@ -27,7 +27,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 **Repo:** https://github.com/tantowiyyt/exam-app (branch `main`). Database, foto upload, dan `.env` sengaja tidak di-commit.
 
-**Kondisi:** fitur lengkap + LMS (Phase 16), build & lint bersih, `npm run test:e2e` 825 tes lulus, uji beban 150 peserta serentak 0 gagal (sebelum LMS).
+**Kondisi:** fitur lengkap + LMS (Phase 16) + administrasi sekolah (Phase 20–23), build & lint bersih, `npm run test:e2e` 869 tes lulus, uji beban 150 peserta serentak 0 gagal (sebelum LMS).
 Siap untuk **simulasi**, belum untuk ujian sungguhan — selesaikan daftar di bawah dulu.
 
 **Belum dilakukan (oleh pemilik proyek):**
@@ -36,8 +36,10 @@ Siap untuk **simulasi**, belum untuk ujian sungguhan — selesaikan daftar di ba
 3. Di server: isi `.env` dari `.env.example` (`SESSION_SECRET` acak, `COOKIE_SECURE=false` bila lab via http://IP)
 4. Buat akun pengawas per ruang, isi kelas peserta, isi kop kartu, cetak kartu
 5. LMS: buat akun guru (Kelola Akun → role Guru), kelas & mapel (Admin → LMS → Kelas & Mapel), lalu uji alur materi/tugas/kuis/presensi dengan guru & siswa sungguhan
+6. Administrasi (Phase 20–23): tetapkan wali kelas, isi jadwal pelajaran, impor siswa dari Dapodik, (opsional) aktifkan WhatsApp/email di Notifikasi WA/Email
+   (gateway WA berbayar, mis. Fonnte; server butuh akses internet keluar), cocokkan file Ekspor e-Rapor dengan template e-Rapor versi sekolah
 
-**Fitur LMS yang belum dibuat (prioritas rendah, hasil perbandingan dengan Moodle/EdLink):** lencana (badges), pesan pribadi, akun orang tua, video conference, koreksi/anotasi PDF langsung di file.
+**Fitur LMS yang belum dibuat (prioritas rendah, hasil perbandingan dengan Moodle/EdLink):** lencana (badges), pesan pribadi, akun orang tua, video conference, koreksi/anotasi PDF langsung di file, video panduan (panduan tertulis per peran sudah ada di menu Panduan).
 
 **Keputusan yang sudah diambil:**
 - Penguncian perangkat ala Safe Exam Browser **tidak** dibangun di proyek ini. Pakai Safe Exam Browser resmi bila perlu;
@@ -54,11 +56,14 @@ Siap untuk **simulasi**, belum untuk ujian sungguhan — selesaikan daftar di ba
 - Ujian CAT **sekolah** (menu admin): beberapa boleh aktif bersamaan asal **kelas pesertanya tidak beririsan** (Phase 19); mengaktifkan ujian yang beririsan menonaktifkan ujian lain itu. Status "sudah ujian" per ujian (`SesiUjian.selesai`); `User.sudahUjian`/`User.nilai` masih ditulis tetapi tidak lagi dipakai untuk logika.
   Ujian per mapel (UH/UTS/UAS) dikelola guru di tab Ujian dan bisa CAT bersamaan di banyak kelas (Phase 18, mesin Kuis mode ujian).
 - Ujian CAT mapel dipantau guru pengampu (bukan role Pengawas); layar penuh tidak tersedia di iPhone (hanya deteksi pindah tab).
+- Notifikasi WA/email & penjadwalnya di memori satu proses (satu instance). Kode lupa password hanya lewat kanal yang aktif; tanpa kanal = lewat wali kelas/admin.
+- Ekspor e-Rapor berupa Excel umum (bukan template resmi per versi); kolom perlu disalin ke template e-Rapor sekolah. Impor Dapodik membaca lembar pertama saja.
+- Arsip anggota kelas hanya tersedia untuk semester yang ditinggalkan setelah Phase 20; semester lama tanpa arsip memakai kelas siswa saat ini.
 - LMS: lampiran yang belum/tidak lagi tertaut ke materi/tugas/jawaban bisa dibuka siapa pun yang login asal tahu URL acaknya (UUID);
   lampiran yang tertaut hanya untuk anggota/pengelola mapelnya.
 
 **Backup DB lokal** (di-ignore git): `prisma/dev.db.bak-20261014063026`, `-065253`, `-071034`, `-090459` (sebelum skema LMS), `-115525` (sebelum fitur tugas lanjutan), `-132330` (sebelum kuis), `-134625` (sebelum presensi), `-135714` (sebelum topik & jadwal terbit), `-140714` (sebelum bobot nilai & rubrik) — boleh dihapus bila tidak diperlukan.
-**PERHATIAN:** backup `-115525` s/d `-164000` dibuat dengan menyalin `dev.db` saja padahal perubahan masih di `dev.db-wal`, sehingga isinya SAMA (kondisi 09:29, sebelum kelas/kuis/dst). Backup lengkap yang valid (via `VACUUM INTO`): `-164500` (63 akun, 21 kelas), `-170000` (sebelum 273 mapel), `-173000` (sebelum 630 siswa), `-174500` (sebelum skema ujian offline), `-190000` (sebelum skema semester & ujian CAT mapel), `-203000` (sebelum bank soal & tautan kelas virtual), `-213000` (sebelum deskripsi & catatan rapor), `-223000` (sebelum skema ujian sekolah per kelas), `-20261015100954` (sebelum skema administrasi Phase 20+).
+**PERHATIAN:** backup `-115525` s/d `-164000` dibuat dengan menyalin `dev.db` saja padahal perubahan masih di `dev.db-wal`, sehingga isinya SAMA (kondisi 09:29, sebelum kelas/kuis/dst). Backup lengkap yang valid (via `VACUUM INTO`): `-164500` (63 akun, 21 kelas), `-170000` (sebelum 273 mapel), `-173000` (sebelum 630 siswa), `-174500` (sebelum skema ujian offline), `-190000` (sebelum skema semester & ujian CAT mapel), `-203000` (sebelum bank soal & tautan kelas virtual), `-213000` (sebelum deskripsi & catatan rapor), `-223000` (sebelum skema ujian sekolah per kelas), `-20261015100954` (sebelum skema administrasi Phase 20+), `-20261015105538` (sebelum kolom NISN).
 **Data contoh di dev.db (2026-10-14):** 21 kelas X–XII IPA/IPS/Bahasa, 273 mapel ber-guru, 25 guru + 25 pengawas (`storage/akun-guru-pengawas.csv`), 630 siswa 30/kelas (`storage/akun-siswa.csv`), pembagian mapel di `storage/pembagian-mapel.csv`. Ruang/sesi ujian siswa baru masih kosong.
 Backup berikutnya pakai `VACUUM INTO` / `sqlite3 .backup` (lihat `DEPLOY.md`), **jangan `cp dev.db`**.
 
@@ -191,6 +196,16 @@ Backup berikutnya pakai `VACUUM INTO` / `sqlite3 .backup` (lihat `DEPLOY.md`), *
 | Hapus soal yang sudah dijawab ditolak dengan pesan jelas (sebelumnya error FK) | ✅ | `src/app/api/admin/soal/route.ts` |
 
 **Durasi per bagian** kini diterapkan — lihat Phase 12.
+
+### Phase 23 — Notifikasi WA/Email, Berita Acara, Dapodik & e-Rapor (2026-10-15)
+| Item | Files |
+|------|-------|
+| **Notifikasi WhatsApp/email terjadwal**: tugas baru (termasuk terbit terjadwal), pengumuman, pengingat tenggat 24 jam (yang belum mengumpulkan), jadwal ujian 24 jam (ujian mapel offline/CAT, ujian CAT sekolah). Kunci unik per kejadian+siswa (tidak terkirim ganda); siswa bisa mematikan (`User.notifWa`). Penjadwal di `instrumentation.ts` (2 menit setelah start, lalu tiap 10 menit; `NOTIF_PENJADWAL=off` untuk mematikan — dipakai runner tes). Halaman admin **Notifikasi WA/Email**: pengaturan kanal, jenis pesan, kirim uji, "Kirim pengingat sekarang", log 30 terakhir | `src/lib/pengingat.ts`, `src/instrumentation.ts`, `src/app/admin/notifikasi/page.tsx`, `src/app/api/admin/notifikasi/route.ts` |
+| **Berita acara & daftar hadir** ujian CAT sekolah per ruang & sesi (admin & pengawas; pengawas hanya ruangnya): kehadiran otomatis dari sesi ujian, waktu mulai/selesai, catatan kejadian, keterangan peserta tidak hadir, cetak daftar hadir (kolom tanda tangan) & berita acara | `src/app/api/admin/berita-acara/route.ts`, `src/app/admin/berita-acara/page.tsx`, `src/proxy.ts` |
+| **Impor siswa dari Dapodik** (.xlsx unduhan "Daftar Peserta Didik" atau CSV): baris judul dicari otomatis, NIS = NIPD (kosong → NISN), kelas = Rombel Saat Ini; pratinjau lalu impor; siswa yang ada (NIS/NISN sama) diperbarui tanpa mengubah password; password awal NISN / tanggal lahir / NIS; opsi buat kelas. Kolom baru `User.nisn` (form admin) | `src/app/api/admin/dapodik/route.ts`, `src/app/admin/dapodik/page.tsx`, `tests/fixtures/dapodik-contoh.xlsx` |
+| **Ekspor nilai e-Rapor** (.xlsx per kelas & semester, tombol di Rapor): lembar Rekap, satu lembar per mapel (NISN, NIS, Nama, L/P, Nilai Akhir, Predikat, Capaian Kompetensi), lembar Kehadiran & Ekskul (S/I/A, ekskul, prestasi, kokurikuler, catatan, keputusan). Urutan kolom template e-Rapor bisa berbeda per versi | `src/app/api/lms/rapor/ekspor/route.ts` |
+| Pembaca/penulis xlsx & CSV tanpa dependensi (zip + XML; sharedStrings & inlineStr; tanggal teks/serial Excel) | `src/lib/xlsx.ts` |
+| Tes E2E (44 tes) | `tests/e2e/19-berita-dapodik-notif.mjs` |
 
 ### Phase 22 — Remedial/Pengayaan/Susulan & Rapor Lengkap (2026-10-15)
 | Item | Files |
@@ -512,7 +527,7 @@ src/proxy.ts                          # Next.js 16 route protection (dipindah da
 
 ## Build Status
 - `npm run build` passes ✅
-- `npm run test:e2e` (butuh build): 825 tes lulus — lihat `tests/README.md`
+- `npm run test:e2e` (butuh build): 869 tes lulus — lihat `tests/README.md`
 - Deploy: lihat `DEPLOY.md`
 - ±60 routes (halaman statis + API dinamis)
 - `npx eslint src`: 0 error (sisa warning ringan, mis. `<img>`)

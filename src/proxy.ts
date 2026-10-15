@@ -7,7 +7,7 @@ const publicRoutes = ['/', '/login', '/daftar', '/lupa-password'];
 // Halaman yang boleh dibuka tiap role (prefix). Role diperiksa ulang dari database di setiap API.
 const aksesRole: Record<string, string[]> = {
   ADMIN: ['/admin', '/dashboard', '/ujian', '/profile', '/akun', '/kelas'],
-  PENGAWAS: ['/admin/monitoring', '/akun'],
+  PENGAWAS: ['/admin/monitoring', '/admin/berita-acara', '/akun'],
   GURU: ['/kelas', '/akun'],
   PESERTA: ['/dashboard', '/ujian', '/profile', '/akun', '/kelas'],
 };
