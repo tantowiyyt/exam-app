@@ -27,7 +27,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 **Repo:** https://github.com/tantowiyyt/exam-app (branch `main`). Database, foto upload, dan `.env` sengaja tidak di-commit.
 
-**Kondisi:** fitur lengkap + LMS (Phase 16) + administrasi sekolah (Phase 20–23), build & lint bersih, `npm run test:e2e` 945 tes lulus, uji beban 150 peserta serentak 0 gagal (sebelum LMS).
+**Kondisi:** LMS lengkap dengan modul ujian CAT (Phase 16–26: administrasi sekolah, orang tua, pesan, lencana; commit terakhir `000db14`, sudah di-push), build & lint bersih, `npm run test:e2e` 945 tes lulus, uji beban 150 peserta serentak 0 gagal (sebelum LMS).
 Siap untuk **simulasi**, belum untuk ujian sungguhan — selesaikan daftar di bawah dulu.
 
 **Belum dilakukan (oleh pemilik proyek):**
@@ -38,6 +38,15 @@ Siap untuk **simulasi**, belum untuk ujian sungguhan — selesaikan daftar di ba
 5. LMS: buat akun guru (Kelola Akun → role Guru), kelas & mapel (Admin → LMS → Kelas & Mapel), lalu uji alur materi/tugas/kuis/presensi dengan guru & siswa sungguhan
 6. Administrasi (Phase 20–23): tetapkan wali kelas, isi jadwal pelajaran, impor siswa dari Dapodik, (opsional) aktifkan WhatsApp/email di Notifikasi WA/Email
    (gateway WA berbayar, mis. Fonnte; server butuh akses internet keluar), cocokkan file Ekspor e-Rapor dengan template e-Rapor versi sekolah
+7. Phase 25–26: buat akun orang tua (Pengguna → Orang Tua, bisa massal per kelas), sampaikan bahwa isi pesan pribadi ikut masuk file backup,
+   tinjau ambang lencana otomatis (`src/lib/lencana.ts`) bila sekolah ingin syarat berbeda
+
+**Cara memperbarui setelah `git pull`** (lokal: hentikan `npm run dev` dulu agar `prisma generate` tidak EPERM):
+`npm ci && npm run db:push && node scripts/migrasi-status-ujian.mjs && npm run build`, lalu restart. Backup DB dulu (`sqlite3 .backup`).
+Tidak ada variabel `.env` wajib baru; opsional `NOTIF_PENJADWAL=off`.
+
+**Langkah berikutnya bila dilanjutkan:** sisa fitur LMS = anotasi PDF untuk koreksi tugas (video conference cukup tautan Zoom/Meet yang sudah ada);
+selain itu menunggu hasil simulasi lab / masukan guru & siswa sungguhan.
 
 **Fitur LMS yang belum dibuat (prioritas rendah, hasil perbandingan dengan Moodle/EdLink):** video conference terintegrasi (tautan Zoom/Meet sudah ada), koreksi/anotasi PDF langsung di file, video panduan (panduan tertulis per peran sudah ada di menu Panduan).
 
