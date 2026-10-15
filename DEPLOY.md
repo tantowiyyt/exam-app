@@ -100,6 +100,8 @@ masih ada di `dev.db-wal`, jadi **jangan menyalin `dev.db` saja**.
 1. Backup (lihat di atas).
 2. Ganti file aplikasi (jangan timpa `.env`, `prisma/dev.db*`, dan folder `storage/`).
 3. `npm ci && npm run db:push && npm run build`
+   Bila memperbarui dari versi sebelum *ujian CAT per kelas* (Phase 19), jalankan sekali setelah `db:push`:
+   `node scripts/migrasi-status-ujian.mjs` (aman diulang).
 4. Restart layanan. Jangan update saat ada ujian berlangsung.
 
 ## 7. Lupa password admin
