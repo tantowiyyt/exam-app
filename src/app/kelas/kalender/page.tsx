@@ -11,7 +11,7 @@ const WARNA: Record<Jenis, { label: string; chip: string; titik: string }> = {
     tugas: { label: "Tenggat tugas", chip: "bg-amber-100 text-amber-800", titik: "bg-amber-500" },
     kuis: { label: "Kuis", chip: "bg-fuchsia-100 text-fuchsia-800", titik: "bg-fuchsia-500" },
     presensi: { label: "Pertemuan", chip: "bg-teal-100 text-teal-800", titik: "bg-teal-500" },
-    ujian: { label: "Ujian CAT", chip: "bg-indigo-100 text-indigo-800", titik: "bg-indigo-500" },
+    ujian: { label: "Ujian", chip: "bg-indigo-100 text-indigo-800", titik: "bg-indigo-500" },
     terbit: { label: "Terbit terjadwal", chip: "bg-sky-100 text-sky-800", titik: "bg-sky-500" },
 };
 const HARI = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"];

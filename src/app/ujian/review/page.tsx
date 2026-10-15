@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { KontenSoal } from "@/components/KontenSoal";
+import { muatIdentitas } from "@/components/AppShell";
 
 interface JawabanItem {
     soalId: number;
@@ -34,6 +35,8 @@ export default function ReviewJawabanPage() {
     const [jawaban, setJawaban] = useState<JawabanItem[]>([]);
     const [histori, setHistori] = useState<Histori | null>(null);
     const [loading, setLoading] = useState(true);
+    const [namaAplikasi, setNamaAplikasi] = useState("E-Learning");
+    useEffect(() => { muatIdentitas().then((d) => d && setNamaAplikasi(d.namaAplikasi)); }, []);
     const [filterMapel, setFilterMapel] = useState("");
     const [filterStatus, setFilterStatus] = useState<"all" | "benar" | "salah">("all");
 
@@ -79,9 +82,9 @@ export default function ReviewJawabanPage() {
     return (
         <div className="min-h-screen bg-slate-50 font-sans pb-12">
             <nav className="bg-linear-to-r from-slate-900 to-indigo-950 text-white px-6 py-4 flex justify-between items-center shadow-md">
-                <h1 className="text-xl font-black tracking-wider text-indigo-400">CAT SYSTEM <span className="text-white text-xs font-normal">| Review Jawaban</span></h1>
+                <h1 className="text-xl font-black tracking-wide text-indigo-300">{namaAplikasi} <span className="text-white text-xs font-normal">| Review Jawaban Ujian</span></h1>
                 <div className="flex items-center gap-2">
-                    <Link href="/dashboard" className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-xs font-bold transition-all">&larr; Dashboard</Link>
+                    <Link href="/dashboard" className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-xs font-bold transition-all">&larr; Ujian Sekolah</Link>
                 </div>
             </nav>
 

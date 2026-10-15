@@ -59,7 +59,7 @@ export default function AnalisisSoalPage() {
 
     return (
         <div className="min-h-screen bg-slate-50 font-sans pb-12">
-            <HeaderHalaman grup="Ujian CAT" judul="Analisis Butir Soal" />
+            <HeaderHalaman grup="Modul Ujian CAT" judul="Analisis Butir Soal" />
 
             <main className="max-w-7xl mx-auto p-4 md:p-8 space-y-6">
                 {/* Stats Summary */}

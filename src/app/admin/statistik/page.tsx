@@ -47,7 +47,7 @@ export default function StatistikMapel() {
 
     return (
         <div className="min-h-screen bg-slate-100 font-sans">
-            <HeaderHalaman grup="Ujian CAT" judul="Statistik per Mapel" />
+            <HeaderHalaman grup="Modul Ujian CAT" judul="Statistik per Mapel" />
 
             <main className="max-w-5xl mx-auto p-4 md:p-8 space-y-8">
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">

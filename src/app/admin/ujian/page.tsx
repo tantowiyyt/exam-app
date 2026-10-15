@@ -184,7 +184,7 @@ export default function UjianManagement() {
 
   return (
     <div className="min-h-screen bg-slate-100 font-sans">
-      <HeaderHalaman grup="Ujian CAT" judul="Kelola Ujian" />
+      <HeaderHalaman grup="Modul Ujian CAT" judul="Kelola Ujian" />
 
       <main className="max-w-7xl mx-auto p-4 md:p-8 grid lg:grid-cols-3 gap-8">
         {/* Form */}

@@ -198,7 +198,7 @@ export default function DataSiswa() {
                         </div>
                     )}
                 </div>
-                <p className="text-xs text-slate-500">Ruang & sesi ujian CAT diatur di <Link href="/admin/peserta-ujian" className="font-bold text-indigo-600">Ujian CAT → Peserta Ujian</Link>. Kelas dibuat di <Link href="/admin/kelas" className="font-bold text-indigo-600">Kelas & Mapel</Link>.</p>
+                <p className="text-xs text-slate-500">Ruang & sesi ujian CAT diatur di <Link href="/admin/peserta-ujian" className="font-bold text-indigo-600">Modul Ujian CAT → Peserta &amp; Ruang</Link>. Kelas dibuat di <Link href="/admin/kelas" className="font-bold text-indigo-600">Kelas & Mapel</Link>.</p>
             </main>
 
             {form && (

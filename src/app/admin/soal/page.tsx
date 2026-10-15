@@ -283,7 +283,7 @@ export default function SoalManagement() {
 
     return (
         <div className="min-h-screen bg-slate-100 font-sans">
-            <HeaderHalaman grup="Ujian CAT" judul="Bank Soal" />
+            <HeaderHalaman grup="Modul Ujian CAT" judul="Bank Soal Ujian" />
 
             <main className="max-w-7xl mx-auto p-4 md:p-8 grid lg:grid-cols-3 gap-8">
                 {/* Kolom Kiri: Form + Import */}

@@ -122,7 +122,21 @@ export async function GET() {
         prisma.user.count({ where: { role: 'PESERTA', kelas: '' } }),
         prisma.mapel.count({ where: { guruId: null } }),
       ]);
-      ringkasan = { kelas, mapel: mapel.length, guru, siswa, siswaTanpaKelas, mapelTanpaGuru };
+      // Aktivitas belajar (LMS) minggu ini / hari ini
+      const sepekan = new Date(Date.now() - 7 * 86400000);
+      const now = new Date();
+      const [materiMingguIni, tugasAktif, pertemuanHariIni, jurnalHariIni, hadir, tercatat] = await Promise.all([
+        prisma.materi.count({ where: { createdAt: { gte: sepekan } } }),
+        prisma.tugas.count({ where: { terbit: true, tenggat: { gt: now }, OR: [{ terbitPada: null }, { terbitPada: { lte: now } }] } }),
+        prisma.sesiPresensi.count({ where: { tanggal: { gte: awal, lt: akhir } } }),
+        prisma.jurnalMengajar.count({ where: { tanggal: { gte: awal, lt: akhir } } }),
+        prisma.presensi.count({ where: { status: 'H', sesi: { tanggal: { gte: awal, lt: akhir } } } }),
+        prisma.presensi.count({ where: { sesi: { tanggal: { gte: awal, lt: akhir } } } }),
+      ]);
+      ringkasan = {
+        kelas, mapel: mapel.length, guru, siswa, siswaTanpaKelas, mapelTanpaGuru,
+        aktivitas: { materiMingguIni, tugasAktif, pertemuanHariIni, jurnalHariIni, hadirHariIni: tercatat ? Math.round((hadir / tercatat) * 1000) / 10 : null },
+      };
     }
 
     return NextResponse.json({

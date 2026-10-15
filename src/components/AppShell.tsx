@@ -11,7 +11,8 @@ import { Notifikasi } from "@/components/lms/Notifikasi";
 interface Me { nama: string; role: string; nomorPeserta: string }
 export interface Identitas { namaAplikasi: string; namaSekolah: string; logo: string; modulCat: boolean }
 interface Item { href: string; label: string; ikon: keyof typeof IKON; aktif?: (p: string) => boolean }
-interface Grup { judul?: string; item: Item[] }
+/** lipat = grup bisa dibuka-tutup (modul tambahan & sistem); terbuka otomatis bila halaman aktif ada di dalamnya. */
+interface Grup { judul?: string; item: Item[]; lipat?: boolean; modul?: boolean }
 
 const IKON = {
     centang: "M4 12l5 5L20 6",
@@ -43,25 +44,41 @@ function menu(role: string, cat: boolean): Grup[] {
     const bankSoal: Item = { href: "/kelas/bank-soal", label: "Bank Soal", ikon: "soal" };
     if (role === "PESERTA") {
         return [
-            { item: [beranda, { href: "/kelas/jadwal", label: "Jadwal", ikon: "jam" }, kalender, { href: "/kelas/kehadiran", label: "Kehadiran", ikon: "centang" }, rapor, ...(cat ? [{ href: "/dashboard", label: "Ujian CAT", ikon: "ujian" as const, aktif: (p: string) => p.startsWith("/dashboard") || p.startsWith("/ujian") }] : [])] },
+            { item: [beranda, { href: "/kelas/jadwal", label: "Jadwal", ikon: "jam" }, kalender] },
+            {
+                judul: "Belajar", item: [
+                    { href: "/kelas/kehadiran", label: "Kehadiran", ikon: "centang" }, rapor,
+                    ...(cat ? [{ href: "/dashboard", label: "Ujian Sekolah", ikon: "ujian" as const, aktif: (p: string) => p.startsWith("/dashboard") || p.startsWith("/ujian") }] : []),
+                ],
+            },
             { judul: "Akun", item: [{ href: "/profile", label: "Data Diri", ikon: "profil" }, password, panduan] },
         ];
     }
     const resetPw: Item = { href: "/kelas/reset-password", label: "Reset Password Siswa", ikon: "kunci" };
     const jadwal: Item = { href: "/kelas/jadwal", label: "Jadwal", ikon: "jam" };
     const jurnal: Item = { href: "/kelas/jurnal", label: "Jurnal Mengajar", ikon: "buku" };
-    if (role === "GURU") return [{ item: [beranda, jadwal, kalender, jurnal, bankSoal, rapor] }, { judul: "Akun", item: [resetPw, password, panduan] }];
-    if (role === "PENGAWAS") return [{ item: [{ href: "/admin/monitoring", label: "Monitoring Ujian", ikon: "monitor" }, { href: "/admin/berita-acara", label: "Berita Acara", ikon: "kartu" }] }, { judul: "Akun", item: [password, panduan] }];
-    // ADMIN
+    if (role === "GURU") {
+        return [
+            { item: [beranda, jadwal, kalender] },
+            { judul: "Mengajar", item: [jurnal, bankSoal, rapor] },
+            { judul: "Akun", item: [resetPw, password, panduan] },
+        ];
+    }
+    if (role === "PENGAWAS") return [{ judul: "Ujian CAT", item: [{ href: "/admin/monitoring", label: "Monitoring Ujian", ikon: "monitor" }, { href: "/admin/berita-acara", label: "Berita Acara", ikon: "kartu" }] }, { judul: "Akun", item: [password, panduan] }];
+    // ADMIN: LMS lebih dulu; Ujian CAT = modul tambahan (bisa dilipat / dinonaktifkan di Pengaturan)
     return [
         { item: [beranda, kalender] },
         {
-            judul: "Akademik", item: [
+            judul: "Pembelajaran", item: [
                 { href: "/admin/kelas", label: "Kelas & Mapel", ikon: "kelas" },
                 { ...jadwal, label: "Jadwal Pelajaran" },
                 jurnal,
-                rapor,
                 { ...bankSoal, label: "Bank Soal Guru" },
+                rapor,
+            ],
+        },
+        {
+            judul: "Pengguna", item: [
                 { href: "/admin/peserta", label: "Siswa", ikon: "siswa" },
                 { href: "/admin/dapodik", label: "Impor Dapodik", ikon: "siswa" },
                 { href: "/admin/akun", label: "Guru & Staf", ikon: "guru" },
@@ -69,33 +86,32 @@ function menu(role: string, cat: boolean): Grup[] {
             ],
         },
         ...(cat ? [{
-            judul: "Ujian CAT", item: [
+            judul: "Modul Ujian CAT", lipat: true, modul: true, item: [
                 { href: "/admin", label: "Dasbor Ujian", ikon: "dasbor" as const, aktif: (p: string) => p === "/admin" },
                 { href: "/admin/ujian", label: "Kelola Ujian", ikon: "ujian" as const },
-                { href: "/admin/soal", label: "Bank Soal", ikon: "soal" as const },
-                { href: "/admin/peserta-ujian", label: "Peserta Ujian", ikon: "siswa" as const },
+                { href: "/admin/soal", label: "Bank Soal Ujian", ikon: "soal" as const },
+                { href: "/admin/bagian", label: "Bagian Ujian", ikon: "kelas" as const },
+                { href: "/admin/peserta-ujian", label: "Peserta & Ruang", ikon: "siswa" as const },
+                { href: "/admin/kartu", label: "Kartu Ujian", ikon: "kartu" as const },
                 { href: "/admin/monitoring", label: "Monitoring", ikon: "monitor" as const },
                 { href: "/admin/berita-acara", label: "Berita Acara", ikon: "kartu" as const },
-                { href: "/admin/kartu", label: "Kartu Ujian", ikon: "kartu" as const },
                 { href: "/admin/nilai", label: "Hasil Ujian", ikon: "nilai" as const },
-                { href: "/admin/bagian", label: "Bagian Ujian", ikon: "kelas" as const },
                 { href: "/admin/histori", label: "Histori", ikon: "kalender" as const },
                 { href: "/admin/statistik", label: "Statistik", ikon: "nilai" as const },
                 { href: "/admin/analisis-soal", label: "Analisis Soal", ikon: "soal" as const },
             ],
         }] : []),
         {
-            judul: "Sistem", item: [
+            judul: "Sistem", lipat: true, item: [
                 { href: "/admin/pengaturan", label: "Pengaturan", ikon: "sistem" },
                 { href: "/admin/notifikasi", label: "Notifikasi WA/Email", ikon: "pesan" },
                 { href: "/admin/backup", label: "Backup & Restore", ikon: "kunci" },
                 { href: "/admin/activity", label: "Aktivitas", ikon: "monitor" },
                 { href: "/admin/audit-logs", label: "Audit Log", ikon: "soal" },
                 { href: "/admin/ip-rules", label: "Aturan IP", ikon: "kunci" },
-                password,
-                panduan,
             ],
         },
+        { judul: "Akun", item: [password, panduan] },
     ];
 }
 
@@ -116,6 +132,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const [me, setMe] = useState<Me | null>(null);
     const [identitas, setIdentitas] = useState<Identitas | null>(null);
     const [laci, setLaci] = useState(false);
+    // Grup yang dibuka-tutup pengguna (diingat di browser ini)
+    const [lipatan, setLipatan] = useState<Record<string, boolean>>(() => {
+        try { return JSON.parse(localStorage.getItem("menuLipat") || "{}"); } catch { return {}; }
+    });
+    const toggleGrup = (judul: string, buka: boolean) => setLipatan((x) => {
+        const n = { ...x, [judul]: !buka };
+        try { localStorage.setItem("menuLipat", JSON.stringify(n)); } catch { /* penyimpanan tidak tersedia */ }
+        return n;
+    });
 
     useEffect(() => {
         let ignore = false;
@@ -137,12 +162,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const nama = identitas?.namaAplikasi ?? "E-Learning";
     const isiMenu = (
         <nav className="p-3 space-y-5" aria-label="Menu utama">
-            {grup.map((g, i) => (
-                <div key={i}>
-                    {g.judul && <p className="px-3 mb-1 text-[10px] font-black uppercase tracking-widest text-slate-400">{g.judul}</p>}
-                    <ul className="space-y-0.5">
+            {grup.map((g, i) => {
+                const aktifDi = (it: Item) => (it.aktif ? it.aktif(path) : path === it.href || path.startsWith(it.href + "/"));
+                const adaAktif = g.item.some(aktifDi);
+                // Grup lipat: terbuka bila halaman aktif ada di dalamnya, atau bila dibuka pengguna
+                const buka = !g.lipat || adaAktif || lipatan[g.judul ?? ""] === true;
+                return (
+                <div key={i} className={g.modul ? "rounded-xl border border-indigo-100 bg-indigo-50/40 py-1" : ""}>
+                    {g.judul && (g.lipat ? (
+                        <button type="button" onClick={() => !adaAktif && toggleGrup(g.judul!, buka)} aria-expanded={buka}
+                            className="w-full flex items-center gap-2 px-3 mb-1 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600">
+                            <span className="flex-1 text-left">{g.judul}</span>
+                            {g.modul && <span className="normal-case tracking-normal text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-600">modul</span>}
+                            <span aria-hidden className={`transition-transform ${buka ? "rotate-90" : ""}`}>&#9656;</span>
+                        </button>
+                    ) : <p className="px-3 mb-1 text-[10px] font-black uppercase tracking-widest text-slate-400">{g.judul}</p>)}
+                    {buka && <ul className="space-y-0.5">
                         {g.item.map((it) => {
-                            const aktif = it.aktif ? it.aktif(path) : path === it.href || path.startsWith(it.href + "/");
+                            const aktif = aktifDi(it);
                             return (
                                 <li key={it.href + it.label}>
                                     <Link href={it.href} aria-current={aktif ? "page" : undefined}
@@ -152,9 +189,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                 </li>
                             );
                         })}
-                    </ul>
+                    </ul>}
                 </div>
-            ))}
+                );
+            })}
         </nav>
     );
 

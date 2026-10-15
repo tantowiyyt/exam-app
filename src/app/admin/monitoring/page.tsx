@@ -163,7 +163,7 @@ export default function MonitoringPage() {
 
   return (
     <div className="min-h-screen bg-slate-100 font-sans">
-      <HeaderHalaman grup="Ujian CAT" judul="Monitoring Ujian">
+      <HeaderHalaman grup="Modul Ujian CAT" judul="Monitoring Ujian">
         {countdown && (
           <span className={`text-xs font-bold px-3 py-1.5 rounded-lg border ${
             countdown === "Selesai" ? "bg-red-50 text-red-700 border-red-200" :

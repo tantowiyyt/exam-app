@@ -26,7 +26,10 @@ interface Data {
     perluDinilai?: { jenis: "tugas" | "kuis"; id: number; judul: string; jumlah: number; mapel: { id: number; nama: string; kelas: string } }[];
     kelasVirtual?: { id: number; judul: string; tanggal: string; link: string; mapel: { id: number; nama: string; kelas: string } }[];
     jadwalHariIni?: { id: number; jamMulai: string; jamSelesai: string; ruang: string; mapel: { id: number; nama: string; kelas: string } }[];
-    ringkasan?: { kelas: number; mapel: number; guru: number; siswa: number; siswaTanpaKelas: number; mapelTanpaGuru: number } | null;
+    ringkasan?: {
+        kelas: number; mapel: number; guru: number; siswa: number; siswaTanpaKelas: number; mapelTanpaGuru: number;
+        aktivitas: { materiMingguIni: number; tugasAktif: number; pertemuanHariIni: number; jurnalHariIni: number; hadirHariIni: number | null };
+    } | null;
 }
 
 /** Sisa waktu menuju tenggat, mis. "2 hari lagi" / "lewat 3 jam". */
@@ -102,13 +105,30 @@ export default function BerandaKelas() {
                         ))}
                     </section>
                 )}
+                {data?.ringkasan?.aktivitas && (
+                    <section className="mb-6 bg-white rounded-2xl border border-slate-200 shadow-sm">
+                        <h2 className="px-5 py-3 border-b border-slate-100 text-sm font-bold text-slate-700">Aktivitas Belajar</h2>
+                        <div className="grid grid-cols-2 sm:grid-cols-5 divide-x divide-y sm:divide-y-0 divide-slate-100">
+                            {([
+                                ["Materi baru (7 hari)", data.ringkasan.aktivitas.materiMingguIni, null],
+                                ["Tugas berjalan", data.ringkasan.aktivitas.tugasAktif, null],
+                                ["Pertemuan hari ini", data.ringkasan.aktivitas.pertemuanHariIni, null],
+                                ["Jurnal hari ini", data.ringkasan.aktivitas.jurnalHariIni, "/kelas/jurnal"],
+                                ["Kehadiran hari ini", data.ringkasan.aktivitas.hadirHariIni === null ? "–" : `${data.ringkasan.aktivitas.hadirHariIni}%`, null],
+                            ] as [string, number | string, string | null][]).map(([l, v, h]) => {
+                                const isi = <><p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{l}</p><p className="text-xl font-black text-slate-800">{v}</p></>;
+                                return h ? <Link key={l} href={h} className="p-4 hover:bg-slate-50">{isi}</Link> : <div key={l} className="p-4">{isi}</div>;
+                            })}
+                        </div>
+                    </section>
+                )}
 
                 {/* Siswa: ujian CAT yang sedang aktif untuk kelasnya */}
                 {siswa && data.ujianCat && (
                     <Link href="/dashboard" className={`mb-6 flex flex-col sm:flex-row sm:items-center gap-3 rounded-2xl p-5 text-white shadow-sm hover:shadow-lg transition-shadow ${data.ujianCat.sudahUjian ? "bg-linear-to-r from-slate-600 to-slate-700" : "bg-linear-to-r from-emerald-600 to-teal-600"}`}>
                         <span className="shrink-0 w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center text-xl font-black" aria-hidden="true">{data.ujianCat.sudahUjian ? "✓" : "!"}</span>
                         <span className="flex-1 min-w-0">
-                            <span className="block text-[11px] font-bold uppercase tracking-wider text-white/80">{data.ujianCat.sudahUjian ? "Ujian CAT selesai" : "Ujian CAT"}</span>
+                            <span className="block text-[11px] font-bold uppercase tracking-wider text-white/80">{data.ujianCat.sudahUjian ? "Ujian sekolah selesai" : "Ujian sekolah berlangsung"}</span>
                             <span className="block text-lg font-black leading-tight">{data.ujianCat.nama}</span>
                             <span className="block text-xs text-white/85 mt-0.5">
                                 {data.ujianCat.mapel && `${data.ujianCat.mapel} · `}{data.ujianCat.durasiMenit} menit
@@ -216,7 +236,7 @@ export default function BerandaKelas() {
                                             <span className={`shrink-0 w-9 h-9 rounded-lg font-black flex items-center justify-center ${t.ujian ? "bg-indigo-100 text-indigo-700" : t.jenis === "kuis" ? "bg-fuchsia-100 text-fuchsia-700" : "bg-amber-100 text-amber-700"}`}>{t.ujian ? "U" : t.jenis === "kuis" ? "Q" : "T"}</span>
                                             <span className="flex-1 min-w-0">
                                                 <span className="block text-sm font-semibold text-slate-800 truncate">{t.judul}</span>
-                                                <span className="block text-[11px] text-slate-400 truncate">{t.ujian ? "Ujian CAT · " : t.jenis === "kuis" ? "Kuis · " : ""}{t.mapel.nama}{t.tenggat && ` · ${t.jenis === "kuis" ? "ditutup" : "tenggat"} ${fmtWaktu(t.tenggat)}`}</span>
+                                                <span className="block text-[11px] text-slate-400 truncate">{t.ujian ? "Ujian · " : t.jenis === "kuis" ? "Kuis · " : ""}{t.mapel.nama}{t.tenggat && ` · ${t.jenis === "kuis" ? "ditutup" : "tenggat"} ${fmtWaktu(t.tenggat)}`}</span>
                                             </span>
                                             <span className={`text-[10px] font-bold px-2 py-1 rounded-full whitespace-nowrap ${s.cls}`}>{s.label}</span>
                                         </Link>

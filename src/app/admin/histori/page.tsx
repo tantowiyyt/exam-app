@@ -48,7 +48,7 @@ export default function HistoriUjian() {
 
     return (
         <div className="min-h-screen bg-slate-100 font-sans">
-            <HeaderHalaman grup="Ujian CAT" judul="Histori Ujian" />
+            <HeaderHalaman grup="Modul Ujian CAT" judul="Histori Ujian" />
 
             <main className="max-w-6xl mx-auto p-4 md:p-8">
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">

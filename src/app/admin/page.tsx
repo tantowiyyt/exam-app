@@ -54,7 +54,7 @@ export default function DasborUjian() {
 
     return (
         <div className="min-h-screen bg-slate-100 font-sans">
-            <HeaderHalaman grup="Ujian CAT" judul="Dasbor Ujian">
+            <HeaderHalaman grup="Modul Ujian CAT" judul="Dasbor Ujian">
                 <button onClick={async () => {
                     try { const { exportStatsToPDF } = await import("@/lib/pdf-export"); await exportStatsToPDF(); toast("Statistik di-export ke PDF", "success"); }
                     catch { toast("Gagal export PDF", "error"); }

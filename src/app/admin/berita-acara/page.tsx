@@ -77,7 +77,7 @@ export default function BeritaAcaraPage() {
 
     return (
         <div className="min-h-screen bg-slate-100 font-sans print:bg-white">
-            <HeaderHalaman grup="Ujian CAT" judul="Berita Acara & Daftar Hadir">
+            <HeaderHalaman grup="Modul Ujian CAT" judul="Berita Acara & Daftar Hadir">
                 {d && d.daftarUjian.length > 0 && (
                     <select value={d.ujian?.id ?? ""} onChange={(e) => setQ({ ujian: Number(e.target.value) })} aria-label="Ujian" className="px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white font-semibold max-w-60">
                         {d.daftarUjian.map((u) => <option key={u.id} value={u.id}>{u.nama}{u.aktif ? " (aktif)" : ""}</option>)}

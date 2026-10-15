@@ -48,7 +48,7 @@ export default function PesertaUjian() {
         return () => { ignore = true; clearInterval(t); };
     }, [ujianId, muat]);
 
-    if (!d) return <div className="min-h-screen bg-slate-100"><HeaderHalaman grup="Ujian CAT" judul="Peserta Ujian" /><p className="p-8 text-slate-500">Memuat...</p></div>;
+    if (!d) return <div className="min-h-screen bg-slate-100"><HeaderHalaman grup="Modul Ujian CAT" judul="Peserta & Ruang Ujian" /><p className="p-8 text-slate-500">Memuat...</p></div>;
     const u = d.ujian;
     const tampil = d.siswa.filter((s) => (!kelas || s.kelas === kelas) && (!cari || `${s.nama} ${s.nomorPeserta}`.toLowerCase().includes(cari.toLowerCase())));
     const dipilih = tampil.filter((s) => pilih.has(s.id));
@@ -70,7 +70,7 @@ export default function PesertaUjian() {
 
     return (
         <div className="min-h-screen bg-slate-100 font-sans">
-            <HeaderHalaman grup="Ujian CAT" judul="Peserta Ujian">
+            <HeaderHalaman grup="Modul Ujian CAT" judul="Peserta & Ruang Ujian">
                 {d.daftarUjian.length > 0 && (
                     <select value={u?.id ?? ""} onChange={(e) => { setUjianId(Number(e.target.value)); setKelas(""); setPilih(new Set()); setPerKelas({}); }} aria-label="Ujian"
                         className="px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white font-semibold max-w-80">

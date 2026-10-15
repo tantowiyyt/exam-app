@@ -142,7 +142,7 @@ export default function ParticipantDashboard() {
                     </div>
 
                     <div className="flex-1 space-y-2">
-                        <p className="text-[10px] font-bold text-cyan-300 uppercase tracking-widest bg-white/10 inline-block px-3 py-1 rounded-full border border-white/10">Peserta Ujian CAT</p>
+                        <p className="text-[10px] font-bold text-cyan-300 uppercase tracking-widest bg-white/10 inline-block px-3 py-1 rounded-full border border-white/10">Ujian Sekolah</p>
                         <h1 className="text-3xl font-black tracking-tight uppercase">{userData.nama}</h1>
                         <div className="text-slate-300 font-medium grid grid-cols-1 sm:grid-cols-2 gap-y-1.5 pt-3 text-sm border-t border-white/10 mt-2">
                             <p><span className="text-white/50">No. Peserta:</span> {userData.nomorPeserta}</p>

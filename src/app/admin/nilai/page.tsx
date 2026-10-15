@@ -61,7 +61,7 @@ export default function HasilUjian() {
 
     return (
         <div className="min-h-screen bg-slate-100 font-sans">
-            <HeaderHalaman grup="Ujian CAT" judul="Hasil Ujian">
+            <HeaderHalaman grup="Modul Ujian CAT" judul="Hasil Ujian">
                 {daftarUjian.length > 0 && (
                     <select value={aktifId} onChange={(e) => { setUjianId(Number(e.target.value)); setKelas(""); }} aria-label="Ujian" className="px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white font-semibold max-w-72">
                         {daftarUjian.map((u) => <option key={u.id} value={u.id}>{u.nama}{u.isActive ? " (aktif)" : ""} — {u.labelPeserta}</option>)}

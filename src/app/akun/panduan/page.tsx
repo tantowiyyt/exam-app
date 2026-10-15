@@ -32,8 +32,8 @@ const PANDUAN: Record<Peran, Bagian[]> = {
             "Menu Rapor menampilkan rapor semester; pilih semester lain di kanan atas.",
             "Menu Jadwal menampilkan jadwal pelajaran mingguan kelas Anda.",
         ] },
-        { judul: "Ujian CAT", langkah: [
-            "Buka menu Ujian CAT (atau tab Ujian di mapel) pada jadwal ujian. Masukkan token dari pengawas bila diminta.",
+        { judul: "Ujian sekolah & ujian mapel (CAT)", langkah: [
+            "Buka menu Ujian Sekolah (atau tab Ujian di mapel) pada jadwal ujian. Masukkan token dari pengawas bila diminta.",
             "Ujian berjalan dalam layar penuh. Jangan pindah tab atau keluar dari layar penuh, karena dicatat sebagai pelanggaran dan pada batas tertentu jawaban dikumpulkan otomatis.",
             "Klik Tandai Ragu untuk soal yang ingin dicek lagi. Jawaban tersimpan otomatis, jadi bila komputer mati, masuk lagi dan lanjutkan.",
             "Klik Selesai Ujian setelah semua soal terjawab.",
@@ -94,9 +94,9 @@ const PANDUAN: Record<Peran, Bagian[]> = {
             "Kelas & Mapel: buat kelas (bisa otomatis dari data siswa), mapel, guru pengampu, dan wali kelas. Jadwal Pelajaran: isi roster per kelas.",
             "Notifikasi (opsional): aktifkan email SMTP dan/atau WhatsApp gateway agar siswa menerima kode lupa password dan pengingat.",
         ] },
-        { judul: "Ujian CAT sekolah", langkah: [
-            "Kelola Ujian: buat ujian, atur durasi, jadwal, kelas peserta, dan pool soal. Beberapa ujian boleh aktif bersamaan untuk kelas yang berbeda.",
-            "Bank Soal: tambah/impor soal (bisa bergambar, audio, rumus). Peserta Ujian: atur ruang & sesi per kelas. Kartu Ujian: cetak.",
+        { judul: "Modul Ujian CAT (ujian sekolah)", langkah: [
+            "Menu Modul Ujian CAT → Kelola Ujian: buat ujian, atur durasi, jadwal, kelas peserta, dan pool soal. Beberapa ujian boleh aktif bersamaan untuk kelas yang berbeda.",
+            "Bank Soal Ujian: tambah/impor soal (bisa bergambar, audio, rumus). Peserta & Ruang: atur ruang & sesi per kelas. Kartu Ujian: cetak. Bila sekolah tidak memakai ujian CAT, nonaktifkan modulnya di Pengaturan.",
             "Aktifkan ujian pada hari H. Pantau di Monitoring. Berita acara per ruang bisa dilihat & dicetak.",
             "Hasil Ujian, Statistik, dan Analisis Soal tersedia setelah ujian.",
         ] },

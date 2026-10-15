@@ -6,7 +6,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ---
 
-# CAT SYSTEM — Development Log
+# E-Learning Sekolah (LMS + modul Ujian CAT) — Development Log
 
 ## Tech Stack
 - **Framework**: Next.js 16.2.9 (App Router, Turbopack)
@@ -196,6 +196,17 @@ Backup berikutnya pakai `VACUUM INTO` / `sqlite3 .backup` (lihat `DEPLOY.md`), *
 | Hapus soal yang sudah dijawab ditolak dengan pesan jelas (sebelumnya error FK) | ✅ | `src/app/api/admin/soal/route.ts` |
 
 **Durasi per bagian** kini diterapkan — lihat Phase 12.
+
+### Phase 24 — Identitas LMS, CAT sebagai Modul (2026-10-15)
+Keputusan pemilik: aplikasi tampil sebagai LMS; ujian CAT adalah salah satu modul di dalamnya.
+
+| Item | Files |
+|------|-------|
+| Menu admin: Beranda/Kalender → **Pembelajaran** (Kelas & Mapel, Jadwal, Jurnal, Bank Soal Guru, Rapor) → **Pengguna** (Siswa, Impor Dapodik, Guru & Staf, Reset Password) → **Modul Ujian CAT** (kotak bertanda "modul", bisa dilipat) → **Sistem** (bisa dilipat) → Akun. Grup lipat terbuka otomatis bila halamannya aktif; status buka/tutup diingat di browser (`localStorage.menuLipat`). Guru: grup Mengajar; siswa: grup Belajar dengan menu **Ujian Sekolah** (dulu "Ujian CAT") | `src/components/AppShell.tsx` |
+| Judul halaman modul: grup "Modul Ujian CAT"; "Bank Soal Ujian", "Peserta & Ruang Ujian" | `src/app/admin/**` |
+| Beranda admin: kartu **Aktivitas Belajar** (materi baru 7 hari, tugas berjalan, pertemuan & jurnal hari ini, % kehadiran hari ini) | `src/app/api/lms/kelas/route.ts`, `src/app/kelas/page.tsx` |
+| Halaman depan: 7 fitur LMS (termasuk rapor/e-Rapor, administrasi guru, pemberitahuan) + kartu "Modul Ujian CAT" bertanda modul (hilang bila modul nonaktif); tautan lupa password | `src/app/page.tsx` |
+| Sisa merek lama dihapus: "CAT SYSTEM" di review jawaban (→ nama aplikasi), teks terjemahan, nama cache service worker (`elearning-v2`), nama paket `e-learning-sekolah`, judul README/AGENTS; istilah siswa "Ujian sekolah" di beranda, kalender, dasbor ujian | berbagai |
 
 ### Phase 23 — Notifikasi WA/Email, Berita Acara, Dapodik & e-Rapor (2026-10-15)
 | Item | Files |

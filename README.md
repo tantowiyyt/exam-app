@@ -1,6 +1,7 @@
-# E-Learning & Ujian CAT Sekolah
+# E-Learning Sekolah (LMS) dengan Modul Ujian CAT
 
-Aplikasi **LMS (Learning Management System) sekolah** yang dilengkapi **modul ujian CAT (Computer Assisted Test)**.
+Aplikasi **LMS (Learning Management System) sekolah**: ruang belajar, tugas, kuis, presensi, nilai, rapor, dan administrasi guru.
+Ujian sekolah berbasis komputer (**CAT**, Computer Assisted Test) tersedia sebagai **modul** di dalamnya — bisa dinonaktifkan bila tidak dipakai.
 Dipasang di satu server/PC di sekolah dan diakses siswa, guru, pengawas, serta admin lewat browser di jaringan lokal (atau internet).
 
 Dibangun dengan Next.js 16, React 19, Prisma + SQLite, dan Tailwind CSS 4. Tidak butuh server database terpisah.

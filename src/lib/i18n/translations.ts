@@ -3,7 +3,7 @@ export type Locale = 'id' | 'en';
 export const translations: Record<Locale, Record<string, string>> = {
   id: {
     // Navigation
-    'nav.system': 'CAT SYSTEM',
+    'nav.system': 'E-Learning',
     'nav.login': 'Masuk',
     'nav.register': 'Daftar',
     'nav.logout': 'Keluar',
@@ -11,10 +11,10 @@ export const translations: Record<Locale, Record<string, string>> = {
     'nav.dashboard': 'Dashboard',
     'nav.admin': 'Admin',
     // Landing
-    'landing.badge': '⚡ Computer Assisted Test Platform',
-    'landing.title': 'Sistem Ujian Berbasis Komputer',
+    'landing.badge': 'Ruang belajar digital sekolah',
+    'landing.title': 'Belajar, Tugas, dan Ujian',
     'landing.titleHighlight': 'Akurat & Real-Time',
-    'landing.desc': 'Integrasi sistem CAT modern dengan kalkulasi skor otomatis, proteksi halaman pengerjaan, dan pemantauan langsung untuk transparansi hasil penuh.',
+    'landing.desc': 'Materi, tugas, kuis, presensi, nilai, dan rapor dalam satu tempat — dengan modul ujian berbasis komputer (CAT).',
     'landing.cta': 'Masuk ke Sesi Ujian →',
     'landing.noExam': 'Belum ada jadwal ujian aktif saat ini.',
     'landing.activeExam': 'Ujian Aktif',
@@ -141,7 +141,7 @@ export const translations: Record<Locale, Record<string, string>> = {
   },
   en: {
     // Navigation
-    'nav.system': 'CAT SYSTEM',
+    'nav.system': 'E-Learning',
     'nav.login': 'Login',
     'nav.register': 'Register',
     'nav.logout': 'Logout',
@@ -149,10 +149,10 @@ export const translations: Record<Locale, Record<string, string>> = {
     'nav.dashboard': 'Dashboard',
     'nav.admin': 'Admin',
     // Landing
-    'landing.badge': '⚡ Computer Assisted Test Platform',
-    'landing.title': 'Computer Based Test System',
+    'landing.badge': 'Digital school learning space',
+    'landing.title': 'Learning, Assignments, and Exams',
     'landing.titleHighlight': 'Accurate & Real-Time',
-    'landing.desc': 'Modern CAT system integration with automatic scoring, page protection, and live monitoring for full result transparency.',
+    'landing.desc': 'Materials, assignments, quizzes, attendance, grades, and report cards in one place — with a computer-based test (CAT) module.',
     'landing.cta': 'Enter Exam Session →',
     'landing.noExam': 'No active exam schedule at this time.',
     'landing.activeExam': 'Active Exam',

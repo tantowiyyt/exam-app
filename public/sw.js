@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cat-system-v1';
+const CACHE_NAME = 'elearning-v2';
 const STATIC_ASSETS = [
   '/',
   '/login',
