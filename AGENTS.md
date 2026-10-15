@@ -27,7 +27,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 **Repo:** https://github.com/tantowiyyt/exam-app (branch `main`). Database, foto upload, dan `.env` sengaja tidak di-commit.
 
-**Kondisi:** fitur lengkap + LMS (Phase 16), build & lint bersih, `npm run test:e2e` 780 tes lulus, uji beban 150 peserta serentak 0 gagal (sebelum LMS).
+**Kondisi:** fitur lengkap + LMS (Phase 16), build & lint bersih, `npm run test:e2e` 825 tes lulus, uji beban 150 peserta serentak 0 gagal (sebelum LMS).
 Siap untuk **simulasi**, belum untuk ujian sungguhan — selesaikan daftar di bawah dulu.
 
 **Belum dilakukan (oleh pemilik proyek):**
@@ -191,6 +191,14 @@ Backup berikutnya pakai `VACUUM INTO` / `sqlite3 .backup` (lihat `DEPLOY.md`), *
 | Hapus soal yang sudah dijawab ditolak dengan pesan jelas (sebelumnya error FK) | ✅ | `src/app/api/admin/soal/route.ts` |
 
 **Durasi per bagian** kini diterapkan — lihat Phase 12.
+
+### Phase 22 — Remedial/Pengayaan/Susulan & Rapor Lengkap (2026-10-15)
+| Item | Files |
+|------|-------|
+| **Remedial / pengayaan / susulan** dari tugas atau ujian mapel (tombol "+ Remedial/Susulan" di kolom tab Nilai; usulan siswa otomatis: di bawah KKM / belum bernilai / sudah tuntas). Tugas disalin untuk siswa terpilih; ujian offline dibuat baru; ujian CAT dibuat sebagai draf dengan soal disalin & token baru. Kolom `indukId`, `tipeSusulan`, `untukSiswa` (UjianManual & Kuis.untukSiswa) — siswa lain tidak melihat/mengerjakan/diberi nilai | `src/app/api/lms/susulan/route.ts`, `src/components/lms/RekapNilai.tsx` (`FormSusulan`), `src/components/lms/UjianManual.tsx` |
+| Nilai turunan digabung ke induk di rekap & rapor (`gabungRemedial`): susulan mengisi nilai kosong / 0 lewat tenggat; remedial sesuai `Mapel.aturanRemedial` (maksKkm = tertinggi, nilai remedial dibatasi KKM [bawaan] / maks = tertinggi / ganti); pengayaan tidak mengubah nilai. Tab Nilai menampilkan nilai asli dicoret → nilai dipakai (`baris.akhir`) | `src/lib/rekap.ts` |
+| **Rapor lengkap** (`DataRapor`, diisi wali kelas/admin di rapor satu siswa): ketidakhadiran sakit/izin/tanpa keterangan (hari; kosong = jumlah pertemuan dari presensi), ekstrakurikuler (maks 10, predikat & keterangan), prestasi, kokurikuler/projek, keputusan naik/tinggal kelas/lulus (+ ke kelas). Tercetak di rapor (keputusan tampil di semester Genap atau bila diisi) | `src/lib/rapor.ts` (`bacaDataRapor`, `dataRaporDariBody`), `src/app/api/lms/rapor/route.ts`, `src/app/kelas/rapor/page.tsx` (`FormDataRapor`) |
+| Tes E2E (45 tes) | `tests/e2e/18-remedial-rapor.mjs` |
 
 ### Phase 21 — Jadwal Pelajaran & Jurnal Mengajar (2026-10-15)
 | Item | Files |
@@ -504,7 +512,7 @@ src/proxy.ts                          # Next.js 16 route protection (dipindah da
 
 ## Build Status
 - `npm run build` passes ✅
-- `npm run test:e2e` (butuh build): 780 tes lulus — lihat `tests/README.md`
+- `npm run test:e2e` (butuh build): 825 tes lulus — lihat `tests/README.md`
 - Deploy: lihat `DEPLOY.md`
 - ±60 routes (halaman statis + API dinamis)
 - `npx eslint src`: 0 error (sisa warning ringan, mis. `<img>`)

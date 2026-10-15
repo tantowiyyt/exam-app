@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { verifyLmsSession, aksesMapel, teks, urutUjianManual } from '@/lib/lms';
+import { verifyLmsSession, aksesMapel, teks, urutUjianManual, ditugaskan, idSiswa } from '@/lib/lms';
 import { nilaiTerbaik, statusBuka, tokenBaru } from '@/lib/kuis';
 import { semesterAktif, semesterDipilih } from '@/lib/semester';
 import { createAuditLog, getAuditIP } from '@/lib/audit-log';
@@ -84,7 +84,7 @@ export async function GET(request: Request) {
       return NextResponse.json({
         peran: akses.peran,
         semester,
-        ujian: ujian.map((u) => {
+        ujian: ujian.filter((u) => ditugaskan(u, user.id)).map((u) => {
           const base = { id: u.id, judul: u.judul, jenis: u.jenis, mode: u.mode, tanggal: u.tanggal, nilaiMaks: u.nilaiMaks, keterangan: u.keterangan, diumumkan: u.terbit };
           if (u.mode === 'cat') {
             const milik = percobaan.filter((p) => p.kuisId === u.kuisId);
@@ -110,7 +110,10 @@ export async function GET(request: Request) {
       semester,
       siswa,
       ujian: ujian.map((u) => {
-        const base = { id: u.id, judul: u.judul, jenis: u.jenis, mode: u.mode, tanggal: u.tanggal, nilaiMaks: u.nilaiMaks, keterangan: u.keterangan, terbit: u.terbit };
+        const base = {
+          id: u.id, judul: u.judul, jenis: u.jenis, mode: u.mode, tanggal: u.tanggal, nilaiMaks: u.nilaiMaks, keterangan: u.keterangan, terbit: u.terbit,
+          indukId: u.indukId, tipeSusulan: u.tipeSusulan, untukSiswa: idSiswa(u.untukSiswa),
+        };
         if (u.mode === 'cat') {
           // Nilai = hasil mengerjakan (satu kesempatan)
           const nilai = siswa.flatMap((s) => {
@@ -195,6 +198,7 @@ export async function PUT(request: Request) {
         const r = (raw ?? {}) as Record<string, unknown>;
         const userId = Number(r.userId);
         if (!siswa.has(userId) && !sudah.has(userId)) return NextResponse.json({ message: 'Ada siswa yang bukan anggota kelas ini' }, { status: 400 });
+        if (!ditugaskan(ujian, userId) && !sudah.has(userId)) return NextResponse.json({ message: 'Ujian susulan/remedial ini bukan untuk salah satu siswa tersebut' }, { status: 400 });
         const where = { ujianId_userId: { ujianId: ujian.id, userId } };
         // Nilai kosong = hapus nilai siswa itu
         if (r.nilai === null || r.nilai === '' || r.nilai === undefined) {

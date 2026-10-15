@@ -7,7 +7,8 @@ import { getInstansi } from '@/lib/pengaturan-aplikasi';
 import { batasPredikat, predikat } from '@/lib/rapor';
 import { createAuditLog, getAuditIP } from '@/lib/audit-log';
 import { whereAnggota, kelasSiswaDi } from '@/lib/anggota';
-import { kelasBolehDibuka, namaWali } from '@/lib/wali';
+import { kelasBolehDibuka, namaWali, adalahWali } from '@/lib/wali';
+import { bacaDataRapor, dataRaporDariBody } from '@/lib/rapor';
 
 // Rapor (laporan hasil belajar) per siswa lintas mapel dalam satu semester.
 // GET ?kelas=id&semester=id[&siswa=id]
@@ -60,10 +61,11 @@ export async function GET(request: Request) {
 
     // Rekap tiap mapel untuk semua siswa sekaligus
     const ids = siswa.map((x) => x.id);
-    const [i, deskripsi, catatan] = await Promise.all([
+    const [i, deskripsi, catatan, dataRapor] = await Promise.all([
       getInstansi(),
       prisma.deskripsiRapor.findMany({ where: { semesterId: semester.id, userId: { in: ids }, mapelId: { in: mapel.map((m) => m.id) } } }),
       prisma.catatanRapor.findMany({ where: { semesterId: semester.id, userId: { in: ids } } }),
+      prisma.dataRapor.findMany({ where: { semesterId: semester.id, userId: { in: ids } } }),
     ]);
     const batas = batasPredikat(i);
     const hasil = await Promise.all(mapel.map(async (m) => ({ mapel: m, ...(await hitungRekapMapel(m, siswa, semester, { kelola: staf, userId: user.id })) })));
@@ -88,6 +90,7 @@ export async function GET(request: Request) {
           deskripsi: deskripsi.find((d) => d.userId === s.id && d.mapelId === n.mapelId)?.deskripsi ?? '',
         })),
         catatan: catatan.find((c) => c.userId === s.id)?.catatan ?? '',
+        lengkap: bacaDataRapor(dataRapor.find((x) => x.userId === s.id), hadir),
         rataRata: akhir.length ? Math.round((akhir.reduce((a, b) => a + b, 0) / akhir.length) * 10) / 10 : null,
         jumlahTuntas: nilai.filter((n) => n.tuntas === true).length,
         jumlahBerKkm: nilai.filter((n) => n.tuntas !== null).length,
@@ -108,6 +111,8 @@ export async function GET(request: Request) {
       semesterList,
       kelasList,
       kelas: { id: kelas.id, nama: kelas.nama, wali: await namaWali(kelas) },
+      // Wali kelas / admin boleh mengisi data rapor (ekstrakurikuler, prestasi, ketidakhadiran, kenaikan kelas)
+      bisaIsiData: user.role === 'ADMIN' || (user.role === 'GURU' && adalahWali(kelas, user)),
       sekolah: {
         nama: i.namaInstansi, alamat: i.alamat, kota: i.kota, logo: i.logo, namaAplikasi: i.namaAplikasi,
         penandatangan: { jabatan: i.jabatanPenandatangan, nama: i.namaPenandatangan, nip: i.nipPenandatangan },
@@ -135,8 +140,18 @@ export async function PUT(request: Request) {
     const kelasDi = siswa ? await kelasSiswaDi(siswa.id, semester) : '';
     const boleh = siswa && (await kelasBolehDibuka(user)).some((k) => k.nama === kelasDi);
     if (!siswa || !boleh) return NextResponse.json({ message: 'Siswa tidak ditemukan atau bukan kelas Anda' }, { status: 404 });
-    const catatan = teks(body.catatan, 1000);
     const where = { userId_semesterId: { userId: siswa.id, semesterId: semester.id } };
+    // Data rapor tambahan: hanya wali kelas siswa itu atau admin
+    if (body.data !== undefined) {
+      const kelasRow = await prisma.kelas.findUnique({ where: { nama: kelasDi } });
+      if (user.role !== 'ADMIN' && !(kelasRow && adalahWali(kelasRow, user))) return NextResponse.json({ message: 'Hanya wali kelas atau admin yang mengisi data rapor' }, { status: 403 });
+      const v = dataRaporDariBody(body.data);
+      if ('error' in v) return NextResponse.json({ message: v.error }, { status: 400 });
+      await prisma.dataRapor.upsert({ where, update: v.data, create: { ...v.data, userId: siswa.id, semesterId: semester.id } });
+      await createAuditLog({ action: 'DATA_RAPOR', target: `Siswa #${siswa.id} ${siswa.nama}`, details: { semester: semester.label }, ipAddress: getAuditIP(request) });
+      if (body.catatan === undefined) return NextResponse.json({ success: true, message: 'Data rapor disimpan' });
+    }
+    const catatan = teks(body.catatan, 1000);
     if (catatan) await prisma.catatanRapor.upsert({ where, update: { catatan }, create: { userId: siswa.id, semesterId: semester.id, catatan } });
     else await prisma.catatanRapor.deleteMany({ where: { userId: siswa.id, semesterId: semester.id } });
     await createAuditLog({ action: 'CATATAN_RAPOR', target: `Siswa #${siswa.id} ${siswa.nama}`, details: { semester: semester.label }, ipAddress: getAuditIP(request) });

@@ -39,7 +39,11 @@ export async function GET(request: Request) {
         select: { id: true, judul: true, tenggat: true, mapelId: true, terbit: true, pengumpulan: { where: { userId: user.id }, select: { status: true } } },
       }),
       prisma.kuis.findMany({
-        where: { mapelId: { in: ids }, ...(siswa ? { terbit: true } : {}), OR: [{ mulai: rentang }, { selesai: rentang }] },
+        where: {
+          mapelId: { in: ids }, OR: [{ mulai: rentang }, { selesai: rentang }],
+          // Ujian remedial/susulan hanya untuk siswa yang dituju
+          ...(siswa ? { terbit: true, AND: [{ OR: [{ untukSiswa: '' }, { untukSiswa: { contains: `,${user.id},` } }] }] } : {}),
+        },
         select: { id: true, judul: true, mulai: true, selesai: true, mapelId: true, modeUjian: true, percobaan: { where: { userId: user.id, selesaiAt: { not: null } }, select: { id: true } } },
       }),
       prisma.sesiPresensi.findMany({
@@ -74,7 +78,7 @@ export async function GET(request: Request) {
       });
     }
     // Ujian offline (ujian CAT mapel sudah tampil lewat kuis ujiannya)
-    const ujianManual = await prisma.ujianManual.findMany({ where: { mapelId: { in: ids }, mode: 'offline', tanggal: rentang }, select: { id: true, judul: true, tanggal: true, mapelId: true } });
+    const ujianManual = await prisma.ujianManual.findMany({ where: { mapelId: { in: ids }, mode: 'offline', tanggal: rentang, ...(siswa ? { OR: [{ untukSiswa: '' }, { untukSiswa: { contains: `,${user.id},` } }] } : {}) }, select: { id: true, judul: true, tanggal: true, mapelId: true } });
     for (const u of ujianManual) out.push({ id: `um${u.id}`, jenis: 'ujian', judul: `Ujian: ${u.judul}`, waktu: u.tanggal!, mapel: nama.get(u.mapelId) ?? '', href: `/kelas/${u.mapelId}?tab=ujian` });
     for (const u of ujian) out.push({ id: `u${u.id}`, jenis: 'ujian', judul: `Ujian: ${u.nama}`, waktu: u.jadwalMulai!, mapel: nama.get(u.mapelId!) ?? '', href: siswa ? '/dashboard' : `/kelas/${u.mapelId}?tab=ujian` });
     if (terjadwal) {

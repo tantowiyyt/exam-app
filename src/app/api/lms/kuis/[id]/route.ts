@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { verifyLmsSession, aksesMapel } from '@/lib/lms';
+import { verifyLmsSession, aksesMapel, ditugaskan } from '@/lib/lms';
 import { opsiSoal, statusBuka, tutupYangKedaluwarsa, batasWaktu, nilaiTerbaik, hasilDiumumkan } from '@/lib/kuis';
 
 const pilihPercobaan = { id: true, userId: true, ke: true, mulaiAt: true, selesaiAt: true, nilai: true, skor: true, skorMaks: true, perluDinilai: true, pelanggaran: true, tambahanMenit: true } as const;
@@ -14,7 +14,7 @@ export async function GET(_request: Request, ctx: RouteContext<'/api/lms/kuis/[i
     const { user } = auth;
     const kuis = await prisma.kuis.findUnique({ where: { id: Number((await ctx.params).id) } });
     const akses = kuis ? await aksesMapel(user, kuis.mapelId) : null;
-    if (!kuis || !akses || (akses.peran === 'siswa' && !kuis.terbit)) {
+    if (!kuis || !akses || (akses.peran === 'siswa' && (!kuis.terbit || !ditugaskan(kuis, user.id)))) {
       return NextResponse.json({ message: 'Kuis tidak ditemukan' }, { status: 404 });
     }
     const kelola = akses.peran === 'kelola';

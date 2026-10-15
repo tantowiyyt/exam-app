@@ -15,7 +15,11 @@ interface UjianGuru {
     id: number; judul: string; jenis: string; mode: "offline" | "cat"; tanggal: string | null; nilaiMaks: number; keterangan: string; terbit: boolean;
     nilai: { userId: number; nilai: number; catatan: string }[]; rataRata: number | null;
     kuis?: InfoKuis | null; hasil?: { mengerjakan: number; selesai: number; perluDinilai: number };
+    indukId?: number | null; tipeSusulan?: string; untukSiswa?: number[];
 }
+const LABEL_SUSULAN: Record<string, string> = { remedial: "Remedial", pengayaan: "Pengayaan", susulan: "Susulan" };
+/** Siswa peserta ujian: semua siswa kelas, atau siswa yang dituju (ujian remedial/susulan). */
+const pesertaUjian = (u: UjianGuru, siswa: Siswa[]) => (u.untukSiswa?.length ? siswa.filter((s) => u.untukSiswa!.includes(s.id)) : siswa);
 interface UjianSiswa {
     id: number; judul: string; jenis: string; mode: "offline" | "cat"; tanggal: string | null; nilaiMaks: number; keterangan: string; diumumkan: boolean;
     saya: { nilai: number; catatan: string } | null;
@@ -138,7 +142,8 @@ export function UjianManual({ mapelId, semesterId, onChange }: { mapelId: number
     };
 
     const umumkan = async (u: UjianGuru) => {
-        if (!u.terbit && u.nilai.length < d.siswa.length && !confirm(`Baru ${u.nilai.length} dari ${d.siswa.length} siswa yang punya nilai. Umumkan sekarang?`)) return;
+        const peserta = pesertaUjian(u, d.siswa).length;
+        if (!u.terbit && u.nilai.length < peserta && !confirm(`Baru ${u.nilai.length} dari ${peserta} siswa yang punya nilai. Umumkan sekarang?`)) return;
         const { ok, data } = await kirim("/api/lms/ujian-manual", "PUT", { id: u.id, terbit: !u.terbit });
         toast(data.message || (ok ? "Tersimpan" : "Gagal"), ok ? "success" : "error");
         if (ok) refresh();
@@ -193,6 +198,7 @@ export function UjianManual({ mapelId, semesterId, onChange }: { mapelId: number
                             <div className="flex-1 min-w-0">
                                 <div className="flex flex-wrap items-center gap-2">
                                     <p className="font-bold text-slate-800">{u.judul}</p>
+                                    {u.tipeSusulan && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-violet-100 text-violet-700">{LABEL_SUSULAN[u.tipeSusulan]} · {u.untukSiswa?.length ?? 0} siswa</span>}
                                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${j.cls}`}>{j.label}</span>
                                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${u.mode === "cat" ? "bg-indigo-100 text-indigo-700" : "bg-amber-100 text-amber-800"}`}>{u.mode === "cat" ? "CAT" : "Offline"}</span>
                                     {st && <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${st.cls}`}>{st.label}</span>}
@@ -202,8 +208,8 @@ export function UjianManual({ mapelId, semesterId, onChange }: { mapelId: number
                                     <span><Jadwal u={u} /></span>
                                     {u.mode === "cat" && u.kuis && <span>{u.kuis.jumlahSoal} soal</span>}
                                     {u.mode === "cat" && u.hasil
-                                        ? <span>{u.hasil.selesai}/{d.siswa.length} selesai{u.hasil.mengerjakan ? ` · ${u.hasil.mengerjakan} mengerjakan` : ""}{u.hasil.perluDinilai ? ` · ${u.hasil.perluDinilai} esai perlu dinilai` : ""}</span>
-                                        : <span>Maks {u.nilaiMaks} · {u.nilai.length}/{d.siswa.length} siswa dinilai</span>}
+                                        ? <span>{u.hasil.selesai}/{pesertaUjian(u, d.siswa).length} selesai{u.hasil.mengerjakan ? ` · ${u.hasil.mengerjakan} mengerjakan` : ""}{u.hasil.perluDinilai ? ` · ${u.hasil.perluDinilai} esai perlu dinilai` : ""}</span>
+                                        : <span>Maks {u.nilaiMaks} · {u.nilai.length}/{pesertaUjian(u, d.siswa).length} siswa dinilai</span>}
                                     {u.rataRata !== null && <span>Rata-rata {u.rataRata}</span>}
                                 </p>
                             </div>
@@ -217,7 +223,7 @@ export function UjianManual({ mapelId, semesterId, onChange }: { mapelId: number
                                 <button onClick={() => hapus(u)} className={`${tombol} bg-red-100 hover:bg-red-200 text-red-800`}>Hapus</button>
                             </div>
                         </div>
-                        {isi === u.id && u.mode === "offline" && <IsiNilai key={u.id} ujian={u} siswa={d.siswa} onSaved={refresh} />}
+                        {isi === u.id && u.mode === "offline" && <IsiNilai key={u.id} ujian={u} siswa={pesertaUjian(u, d.siswa)} onSaved={refresh} />}
                     </div>
                 );
             })}

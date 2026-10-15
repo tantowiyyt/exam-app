@@ -6,7 +6,13 @@ import { useToast } from "@/components/Toast";
 import { Modal, kirim, inputClass, labelClass } from "./ui";
 
 type Nilai = number | "kumpul" | "revisi" | "na" | null;
-interface Kolom { kunci: string; jenis: "tugas" | "kuis" | "ujian"; id: number; judul: string; maks: number; terbit: boolean; offline?: boolean; mapelUjian?: boolean; sekolah?: boolean; jenisUjian?: string; mode?: string }
+interface Kolom { kunci: string; jenis: "tugas" | "kuis" | "ujian"; id: number; judul: string; maks: number; terbit: boolean; offline?: boolean; mapelUjian?: boolean; sekolah?: boolean; jenisUjian?: string; mode?: string; turunan?: { tipe: string; induk: string } }
+const LABEL_SUSULAN: Record<string, string> = { remedial: "Remedial", pengayaan: "Pengayaan", susulan: "Susulan" };
+const LABEL_ATURAN: Record<string, string> = {
+    maksKkm: "Nilai tertinggi, nilai remedial maksimal KKM",
+    maks: "Nilai tertinggi (asli atau remedial)",
+    ganti: "Nilai remedial menggantikan nilai asli",
+};
 
 const LABEL_JENIS_UJIAN: Record<string, string> = { UH: "UH", UTS: "UTS", UAS: "UAS", LAIN: "Ujian" };
 /** Label kolom ujian: jenis + cara pelaksanaan (mis. "UTS · CAT", "UH · offline", "Ujian CAT sekolah"). */
@@ -18,11 +24,11 @@ interface Data {
     mapel: { id: number; nama: string; kelas: string };
     kolom: Kolom[];
     pengaturan: Pengaturan & { berbobot: boolean };
-    baris: { siswa: { id: number; nomorPeserta: string; nama: string }; nilai: Record<string, Nilai>; komponen: Record<Kat, number | null>; rataRata: number | null; tuntas: boolean | null }[];
+    baris: { siswa: { id: number; nomorPeserta: string; nama: string }; nilai: Record<string, Nilai>; akhir?: Record<string, number>; komponen: Record<Kat, number | null>; rataRata: number | null; tuntas: boolean | null }[];
     ringkasan: { rataKelas: number | null; tertinggi: number | null; terendah: number | null; tuntas: number | null };
 }
 type Kat = "tugas" | "kuis" | "uh" | "uts" | "uas" | "ujian" | "presensi";
-interface Pengaturan { tugas: number; kuis: number; uh: number; uts: number; uas: number; ujian: number; presensi: number; kkm: number }
+interface Pengaturan { tugas: number; kuis: number; uh: number; uts: number; uas: number; ujian: number; presensi: number; kkm: number; aturanRemedial?: string }
 const KAT: [Kat, string][] = [["tugas", "Tugas"], ["kuis", "Kuis"], ["uh", "UH"], ["uts", "UTS"], ["uas", "UAS"], ["ujian", "Ujian lain"], ["presensi", "Presensi"]];
 
 /** Atur bobot nilai akhir per kategori & KKM. */
@@ -32,7 +38,7 @@ function FormPengaturan({ mapelId, awal, onClose, onSaved }: { mapelId: number; 
     const total = KAT.reduce((a, [k]) => a + (f[k] || 0), 0);
     const submit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const { ok, data } = await kirim(`/api/lms/mapel/${mapelId}`, "PUT", { bobotTugas: f.tugas, bobotKuis: f.kuis, bobotUjian: f.ujian, bobotPresensi: f.presensi, bobotUH: f.uh, bobotUTS: f.uts, bobotUAS: f.uas, kkm: f.kkm });
+        const { ok, data } = await kirim(`/api/lms/mapel/${mapelId}`, "PUT", { bobotTugas: f.tugas, bobotKuis: f.kuis, bobotUjian: f.ujian, bobotPresensi: f.presensi, bobotUH: f.uh, bobotUTS: f.uts, bobotUAS: f.uas, kkm: f.kkm, aturanRemedial: f.aturanRemedial ?? "maksKkm" });
         if (ok) { toast("Pengaturan nilai disimpan", "success"); onSaved(); } else toast(data.message || "Gagal", "error");
     };
     return (
@@ -51,6 +57,12 @@ function FormPengaturan({ mapelId, awal, onClose, onSaved }: { mapelId: number; 
                 </p>
                 <label className="block max-w-40"><span className={labelClass}>KKM (0 = tidak dipakai)</span>
                     <input type="number" min={0} max={100} value={f.kkm} onChange={(e) => setF({ ...f, kkm: Number(e.target.value) })} required className={inputClass} />
+                </label>
+                <label className="block"><span className={labelClass}>Nilai remedial yang masuk rapor</span>
+                    <select value={f.aturanRemedial ?? "maksKkm"} onChange={(e) => setF({ ...f, aturanRemedial: e.target.value })} className={inputClass}>
+                        {Object.entries(LABEL_ATURAN).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+                    </select>
+                    <span className="text-[10px] text-slate-400">Susulan mengisi nilai yang kosong. Pengayaan tidak mengubah nilai.</span>
                 </label>
                 <div className="flex justify-end gap-2">
                     <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-bold">Batal</button>
@@ -71,7 +83,15 @@ function Tuntas({ v }: { v: boolean | null }) {
 const warnaNilai = (persen: number) =>
     persen >= 85 ? "text-emerald-700" : persen >= 70 ? "text-sky-700" : persen >= 55 ? "text-amber-700" : "text-red-600";
 
-function Sel({ v, maks }: { v: Nilai; maks: number }) {
+function Sel({ v, maks, akhir }: { v: Nilai; maks: number; akhir?: number }) {
+    if (akhir !== undefined) {
+        return (
+            <span title="Nilai asli → nilai yang dipakai setelah remedial/susulan" className="whitespace-nowrap">
+                {v === null || typeof v !== "number" ? <span className="text-slate-300">–</span> : <span className="text-slate-400 line-through text-xs">{v}</span>}
+                <span className={`ml-1 font-bold ${warnaNilai((akhir / maks) * 100)}`}>{akhir}</span>
+            </span>
+        );
+    }
     if (v === null) return <span className="text-slate-300">–</span>;
     if (v === "na") return <span className="text-[10px] text-slate-300" title="Tugas tidak diberikan ke siswa ini">n/a</span>;
     if (v === "revisi") return <span className="text-[10px] font-bold text-orange-600" title="Dikembalikan untuk revisi">revisi</span>;
@@ -84,6 +104,7 @@ export function RekapNilai({ mapelId, semesterId }: { mapelId: number; semesterI
     const [d, setD] = useState<Data | null>(null);
     const [error, setError] = useState("");
     const [atur, setAtur] = useState(false);
+    const [susulan, setSusulan] = useState<Kolom | null>(null);
 
     const muat = useCallback(() => fetch(`/api/lms/mapel/${mapelId}/nilai${semesterId ? `?semester=${semesterId}` : ""}`)
         .then(async (r) => ({ ok: r.ok, data: await r.json().catch(() => ({})) })), [mapelId, semesterId]);
@@ -127,7 +148,7 @@ export function RekapNilai({ mapelId, semesterId }: { mapelId: number; semesterI
         URL.revokeObjectURL(a.href);
     };
 
-    const pengaturanModal = atur && <FormPengaturan mapelId={mapelId} awal={{ tugas: pg.tugas, kuis: pg.kuis, uh: pg.uh ?? 0, uts: pg.uts ?? 0, uas: pg.uas ?? 0, ujian: pg.ujian, presensi: pg.presensi, kkm: pg.kkm }} onClose={() => setAtur(false)} onSaved={() => { setAtur(false); refresh(); }} />;
+    const pengaturanModal = atur && <FormPengaturan mapelId={mapelId} awal={{ tugas: pg.tugas, kuis: pg.kuis, uh: pg.uh ?? 0, uts: pg.uts ?? 0, uas: pg.uas ?? 0, ujian: pg.ujian, presensi: pg.presensi, kkm: pg.kkm, aturanRemedial: pg.aturanRemedial }} onClose={() => setAtur(false)} onSaved={() => { setAtur(false); refresh(); }} />;
     if (d.kolom.length === 0 && !(pg.presensi > 0 && kelola)) {
         return (
             <>
@@ -168,9 +189,9 @@ export function RekapNilai({ mapelId, semesterId }: { mapelId: number; semesterI
                                 <span className={`shrink-0 w-9 h-9 rounded-lg font-black text-xs flex items-center justify-center ${JENIS[k.jenis].cls}`}>{JENIS[k.jenis].huruf}</span>
                                 <span className="flex-1 min-w-0">
                                     <span className="block font-semibold text-slate-800 truncate">{k.judul}</span>
-                                    <span className="block text-[11px] text-slate-400">{k.jenis === "ujian" ? labelUjian(k) : JENIS[k.jenis].label} · maks {k.maks}</span>
+                                    <span className="block text-[11px] text-slate-400">{k.turunan && <b className="text-violet-600">{LABEL_SUSULAN[k.turunan.tipe]} · </b>}{k.jenis === "ujian" ? labelUjian(k) : JENIS[k.jenis].label} · maks {k.maks}</span>
                                 </span>
-                                <span className="text-lg"><Sel v={b?.nilai[k.kunci] ?? null} maks={k.maks} /></span>
+                                <span className="text-lg"><Sel v={b?.nilai[k.kunci] ?? null} maks={k.maks} akhir={b?.akhir?.[k.kunci]} /></span>
                             </>
                         );
                         return h
@@ -225,9 +246,12 @@ export function RekapNilai({ mapelId, semesterId }: { mapelId: number; semesterI
                                         const label = <span className="line-clamp-2 normal-case font-semibold">{k.judul}</span>;
                                         return (
                                             <th key={k.kunci} className="px-3 py-2 text-center min-w-24 align-bottom" title={k.judul}>
-                                                <span className={`block text-[9px] font-black ${JENIS[k.jenis].teks}`}>{(k.jenis === "ujian" ? labelUjian(k) : JENIS[k.jenis].label).toUpperCase()}{!k.terbit && (k.mapelUjian ? " · BELUM DIUMUMKAN" : " · DRAF")}</span>
+                                                <span className={`block text-[9px] font-black ${k.turunan ? "text-violet-600" : JENIS[k.jenis].teks}`}>{k.turunan && `${LABEL_SUSULAN[k.turunan.tipe]?.toUpperCase()} · `}{(k.jenis === "ujian" ? labelUjian(k) : JENIS[k.jenis].label).toUpperCase()}{!k.terbit && (k.mapelUjian ? " · BELUM DIUMUMKAN" : " · DRAF")}</span>
                                                 {h ? <Link href={h} className="hover:text-indigo-700">{label}</Link> : label}
                                                 <span className="block text-[9px] text-slate-400">maks {k.maks}</span>
+                                                {!k.turunan && (k.jenis === "tugas" || k.mapelUjian) && (
+                                                    <button onClick={() => setSusulan(k)} className="mt-1 text-[9px] font-bold text-violet-700 hover:underline normal-case">+ Remedial/Susulan</button>
+                                                )}
                                             </th>
                                         );
                                     })}
@@ -243,7 +267,7 @@ export function RekapNilai({ mapelId, semesterId }: { mapelId: number; semesterI
                                             <p className="font-semibold text-slate-700">{b.siswa.nama}</p>
                                             <p className="font-mono text-[10px] text-slate-400">{b.siswa.nomorPeserta}</p>
                                         </td>
-                                        {d.kolom.map((k) => <td key={k.kunci} className="px-3 py-2 text-center"><Sel v={b.nilai[k.kunci]} maks={k.maks} /></td>)}
+                                        {d.kolom.map((k) => <td key={k.kunci} className={`px-3 py-2 text-center ${k.turunan ? "bg-violet-50/40" : ""}`}><Sel v={b.nilai[k.kunci]} maks={k.maks} akhir={b.akhir?.[k.kunci]} /></td>)}
                                         {katTampil.map(([k]) => <td key={k} className="px-3 py-2 text-center text-slate-600 bg-indigo-50/30">{b.komponen[k] ?? <span className="text-slate-300">–</span>}</td>)}
                                         <td className="px-3 py-2 text-center">
                                             {b.rataRata === null ? <span className="text-slate-300">–</span> : <span className={`font-black ${warnaNilai(b.rataRata)}`}>{b.rataRata}</span>}
@@ -257,6 +281,74 @@ export function RekapNilai({ mapelId, semesterId }: { mapelId: number; semesterI
                 )}
             </div>
             {pengaturanModal}
+            {susulan && <FormSusulan kolom={susulan} d={d} onClose={() => setSusulan(null)} onSaved={() => { setSusulan(null); refresh(); }} />}
         </section>
+    );
+}
+
+/** Buat remedial / pengayaan / susulan dari satu tugas atau ujian untuk siswa terpilih. */
+function FormSusulan({ kolom, d, onClose, onSaved }: { kolom: Kolom; d: Data; onClose: () => void; onSaved: () => void }) {
+    const { toast } = useToast();
+    const kkm = d.pengaturan.kkm || 75;
+    const persen = (b: Data["baris"][number]) => { const v = b.nilai[kolom.kunci]; return typeof v === "number" ? (v / kolom.maks) * 100 : null; };
+    const usul = (tipe: string) => new Set(d.baris.filter((b) => {
+        const p = persen(b);
+        if (b.nilai[kolom.kunci] === "na") return false;
+        return tipe === "susulan" ? b.nilai[kolom.kunci] === null : tipe === "remedial" ? p !== null && p < kkm : p !== null && p >= kkm;
+    }).map((b) => b.siswa.id));
+    const [tipe, setTipe] = useState("remedial");
+    const [pilih, setPilih] = useState<Set<number>>(() => usul("remedial"));
+    const [judul, setJudul] = useState("");
+    const [waktu, setWaktu] = useState("");
+    const [proses, setProses] = useState(false);
+    const ganti = (t: string) => { setTipe(t); setPilih(usul(t)); };
+    const submit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setProses(true);
+        const { ok, data } = await kirim("/api/lms/susulan", "POST", {
+            kunci: kolom.kunci, tipe, siswa: [...pilih], judul,
+            ...(kolom.jenis === "tugas" ? { tenggat: waktu ? new Date(waktu).toISOString() : null } : { tanggal: waktu ? new Date(waktu).toISOString() : null }),
+        });
+        setProses(false);
+        if (!ok) return toast(data.message || "Gagal", "error");
+        toast(data.message, "success");
+        onSaved();
+    };
+    return (
+        <Modal judul={`Remedial / Susulan · ${kolom.judul}`} onClose={onClose}>
+            <form onSubmit={submit} className="space-y-4">
+                <div className="flex flex-wrap gap-2">
+                    {Object.entries(LABEL_SUSULAN).map(([k, l]) => (
+                        <button key={k} type="button" onClick={() => ganti(k)} className={`px-3 py-1.5 rounded-lg text-sm font-bold ${tipe === k ? "bg-violet-600 text-white" : "bg-slate-100 text-slate-700"}`}>{l}</button>
+                    ))}
+                </div>
+                <p className="text-xs text-slate-500">
+                    {tipe === "remedial" && `Usulan: siswa dengan nilai di bawah ${kkm}${d.pengaturan.kkm ? " (KKM)" : ""}. Nilai yang dipakai: ${LABEL_ATURAN[d.pengaturan.aturanRemedial ?? "maksKkm"].toLowerCase()}.`}
+                    {tipe === "susulan" && "Usulan: siswa yang belum punya nilai. Nilai susulan mengisi nilai yang kosong."}
+                    {tipe === "pengayaan" && `Usulan: siswa yang sudah mencapai ${kkm}. Nilai pengayaan dicatat tetapi tidak mengubah nilai.`}
+                    {kolom.jenis === "tugas" ? " Tugas disalin (deskripsi, lampiran, rubrik) khusus untuk siswa terpilih." : kolom.mode === "cat" ? " Ujian CAT dibuat dengan soal yang sama (draf) — periksa lalu terbitkan dari tab Ujian." : " Ujian baru dibuat; isi nilainya di tab Ujian."}
+                </p>
+                <div className="max-h-64 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100">
+                    {d.baris.map((b) => {
+                        const v = b.nilai[kolom.kunci];
+                        return (
+                            <label key={b.siswa.id} className="flex items-center gap-3 px-3 py-2 text-sm cursor-pointer hover:bg-slate-50">
+                                <input type="checkbox" checked={pilih.has(b.siswa.id)} disabled={v === "na"} onChange={() => setPilih((p) => { const n = new Set(p); if (n.has(b.siswa.id)) n.delete(b.siswa.id); else n.add(b.siswa.id); return n; })} />
+                                <span className="flex-1">{b.siswa.nama}</span>
+                                <Sel v={v} maks={kolom.maks} />
+                            </label>
+                        );
+                    })}
+                </div>
+                <div className="grid sm:grid-cols-2 gap-3">
+                    <label><span className={labelClass}>Judul (opsional)</span><input value={judul} onChange={(e) => setJudul(e.target.value)} maxLength={200} placeholder={`${LABEL_SUSULAN[tipe]} – ${kolom.judul}`} className={inputClass} /></label>
+                    <label><span className={labelClass}>{kolom.jenis === "tugas" ? "Tenggat" : "Tanggal ujian"}</span><input type="datetime-local" value={waktu} onChange={(e) => setWaktu(e.target.value)} className={inputClass} /></label>
+                </div>
+                <div className="flex justify-end gap-2">
+                    <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-bold">Batal</button>
+                    <button type="submit" disabled={proses || !pilih.size} className="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-bold disabled:opacity-50">Buat untuk {pilih.size} siswa</button>
+                </div>
+            </form>
+        </Modal>
     );
 }

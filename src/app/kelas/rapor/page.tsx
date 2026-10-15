@@ -12,11 +12,20 @@ interface Rapor {
     siswa: { id: number; nomorPeserta: string; nama: string };
     nilai: { mapelId: number; komponen: Record<Kunci, number | null>; nilaiAkhir: number | null; tuntas: boolean | null; predikat: string | null; deskripsi: string }[];
     catatan: string;
+    lengkap: Lengkap;
     rataRata: number | null; jumlahTuntas: number; jumlahBerKkm: number; peringkat: number | null;
     kehadiran: { H: number; I: number; S: number; A: number; kosong: number; pertemuan: number; persen: number | null };
 }
+interface Lengkap {
+    sakit: number | null; izin: number | null; alpa: number | null;
+    ketidakhadiran: { S: number; I: number; A: number; manual: boolean };
+    ekskul: { nama: string; predikat: string; keterangan: string }[];
+    prestasi: { jenis: string; keterangan: string }[];
+    kokurikuler: string; keputusan: "" | "naik" | "tinggal" | "lulus"; keKelas: string;
+}
 interface Data {
     peran: "staf" | "siswa";
+    bisaIsiData?: boolean;
     semester: { id: number; label: string; tahunAjaran: string; semester: string; aktif: boolean };
     semesterList: { id: number; label: string; aktif: boolean }[];
     kelasList: { id: number; nama: string }[];
@@ -199,6 +208,81 @@ function CatatanWali({ d, r, bisaCatat, onCatat }: { d: Data; r: Rapor; bisaCata
     );
 }
 
+/** Isian data rapor oleh wali kelas / admin (tidak ikut dicetak). */
+function FormDataRapor({ d, r, onSaved }: { d: Data; r: Rapor; onSaved: () => void }) {
+    const { toast } = useToast();
+    const L = r.lengkap;
+    const [f, setF] = useState({
+        sakit: L.sakit ?? "", izin: L.izin ?? "", alpa: L.alpa ?? "",
+        ekskul: L.ekskul.length ? L.ekskul : [{ nama: "", predikat: "", keterangan: "" }],
+        prestasi: L.prestasi.length ? L.prestasi : [{ jenis: "", keterangan: "" }],
+        kokurikuler: L.kokurikuler, keputusan: L.keputusan, keKelas: L.keKelas,
+    });
+    const [simpan, setSimpan] = useState(false);
+    const kirimData = async () => {
+        setSimpan(true);
+        const res = await fetch("/api/lms/rapor", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ siswa: r.siswa.id, semester: d.semester.id, data: f }) });
+        const data = await res.json().catch(() => ({}));
+        setSimpan(false);
+        toast(data.message || (res.ok ? "Tersimpan" : "Gagal"), res.ok ? "success" : "error");
+        if (res.ok) onSaved();
+    };
+    const inp = "w-full border border-slate-300 rounded-lg px-2 py-1 text-[12px]";
+    const hari = (k: "sakit" | "izin" | "alpa", l: string) => (
+        <label className="text-[11px] font-bold text-slate-600">{l}
+            <input type="number" min={0} max={366} value={f[k]} onChange={(e) => setF({ ...f, [k]: e.target.value === "" ? "" : Number(e.target.value) })} placeholder={String(L.ketidakhadiran[k === "sakit" ? "S" : k === "izin" ? "I" : "A"])} className={inp} />
+        </label>
+    );
+    return (
+        <section className="mt-6 border-2 border-dashed border-indigo-300 rounded-xl p-4 space-y-4 print:hidden">
+            <p className="text-sm font-black text-indigo-700">Isi Data Rapor (wali kelas)</p>
+            <div>
+                <p className="text-xs font-bold text-slate-600 mb-1">Ketidakhadiran (hari) — kosongkan untuk memakai jumlah dari presensi</p>
+                <div className="grid grid-cols-3 gap-2 max-w-md">{hari("sakit", "Sakit")}{hari("izin", "Izin")}{hari("alpa", "Tanpa keterangan")}</div>
+            </div>
+            <div>
+                <p className="text-xs font-bold text-slate-600 mb-1">Ekstrakurikuler</p>
+                {f.ekskul.map((e, i) => (
+                    <div key={i} className="grid grid-cols-[2fr_1fr_3fr_auto] gap-2 mb-1">
+                        <input value={e.nama} onChange={(x) => setF({ ...f, ekskul: f.ekskul.map((y, j) => (j === i ? { ...y, nama: x.target.value } : y)) })} placeholder="Kegiatan, mis. Pramuka" aria-label="Kegiatan ekstrakurikuler" className={inp} />
+                        <input value={e.predikat} onChange={(x) => setF({ ...f, ekskul: f.ekskul.map((y, j) => (j === i ? { ...y, predikat: x.target.value } : y)) })} placeholder="Predikat" aria-label="Predikat" className={inp} />
+                        <input value={e.keterangan} onChange={(x) => setF({ ...f, ekskul: f.ekskul.map((y, j) => (j === i ? { ...y, keterangan: x.target.value } : y)) })} placeholder="Keterangan" aria-label="Keterangan" className={inp} />
+                        <button type="button" onClick={() => setF({ ...f, ekskul: f.ekskul.filter((_, j) => j !== i) })} className="text-xs text-red-600 font-bold px-1" aria-label="Hapus baris">✕</button>
+                    </div>
+                ))}
+                {f.ekskul.length < 10 && <button type="button" onClick={() => setF({ ...f, ekskul: [...f.ekskul, { nama: "", predikat: "", keterangan: "" }] })} className="text-xs font-bold text-indigo-600">+ Ekstrakurikuler</button>}
+            </div>
+            <div>
+                <p className="text-xs font-bold text-slate-600 mb-1">Prestasi</p>
+                {f.prestasi.map((p, i) => (
+                    <div key={i} className="grid grid-cols-[2fr_3fr_auto] gap-2 mb-1">
+                        <input value={p.jenis} onChange={(x) => setF({ ...f, prestasi: f.prestasi.map((y, j) => (j === i ? { ...y, jenis: x.target.value } : y)) })} placeholder="Jenis, mis. Juara 1 OSN Matematika" aria-label="Jenis prestasi" className={inp} />
+                        <input value={p.keterangan} onChange={(x) => setF({ ...f, prestasi: f.prestasi.map((y, j) => (j === i ? { ...y, keterangan: x.target.value } : y)) })} placeholder="Keterangan (tingkat, tahun)" aria-label="Keterangan prestasi" className={inp} />
+                        <button type="button" onClick={() => setF({ ...f, prestasi: f.prestasi.filter((_, j) => j !== i) })} className="text-xs text-red-600 font-bold px-1" aria-label="Hapus baris">✕</button>
+                    </div>
+                ))}
+                {f.prestasi.length < 10 && <button type="button" onClick={() => setF({ ...f, prestasi: [...f.prestasi, { jenis: "", keterangan: "" }] })} className="text-xs font-bold text-indigo-600">+ Prestasi</button>}
+            </div>
+            <label className="block text-xs font-bold text-slate-600">Kokurikuler / Projek (P5)
+                <textarea value={f.kokurikuler} onChange={(e) => setF({ ...f, kokurikuler: e.target.value })} rows={2} maxLength={2000} placeholder="Deskripsi capaian kegiatan kokurikuler / projek penguatan profil pelajar Pancasila" className={inp} />
+            </label>
+            <div className="flex flex-wrap gap-3 items-end">
+                <label className="text-xs font-bold text-slate-600">Keputusan
+                    <select value={f.keputusan} onChange={(e) => setF({ ...f, keputusan: e.target.value as Lengkap["keputusan"] })} className={inp}>
+                        <option value="">— belum —</option><option value="naik">Naik kelas</option><option value="tinggal">Tinggal kelas</option><option value="lulus">Lulus</option>
+                    </select>
+                </label>
+                {(f.keputusan === "naik" || f.keputusan === "tinggal") && (
+                    <label className="text-xs font-bold text-slate-600">{f.keputusan === "naik" ? "Ke kelas" : "Di kelas"}
+                        <input value={f.keKelas} onChange={(e) => setF({ ...f, keKelas: e.target.value })} maxLength={50} placeholder="mis. XI IPA 1" className={inp} />
+                    </label>
+                )}
+                <button onClick={kirimData} disabled={simpan} className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold disabled:opacity-50">{simpan ? "Menyimpan..." : "Simpan data rapor"}</button>
+            </div>
+        </section>
+    );
+}
+
 function KartuRapor({ d, r, staf, format, bisaCatat, onCatat }: { d: Data; r: Rapor; staf: boolean; format: Format; bisaCatat: boolean; onCatat: () => void }) {
     const merdeka = format === "merdeka";
     const komponen = merdeka ? [] : d.komponen ?? [];
@@ -272,8 +356,48 @@ function KartuRapor({ d, r, staf, format, bisaCatat, onCatat }: { d: Data; r: Ra
                 </table>
             </div>
 
+            {(merdeka || r.lengkap.kokurikuler) && (
+                <div className="border border-slate-400 mt-4 print:mt-2 break-inside-avoid">
+                    <p className="bg-slate-100 border-b border-slate-400 px-2 py-1 text-[12px] font-bold">Kokurikuler</p>
+                    <p className="px-2 py-2 print:py-1 text-[12px] min-h-8 whitespace-pre-wrap">{r.lengkap.kokurikuler || "\u00a0"}</p>
+                </div>
+            )}
+
+            <div className="grid sm:grid-cols-2 print:grid-cols-2 gap-4 print:gap-2 mt-4 print:mt-2">
+                <table className="border-collapse text-[12px] w-full break-inside-avoid">
+                    <thead>
+                        <tr><th colSpan={3} className={`${sel} bg-slate-100 text-left`}>Ekstrakurikuler</th></tr>
+                        <tr><th className={`${sel} font-semibold text-left`}>Kegiatan</th><th className={`${sel} font-semibold w-16`}>Predikat</th><th className={`${sel} font-semibold text-left`}>Keterangan</th></tr>
+                    </thead>
+                    <tbody>
+                        {(r.lengkap.ekskul.length ? r.lengkap.ekskul : [{ nama: "–", predikat: "", keterangan: "" }]).map((e, i) => (
+                            <tr key={i}><td className={sel}>{e.nama}</td><td className={`${sel} text-center`}>{e.predikat}</td><td className={`${sel} text-[11px]`}>{e.keterangan}</td></tr>
+                        ))}
+                    </tbody>
+                </table>
+                <table className="border-collapse text-[12px] w-full break-inside-avoid">
+                    <thead>
+                        <tr><th colSpan={2} className={`${sel} bg-slate-100 text-left`}>Prestasi</th></tr>
+                        <tr><th className={`${sel} font-semibold text-left`}>Jenis Prestasi</th><th className={`${sel} font-semibold text-left`}>Keterangan</th></tr>
+                    </thead>
+                    <tbody>
+                        {(r.lengkap.prestasi.length ? r.lengkap.prestasi : [{ jenis: "–", keterangan: "" }]).map((p, i) => (
+                            <tr key={i}><td className={sel}>{p.jenis}</td><td className={`${sel} text-[11px]`}>{p.keterangan}</td></tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+
             <div className="flex flex-wrap items-start gap-4 mt-4 print:mt-2">
-                <table className="border-collapse text-[12px] flex-1 min-w-64">
+                <table className="border-collapse text-[12px] min-w-56 break-inside-avoid">
+                    <thead><tr><th colSpan={2} className={`${sel} bg-slate-100 text-left`}>Ketidakhadiran</th></tr></thead>
+                    <tbody>
+                        {([["Sakit", r.lengkap.ketidakhadiran.S], ["Izin", r.lengkap.ketidakhadiran.I], ["Tanpa keterangan", r.lengkap.ketidakhadiran.A]] as [string, number][]).map(([l, v]) => (
+                            <tr key={l}><td className={sel}>{l}</td><td className={`${sel} w-28 text-center`}>{v} {r.lengkap.ketidakhadiran.manual ? "hari" : "pertemuan"}</td></tr>
+                        ))}
+                    </tbody>
+                </table>
+                {!merdeka && <table className="border-collapse text-[12px] flex-1 min-w-64">
                     <thead>
                         <tr><th colSpan={r.kehadiran.kosong > 0 ? 5 : 4} className={`${sel} bg-slate-100 text-left`}>Kehadiran (pertemuan, semua mapel)</th></tr>
                         <tr>{["Hadir", "Izin", "Sakit", "Alpa", ...(r.kehadiran.kosong > 0 ? ["Belum diisi"] : [])].map((l) => <th key={l} className={`${sel} font-semibold`}>{l}</th>)}</tr>
@@ -281,7 +405,7 @@ function KartuRapor({ d, r, staf, format, bisaCatat, onCatat }: { d: Data; r: Ra
                     <tbody>
                         <tr>{[r.kehadiran.H, r.kehadiran.I, r.kehadiran.S, r.kehadiran.A, ...(r.kehadiran.kosong > 0 ? [r.kehadiran.kosong] : [])].map((v, i) => <td key={i} className={`${sel} text-center`}>{v}</td>)}</tr>
                     </tbody>
-                </table>
+                </table>}
                 {staf && r.peringkat !== null && (
                     <div className="border border-slate-400 px-3 py-2">
                         <p className="font-bold">Peringkat kelas</p>
@@ -291,6 +415,19 @@ function KartuRapor({ d, r, staf, format, bisaCatat, onCatat }: { d: Data; r: Ra
             </div>
 
             <CatatanWali d={d} r={r} bisaCatat={bisaCatat} onCatat={onCatat} />
+
+            {(r.lengkap.keputusan || d.semester.semester === "Genap") && (
+                <div className="border border-slate-400 mt-4 print:mt-2 px-3 py-2 text-[12px] break-inside-avoid">
+                    <p className="font-bold">Keputusan</p>
+                    <p>Berdasarkan pencapaian seluruh kompetensi, peserta didik dinyatakan:{" "}
+                        <b>{r.lengkap.keputusan === "naik" ? `Naik ke kelas ${r.lengkap.keKelas || "........"}`
+                            : r.lengkap.keputusan === "tinggal" ? `Tinggal di kelas ${r.lengkap.keKelas || d.kelas?.nama || "........"}`
+                                : r.lengkap.keputusan === "lulus" ? "LULUS" : "........................................"}</b>
+                    </p>
+                </div>
+            )}
+
+            {bisaCatat && d.bisaIsiData && <FormDataRapor key={`${r.siswa.id}-${d.semester.id}`} d={d} r={r} onSaved={onCatat} />}
 
             {/* Tanda tangan */}
             <div className="grid grid-cols-3 gap-4 mt-10 print:mt-3 text-center text-[12px] break-inside-avoid">

@@ -40,3 +40,61 @@ export function saranDeskripsi(namaSiswa: string, nilaiAkhir: number | null, ite
   else if (p === 'A' || p === 'B') teks += ' Pertahankan prestasi belajar.';
   return teks;
 }
+
+// ---------- Data rapor tambahan (diisi wali kelas) ----------
+
+export type Ekskul = { nama: string; predikat: string; keterangan: string };
+export type Prestasi = { jenis: string; keterangan: string };
+export const KEPUTUSAN = ['', 'naik', 'tinggal', 'lulus'] as const;
+
+const teksBatas = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+function json<T>(s: string | undefined, def: T): T {
+  try { const v = JSON.parse(s || ''); return Array.isArray(v) ? (v as T) : def; } catch { return def; }
+}
+
+/** Data rapor siswa siap tampil. Ketidakhadiran: isian wali kelas, atau (null) jumlah pertemuan dari presensi. */
+export function bacaDataRapor(
+  row: { sakit: number | null; izin: number | null; alpa: number | null; ekskul: string; prestasi: string; kokurikuler: string; keputusan: string; keKelas: string } | undefined,
+  hadir: { S: number; I: number; A: number },
+) {
+  return {
+    sakit: row?.sakit ?? null, izin: row?.izin ?? null, alpa: row?.alpa ?? null,
+    ketidakhadiran: { S: row?.sakit ?? hadir.S, I: row?.izin ?? hadir.I, A: row?.alpa ?? hadir.A, manual: row ? row.sakit !== null || row.izin !== null || row.alpa !== null : false },
+    ekskul: json<Ekskul[]>(row?.ekskul, []),
+    prestasi: json<Prestasi[]>(row?.prestasi, []),
+    kokurikuler: row?.kokurikuler ?? '',
+    keputusan: row?.keputusan ?? '',
+    keKelas: row?.keKelas ?? '',
+  };
+}
+
+/** Validasi isian data rapor dari body. */
+export function dataRaporDariBody(v: unknown): { data: { sakit: number | null; izin: number | null; alpa: number | null; ekskul: string; prestasi: string; kokurikuler: string; keputusan: string; keKelas: string } } | { error: string } {
+  const b = (v ?? {}) as Record<string, unknown>;
+  const hari = (x: unknown) => (x === null || x === undefined || x === '' ? null : Number(x));
+  const [sakit, izin, alpa] = [hari(b.sakit), hari(b.izin), hari(b.alpa)];
+  if ([sakit, izin, alpa].some((x) => x !== null && (!Number.isInteger(x) || x < 0 || x > 366))) return { error: 'Jumlah ketidakhadiran harus bilangan bulat 0–366' };
+  const ekskulRaw = Array.isArray(b.ekskul) ? b.ekskul : [];
+  const prestasiRaw = Array.isArray(b.prestasi) ? b.prestasi : [];
+  if (ekskulRaw.length > 10 || prestasiRaw.length > 10) return { error: 'Maksimal 10 ekstrakurikuler dan 10 prestasi' };
+  const ekskul: Ekskul[] = [];
+  for (const e of ekskulRaw) {
+    const nama = teksBatas((e as Ekskul)?.nama, 100);
+    if (!nama) continue;
+    ekskul.push({ nama, predikat: teksBatas((e as Ekskul).predikat, 20), keterangan: teksBatas((e as Ekskul).keterangan, 300) });
+  }
+  const prestasi: Prestasi[] = [];
+  for (const p of prestasiRaw) {
+    const jenis = teksBatas((p as Prestasi)?.jenis, 100);
+    if (!jenis) continue;
+    prestasi.push({ jenis, keterangan: teksBatas((p as Prestasi).keterangan, 300) });
+  }
+  const keputusan = teksBatas(b.keputusan, 10);
+  if (!(KEPUTUSAN as readonly string[]).includes(keputusan)) return { error: 'Keputusan harus naik, tinggal, atau lulus' };
+  return {
+    data: {
+      sakit, izin, alpa, ekskul: JSON.stringify(ekskul), prestasi: JSON.stringify(prestasi),
+      kokurikuler: teksBatas(b.kokurikuler, 2000), keputusan, keKelas: teksBatas(b.keKelas, 50),
+    },
+  };
+}

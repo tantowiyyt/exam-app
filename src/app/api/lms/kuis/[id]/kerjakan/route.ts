@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
-import { verifyLmsSession, aksesMapel, teks } from '@/lib/lms';
+import { verifyLmsSession, aksesMapel, teks, ditugaskan } from '@/lib/lms';
 import { checkRateLimit, resetRateLimit } from '@/lib/rate-limit';
 import { bacaJson, batasWaktu, waktuHabis, selesaikan, soalTanpaKunci, statusBuka } from '@/lib/kuis';
 
@@ -31,7 +31,7 @@ export async function POST(request: Request, ctx: RouteContext<'/api/lms/kuis/[i
     const { user } = auth;
     const kuis = await prisma.kuis.findUnique({ where: { id: Number((await ctx.params).id) } });
     const akses = kuis ? await aksesMapel(user, kuis.mapelId) : null;
-    if (!kuis || akses?.peran !== 'siswa' || !kuis.terbit) return NextResponse.json({ message: 'Kuis tidak ditemukan' }, { status: 404 });
+    if (!kuis || akses?.peran !== 'siswa' || !kuis.terbit || !ditugaskan(kuis, user.id)) return NextResponse.json({ message: 'Kuis tidak ditemukan' }, { status: 404 });
 
     const body = await request.json().catch(() => ({}));
     const semua = await prisma.percobaanKuis.findMany({ where: { kuisId: kuis.id, userId: user.id }, orderBy: { ke: 'asc' } });

@@ -33,7 +33,7 @@ export async function GET(request: Request, ctx: RouteContext<'/api/lms/mapel/[i
       peran,
       mapel: { id: mapel.id, nama: mapel.nama, kelas: mapel.kelas.nama },
       semester: { id: semester.id, label: semester.label, aktif: semester.aktif },
-      pengaturan: { ...bobot, kkm: mapel.kkm, berbobot },
+      pengaturan: { ...bobot, kkm: mapel.kkm, aturanRemedial: mapel.aturanRemedial, berbobot },
       kolom,
       baris,
       ringkasan: {

@@ -36,6 +36,7 @@ Runner (`tests/run.mjs`) otomatis:
 | `15-multi-ujian` | Ujian CAT sekolah per kelas: beberapa ujian aktif bersamaan (kelas tidak beririsan), status sudah per ujian, riwayat & review, Peserta Ujian (ruang/sesi per kelas/siswa, reset per ujian), ujian beririsan menonaktifkan yang lain |
 | `16-akun-media-arsip` | Kehadiran siswa lintas mapel, wali kelas, lupa password (wali & kode WhatsApp via gateway tiruan), notifikasi admin, email data diri, media soal (gambar/audio, Range), arsip anggota kelas per semester setelah kenaikan kelas, panduan, backup |
 | `17-jadwal-jurnal` | Jadwal pelajaran (bentrok kelas/guru, per kelas/guru/siswa, jadwal hari ini di beranda), jurnal mengajar (tautan presensi otomatis, siswa tidak hadir, akses, supervisi admin, filter) |
+| `18-remedial-rapor` | Remedial/susulan/pengayaan tugas, ujian offline & CAT (akses siswa yang dituju, aturan nilai maksKkm/maks), data rapor lengkap (wali kelas, validasi, tampil di rapor siswa), rapor memakai nilai remedial |
 | `beban` | Login, mulai, simpan, submit serentak (hanya dengan `--beban`) |
 
 Setiap baris hasil diawali `PASS` atau `FAIL`; runner keluar dengan kode 1 bila ada yang gagal.

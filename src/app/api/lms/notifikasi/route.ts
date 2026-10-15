@@ -38,7 +38,10 @@ export async function GET() {
         }),
         // Kuis terbit: waktu notifikasi = waktu buka (atau saat dibuat bila tanpa jadwal)
         prisma.kuis.findMany({
-          where: { mapelId: { in: ids }, terbit: true, OR: [{ mulai: null, createdAt: { gte: sejak } }, { mulai: { gte: sejak, lte: new Date() } }] },
+          where: {
+            mapelId: { in: ids }, terbit: true, OR: [{ mulai: null, createdAt: { gte: sejak } }, { mulai: { gte: sejak, lte: new Date() } }],
+            AND: [{ OR: [{ untukSiswa: '' }, { untukSiswa: { contains: `,${user.id},` } }] }],
+          },
           orderBy: { createdAt: 'desc' }, take: MAKS,
         }),
         // Presensi mandiri yang sedang dibuka & belum diisi siswa ini

@@ -27,7 +27,7 @@ interface DataMapel {
     jumlahMateriTampil?: number; jumlahKuisTampil?: number;
     pengumuman: { id: number; judul: string; isi: string; createdAt: string; penulis: string; jumlahKomentar: number }[];
     materi: { id: number; judul: string; terbit: boolean; terbitPada?: string | null; topikId: number | null; createdAt: string; adaLampiran: boolean; adaVideo: boolean; jumlahKomentar: number; jumlahDibaca?: number; sudahDibaca: boolean }[];
-    tugas: { id: number; judul: string; terbit: boolean; terbitPada?: string | null; topikId: number | null; tenggat: string | null; nilaiMaks: number; createdAt: string; terimaTerlambat: boolean; jumlahKumpul?: number; jumlahDitugaskan?: number | null; pengumpulanSaya?: { dikumpulkanAt: string; nilai: number | null; status: string } | null }[];
+    tugas: { id: number; judul: string; terbit: boolean; terbitPada?: string | null; topikId: number | null; tenggat: string | null; nilaiMaks: number; createdAt: string; terimaTerlambat: boolean; tipeSusulan?: string; jumlahKumpul?: number; jumlahDitugaskan?: number | null; pengumpulanSaya?: { dikumpulkanAt: string; nilai: number | null; status: string } | null }[];
     kuis: {
         id: number; judul: string; terbit: boolean; topikId: number | null; mulai: string | null; selesai: string | null; durasiMenit: number; maksPercobaan: number; jumlahSoal: number;
         status: "draf" | "belum" | "buka" | "tutup"; jumlahSelesai?: number; perluDinilai?: number;
@@ -265,7 +265,7 @@ export default function HalamanMapel() {
                                 <div key={t.id} className="bg-white rounded-xl border border-slate-200 shadow-sm flex items-center gap-4 p-4">
                                     <span className="shrink-0 w-10 h-10 rounded-lg bg-amber-100 text-amber-700 font-black flex items-center justify-center">T</span>
                                     <Link href={`/kelas/${d.mapel.id}/tugas/${t.id}`} className="flex-1 min-w-0 group">
-                                        <p className="font-bold text-slate-800 group-hover:text-indigo-700 truncate">{t.judul}</p>
+                                        <p className="font-bold text-slate-800 group-hover:text-indigo-700 truncate">{t.tipeSusulan && <span className="mr-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 align-middle">{({ remedial: "Remedial", pengayaan: "Pengayaan", susulan: "Susulan" } as Record<string, string>)[t.tipeSusulan]}</span>}{t.judul}</p>
                                         <p className="text-[11px] text-slate-400 flex flex-wrap gap-x-3">
                                             <span>{t.tenggat ? `Tenggat ${fmtWaktu(t.tenggat)}` : "Tanpa tenggat"}</span>
                                             <span>Nilai maks {t.nilaiMaks}</span>

@@ -5,6 +5,7 @@ import { verifyLmsSession, aksesMapel, whereTugasSiswa, whereTerbit, idSiswa, di
 import { statusBuka, nilaiTerbaik, tutupYangKedaluwarsa } from '@/lib/kuis';
 import { semesterDipilih, daftarSemester } from '@/lib/semester';
 import { whereAnggota } from '@/lib/anggota';
+import { ATURAN_REMEDIAL } from '@/lib/rekap';
 
 // Isi satu mapel: pengumuman, materi, tugas, ujian, (pengelola) daftar siswa
 export async function GET(request: Request, ctx: RouteContext<'/api/lms/mapel/[id]'>) {
@@ -48,7 +49,7 @@ export async function GET(request: Request, ctx: RouteContext<'/api/lms/mapel/[i
         where: { mapelId: mapel.id, ...diSemester, ...(kelola ? {} : whereTugasSiswa(user.id)) },
         orderBy: [{ tenggat: 'asc' }, { createdAt: 'asc' }],
         select: {
-          id: true, judul: true, terbit: true, terbitPada: true, topikId: true, tenggat: true, nilaiMaks: true, createdAt: true, untukSiswa: true, terimaTerlambat: true,
+          id: true, judul: true, terbit: true, terbitPada: true, topikId: true, tenggat: true, nilaiMaks: true, createdAt: true, untukSiswa: true, terimaTerlambat: true, tipeSusulan: true,
           _count: { select: { pengumpulan: true } },
           pengumpulan: { where: { userId: user.id }, select: { dikumpulkanAt: true, nilai: true, status: true } },
         },
@@ -133,6 +134,7 @@ export async function GET(request: Request, ctx: RouteContext<'/api/lms/mapel/[i
         jumlahKumpul: kelola ? t._count.pengumpulan : undefined,
         // Jumlah siswa yang ditugaskan (null = semua siswa kelas)
         jumlahDitugaskan: kelola && t.untukSiswa ? idSiswa(t.untukSiswa).length : null,
+        tipeSusulan: t.tipeSusulan,
         pengumpulanSaya: kelola ? undefined : (t.pengumpulan[0] ?? null),
       })),
       kuis: kuis.map((k) => ({
@@ -174,7 +176,11 @@ export async function PUT(request: Request, ctx: RouteContext<'/api/lms/mapel/[i
       bobotUH: angka(body.bobotUH, 100), bobotUTS: angka(body.bobotUTS, 100), bobotUAS: angka(body.bobotUAS, 100),
     };
     if (Object.values(data).some((v) => v === null)) return NextResponse.json({ message: 'Bobot & KKM harus bilangan bulat 0–100' }, { status: 400 });
-    const mapel = await prisma.mapel.update({ where: { id: akses.mapel.id }, data: data as Record<string, number> });
+    const aturan = body.aturanRemedial === undefined ? {} : { aturanRemedial: String(body.aturanRemedial) };
+    if (aturan.aturanRemedial !== undefined && !(ATURAN_REMEDIAL as readonly string[]).includes(aturan.aturanRemedial)) {
+      return NextResponse.json({ message: 'Aturan nilai remedial tidak dikenal' }, { status: 400 });
+    }
+    const mapel = await prisma.mapel.update({ where: { id: akses.mapel.id }, data: { ...(data as Record<string, number>), ...aturan } });
     await createAuditLog({ action: 'PENGATURAN_NILAI', target: `Mapel #${mapel.id} ${mapel.nama}`, details: data, ipAddress: getAuditIP(request) });
     return NextResponse.json({ success: true, data: mapel });
   } catch (error) {
