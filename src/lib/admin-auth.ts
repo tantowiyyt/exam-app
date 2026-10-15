@@ -1,8 +1,8 @@
 import { getSession } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 
-export type Role = 'ADMIN' | 'PENGAWAS' | 'GURU' | 'PESERTA';
-export const ROLES: Role[] = ['ADMIN', 'PENGAWAS', 'GURU', 'PESERTA'];
+export type Role = 'ADMIN' | 'PENGAWAS' | 'GURU' | 'PESERTA' | 'ORANGTUA';
+export const ROLES: Role[] = ['ADMIN', 'PENGAWAS', 'GURU', 'PESERTA', 'ORANGTUA'];
 
 /**
  * Pastikan pengguna login dan role-nya (dibaca dari database, bukan dari token)

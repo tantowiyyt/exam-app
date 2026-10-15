@@ -12,7 +12,7 @@ model User {
   nomorPeserta     String             @unique
   nama             String
   password         String
-  role             String             @default("PESERTA") // ADMIN, PENGAWAS, GURU, atau PESERTA
+  role             String             @default("PESERTA") // ADMIN, PENGAWAS, GURU, PESERTA, atau ORANGTUA
   foto             String? // Path foto profil
   nik              String? // Nomor Induk Kependudukan
   nisn             String             @default("") // Nomor Induk Siswa Nasional (Dapodik / e-Rapor)
@@ -749,4 +749,30 @@ model NotifKeluar {
   createdAt DateTime @default(now())
 
   @@index([createdAt])
+}
+
+// ---------- Phase 25: orang tua & pesan pribadi ----------
+
+// Akun orang tua (role ORANGTUA) <-> siswa (anak). Satu orang tua bisa punya beberapa anak.
+model OrangTuaSiswa {
+  id         Int      @id @default(autoincrement())
+  orangTuaId Int
+  siswaId    Int
+  createdAt  DateTime @default(now())
+
+  @@unique([orangTuaId, siswaId])
+  @@index([siswaId])
+}
+
+// Pesan pribadi antar pengguna (aturan siapa boleh ke siapa: lib/pesan.ts)
+model Pesan {
+  id        Int       @id @default(autoincrement())
+  dariId    Int
+  keId      Int
+  isi       String
+  dibacaAt  DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([keId, dibacaAt])
+  @@index([dariId, keId])
 }

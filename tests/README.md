@@ -38,6 +38,7 @@ Runner (`tests/run.mjs`) otomatis:
 | `17-jadwal-jurnal` | Jadwal pelajaran (bentrok kelas/guru, per kelas/guru/siswa, jadwal hari ini di beranda), jurnal mengajar (tautan presensi otomatis, siswa tidak hadir, akses, supervisi admin, filter) |
 | `18-remedial-rapor` | Remedial/susulan/pengayaan tugas, ujian offline & CAT (akses siswa yang dituju, aturan nilai maksKkm/maks), data rapor lengkap (wali kelas, validasi, tampil di rapor siswa), rapor memakai nilai remedial |
 | `19-berita-dapodik-notif` | Notifikasi WhatsApp terjadwal via gateway tiruan (tugas baru, tenggat, pengumuman, ujian, anti-ganda, opt-out), berita acara & daftar hadir (akses pengawas per ruang), impor Dapodik (xlsx & CSV, pratinjau, impor ulang), ekspor e-Rapor |
+| `20-ortu-pesan` | Akun orang tua (buat/massal/ubah/hapus), portal & rapor anak (akses hanya anak sendiri, nilai belum diumumkan tersembunyi), routing role, pesan pribadi (aturan kontak per role, dibaca, balasan, backup) |
 | `beban` | Login, mulai, simpan, submit serentak (hanya dengan `--beban`) |
 
 Setiap baris hasil diawali `PASS` atau `FAIL`; runner keluar dengan kode 1 bila ada yang gagal.

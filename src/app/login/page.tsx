@@ -36,7 +36,7 @@ export default function LoginPage() {
 
       if (res.ok) {
         // Semua role ke beranda LMS, pengawas langsung ke monitoring ujian
-        router.push(data.role === "PENGAWAS" ? "/admin/monitoring" : "/kelas");
+        router.push(data.role === "PENGAWAS" ? "/admin/monitoring" : data.role === "ORANGTUA" ? "/ortu" : "/kelas");
       } else {
         setError(data.message || "Login gagal, periksa kembali data Anda.");
       }

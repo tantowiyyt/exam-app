@@ -6,12 +6,27 @@ import { HeaderHalaman, muatIdentitas } from "@/components/AppShell";
 // Panduan singkat per peran. Bisa dicetak / disimpan sebagai PDF (Cetak -> Simpan sebagai PDF) untuk dibagikan.
 // Admin bisa membuka panduan semua peran.
 
-type Peran = "PESERTA" | "GURU" | "WALI" | "PENGAWAS" | "ADMIN";
+type Peran = "PESERTA" | "GURU" | "WALI" | "PENGAWAS" | "ADMIN" | "ORANGTUA";
 interface Bagian { judul: string; langkah: string[] }
 
-const NAMA: Record<Peran, string> = { PESERTA: "Siswa", GURU: "Guru", WALI: "Wali Kelas", PENGAWAS: "Pengawas Ujian", ADMIN: "Admin / Operator" };
+const NAMA: Record<Peran, string> = { ORANGTUA: "Orang Tua", PESERTA: "Siswa", GURU: "Guru", WALI: "Wali Kelas", PENGAWAS: "Pengawas Ujian", ADMIN: "Admin / Operator" };
 
 const PANDUAN: Record<Peran, Bagian[]> = {
+    ORANGTUA: [
+        { judul: "Masuk", langkah: [
+            "Masuk dengan username dan password yang diberikan sekolah (biasanya ortu-NIS anak), lalu ganti password lewat menu Ganti Password.",
+            "Bila satu akun ditautkan ke beberapa anak, pilih kartu anak di Beranda.",
+        ] },
+        { judul: "Memantau belajar anak", langkah: [
+            "Beranda menampilkan persentase kehadiran, tugas yang sedang berjalan, dan tugas yang lewat tenggat.",
+            "Di bawahnya: nilai per mata pelajaran (yang sudah diumumkan guru), daftar tugas & statusnya, catatan ketidakhadiran, ujian mendatang, pengumuman, dan jadwal pelajaran.",
+            "Menu Rapor Anak menampilkan rapor semester; bisa dicetak.",
+        ] },
+        { judul: "Berkomunikasi dengan sekolah", langkah: [
+            "Klik \"Pesan ke Wali Kelas\" atau \"kirim pesan\" di samping nama guru, atau buka menu Pesan → Pesan Baru.",
+            "Pesan bisa dikirim ke guru mapel anak, wali kelas, dan admin sekolah.",
+        ] },
+    ],
     PESERTA: [
         { judul: "Masuk pertama kali", langkah: [
             "Buka alamat aplikasi dari guru/operator, lalu masuk dengan NIS dan password yang dibagikan.",
@@ -110,8 +125,8 @@ const PANDUAN: Record<Peran, Bagian[]> = {
     ],
 };
 
-const URUT: Peran[] = ["PESERTA", "GURU", "WALI", "PENGAWAS", "ADMIN"];
-const UNTUK: Record<string, Peran[]> = { PESERTA: ["PESERTA"], GURU: ["GURU", "WALI"], PENGAWAS: ["PENGAWAS"], ADMIN: URUT };
+const URUT: Peran[] = ["PESERTA", "ORANGTUA", "GURU", "WALI", "PENGAWAS", "ADMIN"];
+const UNTUK: Record<string, Peran[]> = { ORANGTUA: ["ORANGTUA"], PESERTA: ["PESERTA"], GURU: ["GURU", "WALI"], PENGAWAS: ["PENGAWAS"], ADMIN: URUT };
 
 export default function Panduan() {
     const [role, setRole] = useState<string | null>(null);

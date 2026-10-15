@@ -54,6 +54,8 @@ Dibangun dengan Next.js 16, React 19, Prisma + SQLite, dan Tailwind CSS 4. Tidak
   capaian, kehadiran, ekskul).
 - **Lupa password mandiri**: kode lewat WhatsApp/email, atau permintaan ke wali kelas yang bisa mereset password siswanya.
 - **Notifikasi WhatsApp & email** (opsional): tugas baru, pengumuman, pengingat tenggat H-1, jadwal ujian H-1.
+- **Akun orang tua**: memantau kehadiran, tugas, nilai, jadwal, dan rapor anak (bisa dibuat massal per kelas).
+- **Pesan pribadi** antara siswa/orang tua dan guru/wali kelas, antarguru, dan dengan admin.
 - **Panduan penggunaan** per peran di dalam aplikasi (bisa dicetak/PDF).
 
 ### Ujian CAT sekolah
@@ -85,7 +87,8 @@ Dibangun dengan Next.js 16, React 19, Prisma + SQLite, dan Tailwind CSS 4. Tidak
 | **Guru** | Mapel yang diampu (materi, tugas, kuis, presensi, ujian mapel, remedial, nilai), jadwal & jurnal mengajar, bank soal, rapor kelas yang diajar |
 | **Wali kelas** (guru) | Ditambah: data rapor (ekskul, prestasi, ketidakhadiran, kenaikan kelas), reset password siswa perwaliannya |
 | **Pengawas** | Monitoring ujian CAT dan berita acara/daftar hadir (dibatasi ke ruangnya bila diisi) |
-| **Siswa** | Ruang belajar kelasnya, jadwal, kehadiran, ujian CAT, nilai & rapor sendiri, data diri |
+| **Siswa** | Ruang belajar kelasnya, jadwal, kehadiran, ujian, nilai & rapor sendiri, pesan ke guru, data diri |
+| **Orang tua** | Portal pantau anak (kehadiran, tugas, nilai, jadwal, rapor) dan pesan ke guru/wali kelas |
 
 ---
 
@@ -143,7 +146,7 @@ backup terjadwal, kapasitas, dan checklist sebelum ujian — ada di **[DEPLOY.md
 
 1. **Pengaturan** → isi nama aplikasi, nama & alamat sekolah, logo, kop dan penandatangan kartu/rapor.
 2. **Pengaturan → Semester** → pastikan semester aktif sudah benar.
-3. **Guru & Staf** → buat akun guru dan pengawas (pengawas bisa dibatasi per ruang).
+3. **Guru & Staf** → buat akun guru dan pengawas (pengawas bisa dibatasi per ruang). **Orang Tua** → buat akun orang tua (bisa massal per kelas).
 4. **Impor Dapodik** → unggah file unduhan Dapodik (atau **Siswa** → tambah/impor CSV).
 5. **Kelas & Mapel** → buat kelas (bisa otomatis dari data siswa), mapel, guru pengampu, dan **wali kelas**.
    **Jadwal Pelajaran** → isi roster per kelas.
@@ -186,7 +189,7 @@ Tes end-to-end menjalankan server produksi terhadap **salinan** database (data a
 
 ```bash
 npm run build
-npm run test:e2e      # ±869 tes fungsional
+npm run test:e2e      # ±921 tes fungsional
 npm run test:beban    # + uji beban 150 peserta serentak
 ```
 

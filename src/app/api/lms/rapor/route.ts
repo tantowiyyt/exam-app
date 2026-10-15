@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyLmsSession, teks } from '@/lib/lms';
+import { verifyRole } from '@/lib/admin-auth';
+import { anakMilik } from '@/lib/ortu';
 import { semesterDipilih, daftarSemester } from '@/lib/semester';
 import { hitungRekapMapel, type Komponen } from '@/lib/rekap';
 import { getInstansi } from '@/lib/pengaturan-aplikasi';
@@ -19,12 +21,18 @@ import { bacaDataRapor, dataRaporDariBody } from '@/lib/rapor';
 const KOMPONEN: (keyof Komponen)[] = ['tugas', 'kuis', 'uh', 'uts', 'uas', 'ujian', 'presensi'];
 
 export async function GET(request: Request) {
-  const auth = await verifyLmsSession();
+  const auth = await verifyRole(['ADMIN', 'GURU', 'PESERTA', 'ORANGTUA']);
   if (!auth.ok) return NextResponse.json({ message: auth.message }, { status: auth.status });
 
   try {
-    const { user } = auth;
+    let { user } = auth;
     const q = new URL(request.url).searchParams;
+    // Orang tua melihat rapor anaknya persis seperti yang dilihat siswa (?anak=id)
+    if (user.role === 'ORANGTUA') {
+      const anak = await anakMilik(user.id, Number(q.get('anak')));
+      if (!anak) return NextResponse.json({ message: 'Data anak tidak ditemukan' }, { status: 404 });
+      user = { ...user, id: anak.id, nama: anak.nama, nomorPeserta: anak.nomorPeserta, role: 'PESERTA' };
+    }
     const semester = await semesterDipilih(q.get('semester'));
     const semesterList = (await daftarSemester()).map((s) => ({ id: s.id, label: s.label, aktif: s.aktif }));
     const staf = user.role === 'ADMIN' || user.role === 'GURU';

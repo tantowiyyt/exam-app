@@ -27,7 +27,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 **Repo:** https://github.com/tantowiyyt/exam-app (branch `main`). Database, foto upload, dan `.env` sengaja tidak di-commit.
 
-**Kondisi:** fitur lengkap + LMS (Phase 16) + administrasi sekolah (Phase 20–23), build & lint bersih, `npm run test:e2e` 869 tes lulus, uji beban 150 peserta serentak 0 gagal (sebelum LMS).
+**Kondisi:** fitur lengkap + LMS (Phase 16) + administrasi sekolah (Phase 20–23), build & lint bersih, `npm run test:e2e` 921 tes lulus, uji beban 150 peserta serentak 0 gagal (sebelum LMS).
 Siap untuk **simulasi**, belum untuk ujian sungguhan — selesaikan daftar di bawah dulu.
 
 **Belum dilakukan (oleh pemilik proyek):**
@@ -39,7 +39,7 @@ Siap untuk **simulasi**, belum untuk ujian sungguhan — selesaikan daftar di ba
 6. Administrasi (Phase 20–23): tetapkan wali kelas, isi jadwal pelajaran, impor siswa dari Dapodik, (opsional) aktifkan WhatsApp/email di Notifikasi WA/Email
    (gateway WA berbayar, mis. Fonnte; server butuh akses internet keluar), cocokkan file Ekspor e-Rapor dengan template e-Rapor versi sekolah
 
-**Fitur LMS yang belum dibuat (prioritas rendah, hasil perbandingan dengan Moodle/EdLink):** lencana (badges), pesan pribadi, akun orang tua, video conference, koreksi/anotasi PDF langsung di file, video panduan (panduan tertulis per peran sudah ada di menu Panduan).
+**Fitur LMS yang belum dibuat (prioritas rendah, hasil perbandingan dengan Moodle/EdLink):** lencana (badges), video conference terintegrasi (tautan Zoom/Meet sudah ada), koreksi/anotasi PDF langsung di file, video panduan (panduan tertulis per peran sudah ada di menu Panduan).
 
 **Keputusan yang sudah diambil:**
 - Penguncian perangkat ala Safe Exam Browser **tidak** dibangun di proyek ini. Pakai Safe Exam Browser resmi bila perlu;
@@ -63,7 +63,7 @@ Siap untuk **simulasi**, belum untuk ujian sungguhan — selesaikan daftar di ba
   lampiran yang tertaut hanya untuk anggota/pengelola mapelnya.
 
 **Backup DB lokal** (di-ignore git): `prisma/dev.db.bak-20261014063026`, `-065253`, `-071034`, `-090459` (sebelum skema LMS), `-115525` (sebelum fitur tugas lanjutan), `-132330` (sebelum kuis), `-134625` (sebelum presensi), `-135714` (sebelum topik & jadwal terbit), `-140714` (sebelum bobot nilai & rubrik) — boleh dihapus bila tidak diperlukan.
-**PERHATIAN:** backup `-115525` s/d `-164000` dibuat dengan menyalin `dev.db` saja padahal perubahan masih di `dev.db-wal`, sehingga isinya SAMA (kondisi 09:29, sebelum kelas/kuis/dst). Backup lengkap yang valid (via `VACUUM INTO`): `-164500` (63 akun, 21 kelas), `-170000` (sebelum 273 mapel), `-173000` (sebelum 630 siswa), `-174500` (sebelum skema ujian offline), `-190000` (sebelum skema semester & ujian CAT mapel), `-203000` (sebelum bank soal & tautan kelas virtual), `-213000` (sebelum deskripsi & catatan rapor), `-223000` (sebelum skema ujian sekolah per kelas), `-20261015100954` (sebelum skema administrasi Phase 20+), `-20261015105538` (sebelum kolom NISN).
+**PERHATIAN:** backup `-115525` s/d `-164000` dibuat dengan menyalin `dev.db` saja padahal perubahan masih di `dev.db-wal`, sehingga isinya SAMA (kondisi 09:29, sebelum kelas/kuis/dst). Backup lengkap yang valid (via `VACUUM INTO`): `-164500` (63 akun, 21 kelas), `-170000` (sebelum 273 mapel), `-173000` (sebelum 630 siswa), `-174500` (sebelum skema ujian offline), `-190000` (sebelum skema semester & ujian CAT mapel), `-203000` (sebelum bank soal & tautan kelas virtual), `-213000` (sebelum deskripsi & catatan rapor), `-223000` (sebelum skema ujian sekolah per kelas), `-20261015100954` (sebelum skema administrasi Phase 20+), `-20261015105538` (sebelum kolom NISN), `-20261015113213` (sebelum orang tua & pesan).
 **Data contoh di dev.db (2026-10-14):** 21 kelas X–XII IPA/IPS/Bahasa, 273 mapel ber-guru, 25 guru + 25 pengawas (`storage/akun-guru-pengawas.csv`), 630 siswa 30/kelas (`storage/akun-siswa.csv`), pembagian mapel di `storage/pembagian-mapel.csv`. Ruang/sesi ujian siswa baru masih kosong.
 Backup berikutnya pakai `VACUUM INTO` / `sqlite3 .backup` (lihat `DEPLOY.md`), **jangan `cp dev.db`**.
 
@@ -74,7 +74,7 @@ Backup berikutnya pakai `VACUUM INTO` / `sqlite3 .backup` (lihat `DEPLOY.md`), *
 ### Models
 | Model | Fields | Purpose |
 |-------|--------|---------|
-| **User** | id, nomorPeserta (unique), nama, password, role (ADMIN/PENGAWAS/PESERTA), kelas, ruang, sesi, nilai, sudahUjian, createdAt, relations: jawaban[], histori[], pelanggaran[], activities[], auditLogs[] | Peserta & admin |
+| **User** | id, nomorPeserta (unique), nama, password, role (ADMIN/PENGAWAS/GURU/PESERTA/ORANGTUA), kelas, ruang, sesi, nilai, sudahUjian, createdAt, relations: jawaban[], histori[], pelanggaran[], activities[], auditLogs[] | Peserta & admin |
 | **Soal** | id, ujianId?, pertanyaan, opsiA-D, jawabanBenar, mataPelajaran, bobot, createdAt, relations: jawaban[] | Bank soal |
 | **JawabanUjian** | id, userId, soalId, ujianId?, jawabanPeserta, jawabanBenar, benar, mataPelajaran, createdAt, @@unique([userId, soalId]) | Jawaban per soal per user |
 | **Ujian** | id, nama, durasiMenit, jadwalMulai, jadwalSelesai, isActive, poolSize?, mapelId?, kelasTarget, jenis, semesterId?, createdAt, updatedAt, relations: soal[], jawaban[], histori[] | Konfigurasi ujian |
@@ -196,6 +196,15 @@ Backup berikutnya pakai `VACUUM INTO` / `sqlite3 .backup` (lihat `DEPLOY.md`), *
 | Hapus soal yang sudah dijawab ditolak dengan pesan jelas (sebelumnya error FK) | ✅ | `src/app/api/admin/soal/route.ts` |
 
 **Durasi per bagian** kini diterapkan — lihat Phase 12.
+
+### Phase 25 — Akun Orang Tua & Pesan Pribadi (2026-10-15)
+| Item | Files |
+|------|-------|
+| Role **ORANGTUA** (`OrangTuaSiswa`: satu orang tua bisa beberapa anak). Login → **portal `/ortu`**: kartu tiap anak (kehadiran %, tugas berjalan, tugas terlambat) & rincian (nilai per mapel seperti yang dilihat siswa — nilai belum diumumkan tidak tampil, tugas & status, ketidakhadiran, ujian mendatang, pengumuman, jadwal, tautan pesan ke wali/guru). **Rapor Anak** (`/ortu/rapor`, API rapor `?anak=`). Hanya baca; proxy membatasi ke `/ortu` & `/akun` | `src/app/api/ortu/route.ts`, `src/app/ortu/**`, `src/lib/ortu.ts`, `src/components/Rapor.tsx` (dipindah dari halaman rapor), `src/proxy.ts` |
+| Admin **Pengguna → Orang Tua**: buat satu-satu (NIS anak), buat massal per kelas (`ortu-NIS`, password acak/tanggal lahir/NIS, unduh CSV password awal), edit tautan anak, reset password, hapus | `src/app/api/admin/orangtua/route.ts`, `src/app/admin/orangtua/page.tsx` |
+| **Pesan pribadi** (`Pesan`; menu Pesan untuk semua role, penanda belum dibaca di bilah atas & menu, dicek tiap 60 dtk): daftar percakapan, pesan baru dengan pencarian kontak, utas diperbarui tiap 10 dtk, status dibaca, batas 20 pesan/menit. Aturan kontak: admin → siapa saja; guru → admin, guru, siswa kelas yang diajar/diwalikan & orang tuanya; siswa → admin, guru mapel & wali kelasnya (tidak ke siswa lain); orang tua → admin, guru & wali anaknya; pengawas → admin; membalas orang yang pernah mengirim selalu boleh | `src/lib/pesan.ts`, `src/app/api/pesan/route.ts`, `src/app/akun/pesan/page.tsx`, `src/components/AppShell.tsx` |
+| Rekap kehadiran siswa dipindah ke fungsi bersama (menu Kehadiran & portal orang tua); hapus akun ikut menghapus tautan orang tua & pesan; backup memuat `orangTuaSiswa` & `pesan`; panduan Orang Tua | `src/lib/kehadiran.ts`, `src/lib/lms.ts`, `src/app/api/admin/backup/route.ts`, `src/app/akun/panduan/page.tsx` |
+| Tes E2E (52 tes) | `tests/e2e/20-ortu-pesan.mjs` |
 
 ### Phase 24 — Identitas LMS, CAT sebagai Modul (2026-10-15)
 Keputusan pemilik: aplikasi tampil sebagai LMS; ujian CAT adalah salah satu modul di dalamnya.
@@ -538,7 +547,7 @@ src/proxy.ts                          # Next.js 16 route protection (dipindah da
 
 ## Build Status
 - `npm run build` passes ✅
-- `npm run test:e2e` (butuh build): 869 tes lulus — lihat `tests/README.md`
+- `npm run test:e2e` (butuh build): 921 tes lulus — lihat `tests/README.md`
 - Deploy: lihat `DEPLOY.md`
 - ±60 routes (halaman statis + API dinamis)
 - `npx eslint src`: 0 error (sisa warning ringan, mis. `<img>`)

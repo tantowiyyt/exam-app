@@ -10,12 +10,14 @@ const aksesRole: Record<string, string[]> = {
   PENGAWAS: ['/admin/monitoring', '/admin/berita-acara', '/akun'],
   GURU: ['/kelas', '/akun'],
   PESERTA: ['/dashboard', '/ujian', '/profile', '/akun', '/kelas'],
+  ORANGTUA: ['/ortu', '/akun'],
 };
-const protectedRoutes = ['/admin', '/dashboard', '/ujian', '/profile', '/akun', '/kelas'];
+const protectedRoutes = ['/admin', '/dashboard', '/ujian', '/profile', '/akun', '/kelas', '/ortu'];
 
-// Aplikasi LMS: semua role masuk ke beranda LMS (/kelas), kecuali pengawas (monitoring ujian)
+// Aplikasi LMS: semua role masuk ke beranda LMS (/kelas), kecuali pengawas (monitoring ujian) & orang tua (portal /ortu)
 function beranda(role: string) {
   if (role === 'PENGAWAS') return '/admin/monitoring';
+  if (role === 'ORANGTUA') return '/ortu';
   return '/kelas';
 }
 

@@ -47,7 +47,7 @@ type TableName =
   | 'historiUjian' | 'sesiUjian' | 'pelanggaran' | 'userActivity' | 'ipRules' | 'auditLogs'
   | 'kelas' | 'mapel' | 'materi' | 'tugas' | 'pengumpulanTugas' | 'pengumuman' | 'komentar'
   | 'kuis' | 'soalKuis' | 'percobaanKuis' | 'sesiPresensi' | 'presensi' | 'topik' | 'ujianManual' | 'nilaiUjianManual' | 'semester' | 'bankSoal' | 'deskripsiRapor' | 'catatanRapor'
-  | 'anggotaKelas' | 'dataRapor' | 'jadwalPelajaran' | 'jurnalMengajar' | 'beritaAcara';
+  | 'anggotaKelas' | 'dataRapor' | 'jadwalPelajaran' | 'jurnalMengajar' | 'beritaAcara' | 'orangTuaSiswa' | 'pesan';
 
 export async function GET(request: Request) {
   const auth = await verifyAdminSession();
@@ -103,6 +103,10 @@ export async function GET(request: Request) {
       prisma.jurnalMengajar.findMany({ orderBy: { id: 'asc' } }),
       prisma.beritaAcara.findMany({ orderBy: { id: 'asc' } }),
     ]);
+    const [orangTuaSiswa, pesan] = await Promise.all([
+      prisma.orangTuaSiswa.findMany({ orderBy: { id: 'asc' } }),
+      prisma.pesan.findMany({ orderBy: { id: 'asc' } }),
+    ]);
     const [ujianManual, nilaiUjianManual] = await Promise.all([
       prisma.ujianManual.findMany({ orderBy: { id: 'asc' } }),
       prisma.nilaiUjianManual.findMany({ orderBy: { id: 'asc' } }),
@@ -117,7 +121,7 @@ export async function GET(request: Request) {
       data: {
         users, ujian, bagianUjian, soal, jawabanUjian, historiUjian, sesiUjian, pelanggaran, userActivity, ipRules, auditLogs, pengaturanAplikasi,
         kelas, mapel, materi, materiDibaca, tugas, pengumpulanTugas, pengumuman, komentar, kuis, soalKuis, percobaanKuis, sesiPresensi, presensi, topik, ujianManual, nilaiUjianManual, semester, bankSoal, deskripsiRapor, catatanRapor,
-        anggotaKelas, dataRapor, jadwalPelajaran, jurnalMengajar, beritaAcara,
+        anggotaKelas, dataRapor, jadwalPelajaran, jurnalMengajar, beritaAcara, orangTuaSiswa, pesan,
       },
     };
 
@@ -164,6 +168,8 @@ export async function POST(request: Request) {
         await tx.jadwalPelajaran.deleteMany();
         await tx.jurnalMengajar.deleteMany();
         await tx.beritaAcara.deleteMany();
+        await tx.orangTuaSiswa.deleteMany();
+        await tx.pesan.deleteMany();
         await tx.bankSoal.deleteMany();
         await tx.deskripsiRapor.deleteMany();
         await tx.catatanRapor.deleteMany();
@@ -240,6 +246,8 @@ export async function POST(request: Request) {
       await upsertAll('jadwalPelajaran', (r) => tx.jadwalPelajaran.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
       await upsertAll('jurnalMengajar', (r) => tx.jurnalMengajar.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
       await upsertAll('beritaAcara', (r) => tx.beritaAcara.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
+      await upsertAll('orangTuaSiswa', (r) => tx.orangTuaSiswa.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
+      await upsertAll('pesan', (r) => tx.pesan.upsert({ where: { id: r.id }, update: r as never, create: r as never }));
 
       // Tanda "sudah dibaca" memakai kunci gabungan (tanpa id)
       const dibaca = Array.isArray(data.materiDibaca) ? data.materiDibaca : [];

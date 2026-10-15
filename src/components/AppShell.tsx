@@ -10,7 +10,7 @@ import { Notifikasi } from "@/components/lms/Notifikasi";
 
 interface Me { nama: string; role: string; nomorPeserta: string }
 export interface Identitas { namaAplikasi: string; namaSekolah: string; logo: string; modulCat: boolean }
-interface Item { href: string; label: string; ikon: keyof typeof IKON; aktif?: (p: string) => boolean }
+interface Item { href: string; label: string; ikon: keyof typeof IKON; aktif?: (p: string) => boolean; badge?: "pesan" }
 /** lipat = grup bisa dibuka-tutup (modul tambahan & sistem); terbuka otomatis bila halaman aktif ada di dalamnya. */
 interface Grup { judul?: string; item: Item[]; lipat?: boolean; modul?: boolean }
 
@@ -40,11 +40,18 @@ function menu(role: string, cat: boolean): Grup[] {
     const kalender: Item = { href: "/kelas/kalender", label: "Kalender", ikon: "kalender" };
     const password: Item = { href: "/akun/password", label: "Ganti Password", ikon: "kunci" };
     const panduan: Item = { href: "/akun/panduan", label: "Panduan", ikon: "buku" };
+    const pesan: Item = { href: "/akun/pesan", label: "Pesan", ikon: "pesan", badge: "pesan" };
+    if (role === "ORANGTUA") {
+        return [
+            { item: [{ href: "/ortu", label: "Beranda", ikon: "rumah", aktif: (p: string) => p === "/ortu" }, { href: "/ortu/rapor", label: "Rapor Anak", ikon: "nilai" }, pesan] },
+            { judul: "Akun", item: [password, panduan] },
+        ];
+    }
     const rapor: Item = { href: "/kelas/rapor", label: "Rapor", ikon: "nilai" };
     const bankSoal: Item = { href: "/kelas/bank-soal", label: "Bank Soal", ikon: "soal" };
     if (role === "PESERTA") {
         return [
-            { item: [beranda, { href: "/kelas/jadwal", label: "Jadwal", ikon: "jam" }, kalender] },
+            { item: [beranda, { href: "/kelas/jadwal", label: "Jadwal", ikon: "jam" }, kalender, pesan] },
             {
                 judul: "Belajar", item: [
                     { href: "/kelas/kehadiran", label: "Kehadiran", ikon: "centang" }, rapor,
@@ -59,15 +66,15 @@ function menu(role: string, cat: boolean): Grup[] {
     const jurnal: Item = { href: "/kelas/jurnal", label: "Jurnal Mengajar", ikon: "buku" };
     if (role === "GURU") {
         return [
-            { item: [beranda, jadwal, kalender] },
+            { item: [beranda, jadwal, kalender, pesan] },
             { judul: "Mengajar", item: [jurnal, bankSoal, rapor] },
             { judul: "Akun", item: [resetPw, password, panduan] },
         ];
     }
-    if (role === "PENGAWAS") return [{ judul: "Ujian CAT", item: [{ href: "/admin/monitoring", label: "Monitoring Ujian", ikon: "monitor" }, { href: "/admin/berita-acara", label: "Berita Acara", ikon: "kartu" }] }, { judul: "Akun", item: [password, panduan] }];
+    if (role === "PENGAWAS") return [{ judul: "Ujian CAT", item: [{ href: "/admin/monitoring", label: "Monitoring Ujian", ikon: "monitor" }, { href: "/admin/berita-acara", label: "Berita Acara", ikon: "kartu" }] }, { judul: "Akun", item: [pesan, password, panduan] }];
     // ADMIN: LMS lebih dulu; Ujian CAT = modul tambahan (bisa dilipat / dinonaktifkan di Pengaturan)
     return [
-        { item: [beranda, kalender] },
+        { item: [beranda, kalender, pesan] },
         {
             judul: "Pembelajaran", item: [
                 { href: "/admin/kelas", label: "Kelas & Mapel", ikon: "kelas" },
@@ -82,6 +89,7 @@ function menu(role: string, cat: boolean): Grup[] {
                 { href: "/admin/peserta", label: "Siswa", ikon: "siswa" },
                 { href: "/admin/dapodik", label: "Impor Dapodik", ikon: "siswa" },
                 { href: "/admin/akun", label: "Guru & Staf", ikon: "guru" },
+                { href: "/admin/orangtua", label: "Orang Tua", ikon: "siswa" },
                 { ...resetPw, label: "Reset Password" },
             ],
         },
@@ -132,6 +140,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const [me, setMe] = useState<Me | null>(null);
     const [identitas, setIdentitas] = useState<Identitas | null>(null);
     const [laci, setLaci] = useState(false);
+    const [belum, setBelum] = useState(0);
+    useEffect(() => {
+        let ignore = false;
+        const cek = () => fetch("/api/pesan?belum=1").then((r) => (r.ok ? r.json() : null)).then((d) => { if (!ignore && d) setBelum(d.belum); }).catch(() => {});
+        cek();
+        const t = setInterval(cek, 60000);
+        return () => { ignore = true; clearInterval(t); };
+    }, [path]);
     // Grup yang dibuka-tutup pengguna (diingat di browser ini)
     const [lipatan, setLipatan] = useState<Record<string, boolean>>(() => {
         try { return JSON.parse(localStorage.getItem("menuLipat") || "{}"); } catch { return {}; }
@@ -184,7 +200,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                 <li key={it.href + it.label}>
                                     <Link href={it.href} aria-current={aktif ? "page" : undefined}
                                         className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold ${aktif ? "bg-indigo-50 text-indigo-700" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"}`}>
-                                        <Ikon d={IKON[it.ikon]} />{it.label}
+                                        <Ikon d={IKON[it.ikon]} /><span className="flex-1">{it.label}</span>
+                                        {it.badge === "pesan" && belum > 0 && <span className="min-w-5 h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center">{belum > 99 ? "99+" : belum}</span>}
                                     </Link>
                                 </li>
                             );
@@ -203,7 +220,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     <button onClick={() => setLaci(true)} aria-label="Buka menu" className="lg:hidden w-9 h-9 rounded-lg hover:bg-white/10 flex items-center justify-center">
                         <Ikon d="M4 6h16M4 12h16M4 18h16" />
                     </button>
-                    <Link href={me?.role === "PENGAWAS" ? "/admin/monitoring" : "/kelas"} className="flex items-center gap-2 min-w-0">
+                    <Link href={me?.role === "PENGAWAS" ? "/admin/monitoring" : me?.role === "ORANGTUA" ? "/ortu" : "/kelas"} className="flex items-center gap-2 min-w-0">
                         {identitas?.logo
                             // eslint-disable-next-line @next/next/no-img-element
                             ? <img src={identitas.logo} alt="" className="w-8 h-8 rounded-lg object-contain bg-white p-0.5 shrink-0" />
@@ -214,13 +231,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         </span>
                     </Link>
                     <div className="ml-auto flex items-center gap-2 text-xs">
-                        {me && me.role !== "PENGAWAS" && <Notifikasi />}
+                        {me && (
+                            <Link href="/akun/pesan" aria-label={belum ? `Pesan, ${belum} belum dibaca` : "Pesan"} className="relative w-9 h-9 rounded-lg hover:bg-white/10 flex items-center justify-center">
+                                <Ikon d={IKON.pesan} />
+                                {belum > 0 && <span className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 rounded-full bg-red-500 text-[9px] font-black flex items-center justify-center">{belum > 9 ? "9+" : belum}</span>}
+                            </Link>
+                        )}
+                        {me && me.role !== "PENGAWAS" && me.role !== "ORANGTUA" && <Notifikasi />}
                         {me && (
                             <span className="hidden sm:flex items-center gap-2 pl-2">
                                 <span className="w-8 h-8 rounded-full bg-white/15 font-bold flex items-center justify-center" aria-hidden="true">{me.nama.charAt(0).toUpperCase()}</span>
                                 <span className="leading-tight max-w-40">
                                     <span className="block font-bold truncate" title={me.nama}>{me.nama}</span>
-                                    <span className="block text-[10px] text-white/60">{{ ADMIN: "Admin", GURU: "Guru", PENGAWAS: "Pengawas", PESERTA: "Siswa" }[me.role] ?? me.role}</span>
+                                    <span className="block text-[10px] text-white/60">{{ ADMIN: "Admin", GURU: "Guru", PENGAWAS: "Pengawas", PESERTA: "Siswa", ORANGTUA: "Orang tua" }[me.role] ?? me.role}</span>
                                 </span>
                             </span>
                         )}
