@@ -99,6 +99,19 @@ export async function GET() {
       })
       : [];
 
+    // Jadwal pelajaran hari ini (siswa: kelasnya; guru: mapel yang ia ampu) di semester aktif
+    const hari = ((awal.getDay() + 6) % 7) + 1;
+    const semAktif = await prisma.semester.findFirst({ where: { aktif: true }, select: { id: true } });
+    const jadwalHariIni = mapel.length && user.role !== 'ADMIN' && semAktif
+      ? (await prisma.jadwalPelajaran.findMany({
+        where: { mapelId: { in: mapel.map((m) => m.id) }, hari, semesterId: semAktif.id },
+        orderBy: { jamMulai: 'asc' },
+      })).map((j) => {
+        const m = mapel.find((x) => x.id === j.mapelId)!;
+        return { id: j.id, jamMulai: j.jamMulai, jamSelesai: j.jamSelesai, ruang: j.ruang, mapel: { id: m.id, nama: m.nama, kelas: m.kelas.nama } };
+      })
+      : [];
+
     // Admin: ringkasan sekolah
     let ringkasan = null;
     if (user.role === 'ADMIN') {
@@ -130,6 +143,7 @@ export async function GET() {
       agenda,
       ujianCat,
       kelasVirtual,
+      jadwalHariIni,
       perluDinilai,
       ringkasan,
     });

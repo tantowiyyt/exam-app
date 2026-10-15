@@ -27,7 +27,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 **Repo:** https://github.com/tantowiyyt/exam-app (branch `main`). Database, foto upload, dan `.env` sengaja tidak di-commit.
 
-**Kondisi:** fitur lengkap + LMS (Phase 16), build & lint bersih, `npm run test:e2e` 736 tes lulus, uji beban 150 peserta serentak 0 gagal (sebelum LMS).
+**Kondisi:** fitur lengkap + LMS (Phase 16), build & lint bersih, `npm run test:e2e` 780 tes lulus, uji beban 150 peserta serentak 0 gagal (sebelum LMS).
 Siap untuk **simulasi**, belum untuk ujian sungguhan — selesaikan daftar di bawah dulu.
 
 **Belum dilakukan (oleh pemilik proyek):**
@@ -191,6 +191,13 @@ Backup berikutnya pakai `VACUUM INTO` / `sqlite3 .backup` (lihat `DEPLOY.md`), *
 | Hapus soal yang sudah dijawab ditolak dengan pesan jelas (sebelumnya error FK) | ✅ | `src/app/api/admin/soal/route.ts` |
 
 **Durasi per bagian** kini diterapkan — lihat Phase 12.
+
+### Phase 21 — Jadwal Pelajaran & Jurnal Mengajar (2026-10-15)
+| Item | Files |
+|------|-------|
+| **Jadwal pelajaran** (roster) per semester: admin mengisi per kelas (mapel, hari, jam, ruang); ditolak bila bentrok di kelas yang sama atau guru pengampu yang sama. Siswa: jadwal kelasnya; guru: jadwal mengajarnya / kelas yang diajar; admin: per kelas atau per guru; cetak. Kartu **Jadwal Hari Ini** di beranda siswa/guru. Hapus mapel ikut menghapus jadwalnya | `src/app/api/lms/jadwal/route.ts`, `src/app/kelas/jadwal/page.tsx`, `src/app/api/lms/kelas/route.ts` |
+| **Jurnal mengajar**: guru mengisi tanggal, jam ke-, materi, kegiatan, catatan per pertemuan; siswa tidak hadir (I/S/A) otomatis dari presensi mapel itu pada tanggal yang sama (atau pertemuan yang dipilih). Admin melihat semua (filter guru/mapel/tanggal) untuk supervisi; cetak dengan tanda tangan kepala sekolah & guru. Mapel yang punya jurnal tidak bisa dihapus | `src/app/api/lms/jurnal/route.ts`, `src/app/kelas/jurnal/page.tsx` |
+| Tes E2E (44 tes) | `tests/e2e/17-jadwal-jurnal.mjs` |
 
 ### Phase 20 — Akun, Media Soal, Arsip Semester (2026-10-15)
 | Item | Files |
@@ -497,7 +504,7 @@ src/proxy.ts                          # Next.js 16 route protection (dipindah da
 
 ## Build Status
 - `npm run build` passes ✅
-- `npm run test:e2e` (butuh build): 736 tes lulus — lihat `tests/README.md`
+- `npm run test:e2e` (butuh build): 780 tes lulus — lihat `tests/README.md`
 - Deploy: lihat `DEPLOY.md`
 - ±60 routes (halaman statis + API dinamis)
 - `npx eslint src`: 0 error (sisa warning ringan, mis. `<img>`)

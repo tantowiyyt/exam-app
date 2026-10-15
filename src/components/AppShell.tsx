@@ -15,6 +15,7 @@ interface Grup { judul?: string; item: Item[] }
 
 const IKON = {
     centang: "M4 12l5 5L20 6",
+    jam: "M12 7v5l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z",
     buku: "M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2zm0 0v16M8 7h7",
     rumah: "M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z",
     kalender: "M7 3v3m10-3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z",
@@ -41,12 +42,14 @@ function menu(role: string, cat: boolean): Grup[] {
     const bankSoal: Item = { href: "/kelas/bank-soal", label: "Bank Soal", ikon: "soal" };
     if (role === "PESERTA") {
         return [
-            { item: [beranda, kalender, { href: "/kelas/kehadiran", label: "Kehadiran", ikon: "centang" }, rapor, ...(cat ? [{ href: "/dashboard", label: "Ujian CAT", ikon: "ujian" as const, aktif: (p: string) => p.startsWith("/dashboard") || p.startsWith("/ujian") }] : [])] },
+            { item: [beranda, { href: "/kelas/jadwal", label: "Jadwal", ikon: "jam" }, kalender, { href: "/kelas/kehadiran", label: "Kehadiran", ikon: "centang" }, rapor, ...(cat ? [{ href: "/dashboard", label: "Ujian CAT", ikon: "ujian" as const, aktif: (p: string) => p.startsWith("/dashboard") || p.startsWith("/ujian") }] : [])] },
             { judul: "Akun", item: [{ href: "/profile", label: "Data Diri", ikon: "profil" }, password, panduan] },
         ];
     }
     const resetPw: Item = { href: "/kelas/reset-password", label: "Reset Password Siswa", ikon: "kunci" };
-    if (role === "GURU") return [{ item: [beranda, kalender, bankSoal, rapor] }, { judul: "Akun", item: [resetPw, password, panduan] }];
+    const jadwal: Item = { href: "/kelas/jadwal", label: "Jadwal", ikon: "jam" };
+    const jurnal: Item = { href: "/kelas/jurnal", label: "Jurnal Mengajar", ikon: "buku" };
+    if (role === "GURU") return [{ item: [beranda, jadwal, kalender, jurnal, bankSoal, rapor] }, { judul: "Akun", item: [resetPw, password, panduan] }];
     if (role === "PENGAWAS") return [{ item: [{ href: "/admin/monitoring", label: "Monitoring Ujian", ikon: "monitor" }] }, { judul: "Akun", item: [password, panduan] }];
     // ADMIN
     return [
@@ -54,6 +57,8 @@ function menu(role: string, cat: boolean): Grup[] {
         {
             judul: "Akademik", item: [
                 { href: "/admin/kelas", label: "Kelas & Mapel", ikon: "kelas" },
+                { ...jadwal, label: "Jadwal Pelajaran" },
+                jurnal,
                 rapor,
                 { ...bankSoal, label: "Bank Soal Guru" },
                 { href: "/admin/peserta", label: "Siswa", ikon: "siswa" },

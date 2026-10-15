@@ -35,6 +35,7 @@ Runner (`tests/run.mjs`) otomatis:
 | `12-ujian-cat-semester` | Semester aktif & filter per semester; ujian mapel UH/UTS/UAS mode CAT: token, 1 kesempatan, pelanggaran, monitoring (tambah waktu, kumpulkan, reset, token), nilai diumumkan, bobot per jenis ujian |
 | `15-multi-ujian` | Ujian CAT sekolah per kelas: beberapa ujian aktif bersamaan (kelas tidak beririsan), status sudah per ujian, riwayat & review, Peserta Ujian (ruang/sesi per kelas/siswa, reset per ujian), ujian beririsan menonaktifkan yang lain |
 | `16-akun-media-arsip` | Kehadiran siswa lintas mapel, wali kelas, lupa password (wali & kode WhatsApp via gateway tiruan), notifikasi admin, email data diri, media soal (gambar/audio, Range), arsip anggota kelas per semester setelah kenaikan kelas, panduan, backup |
+| `17-jadwal-jurnal` | Jadwal pelajaran (bentrok kelas/guru, per kelas/guru/siswa, jadwal hari ini di beranda), jurnal mengajar (tautan presensi otomatis, siswa tidak hadir, akses, supervisi admin, filter) |
 | `beban` | Login, mulai, simpan, submit serentak (hanya dengan `--beban`) |
 
 Setiap baris hasil diawali `PASS` atau `FAIL`; runner keluar dengan kode 1 bila ada yang gagal.

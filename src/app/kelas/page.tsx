@@ -25,6 +25,7 @@ interface Data {
     ujianCat?: { nama: string; durasiMenit: number; jadwalMulai: string | null; jadwalSelesai: string | null; mapel: string | null; sudahUjian: boolean } | null;
     perluDinilai?: { jenis: "tugas" | "kuis"; id: number; judul: string; jumlah: number; mapel: { id: number; nama: string; kelas: string } }[];
     kelasVirtual?: { id: number; judul: string; tanggal: string; link: string; mapel: { id: number; nama: string; kelas: string } }[];
+    jadwalHariIni?: { id: number; jamMulai: string; jamSelesai: string; ruang: string; mapel: { id: number; nama: string; kelas: string } }[];
     ringkasan?: { kelas: number; mapel: number; guru: number; siswa: number; siswaTanpaKelas: number; mapelTanpaGuru: number } | null;
 }
 
@@ -116,6 +117,27 @@ export default function BerandaKelas() {
                         </span>
                         <span className="shrink-0 bg-white text-slate-800 font-bold text-sm rounded-xl px-4 py-2 text-center">{data.ujianCat.sudahUjian ? "Lihat hasil" : "Buka ujian →"}</span>
                     </Link>
+                )}
+
+                {/* Jadwal pelajaran hari ini */}
+                {!!data?.jadwalHariIni?.length && (
+                    <section className="bg-white rounded-2xl border border-slate-200 shadow-sm mb-6">
+                        <div className="px-5 py-3 border-b border-slate-100 flex items-center">
+                            <h2 className="text-sm font-bold text-slate-700 flex-1">Jadwal Hari Ini</h2>
+                            <Link href="/kelas/jadwal" className="text-xs font-bold text-indigo-600 hover:underline">Jadwal lengkap</Link>
+                        </div>
+                        <ul className="divide-y divide-slate-100">
+                            {data.jadwalHariIni.map((j) => (
+                                <li key={j.id}>
+                                    <Link href={`/kelas/${j.mapel.id}`} className="flex items-center gap-3 px-5 py-2.5 hover:bg-slate-50">
+                                        <span className="w-24 shrink-0 font-mono text-xs text-slate-500">{j.jamMulai}–{j.jamSelesai}</span>
+                                        <span className="flex-1 min-w-0 text-sm font-semibold text-slate-800 truncate">{j.mapel.nama}{!siswa && <span className="font-normal text-slate-500"> · {j.mapel.kelas}</span>}</span>
+                                        {j.ruang && <span className="text-[11px] text-slate-400">{j.ruang}</span>}
+                                    </Link>
+                                </li>
+                            ))}
+                        </ul>
+                    </section>
                 )}
 
                 {/* Kelas virtual hari ini (Zoom/Meet) */}
