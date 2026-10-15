@@ -20,7 +20,7 @@ const PANDUAN: Record<Peran, Bagian[]> = {
         { judul: "Memantau belajar anak", langkah: [
             "Beranda menampilkan persentase kehadiran, tugas yang sedang berjalan, dan tugas yang lewat tenggat.",
             "Di bawahnya: nilai per mata pelajaran (yang sudah diumumkan guru), daftar tugas & statusnya, catatan ketidakhadiran, ujian mendatang, pengumuman, dan jadwal pelajaran.",
-            "Menu Rapor Anak menampilkan rapor semester; bisa dicetak.",
+            "Menu Rapor Anak menampilkan rapor semester; bisa dicetak. Menu Lencana Anak menampilkan lencana prestasi dan penghargaan dari guru.",
         ] },
         { judul: "Berkomunikasi dengan sekolah", langkah: [
             "Klik \"Pesan ke Wali Kelas\" atau \"kirim pesan\" di samping nama guru, atau buka menu Pesan → Pesan Baru.",
@@ -46,6 +46,8 @@ const PANDUAN: Record<Peran, Bagian[]> = {
             "Menu Kehadiran menampilkan rekap hadir/izin/sakit/alpa semua mapel.",
             "Menu Rapor menampilkan rapor semester; pilih semester lain di kanan atas.",
             "Menu Jadwal menampilkan jadwal pelajaran mingguan kelas Anda.",
+            "Menu Lencana menampilkan lencana prestasi (rajin hadir, tepat waktu, pembaca setia, dll.) beserta progresnya, dan penghargaan dari guru.",
+            "Menu Pesan untuk bertanya kepada guru mapel atau wali kelas.",
         ] },
         { judul: "Ujian sekolah & ujian mapel (CAT)", langkah: [
             "Buka menu Ujian Sekolah (atau tab Ujian di mapel) pada jadwal ujian. Masukkan token dari pengawas bila diminta.",
@@ -84,6 +86,7 @@ const PANDUAN: Record<Peran, Bagian[]> = {
         { judul: "Nilai akhir & rapor", langkah: [
             "Tab Nilai: atur bobot tugas/kuis/UH/UTS/UAS/presensi dan KKM. Isi deskripsi capaian tiap siswa (ada saran otomatis).",
             "Menu Rapor menampilkan rapor kelas yang Anda ajar.",
+            "Menu Lencana Siswa: pilih mapel, klik Beri Lencana, pilih jenis (Siswa Teraktif, Kreatif, dll.), centang siswa, lalu Berikan. Siswa menerima pemberitahuan.",
         ] },
     ],
     WALI: [

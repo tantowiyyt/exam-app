@@ -16,6 +16,7 @@ interface Grup { judul?: string; item: Item[]; lipat?: boolean; modul?: boolean 
 
 const IKON = {
     centang: "M4 12l5 5L20 6",
+    bintang: "M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z",
     pesan: "M4 5h16v11H8l-4 4z",
     jam: "M12 7v5l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z",
     buku: "M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2zm0 0v16M8 7h7",
@@ -43,7 +44,7 @@ function menu(role: string, cat: boolean): Grup[] {
     const pesan: Item = { href: "/akun/pesan", label: "Pesan", ikon: "pesan", badge: "pesan" };
     if (role === "ORANGTUA") {
         return [
-            { item: [{ href: "/ortu", label: "Beranda", ikon: "rumah", aktif: (p: string) => p === "/ortu" }, { href: "/ortu/rapor", label: "Rapor Anak", ikon: "nilai" }, pesan] },
+            { item: [{ href: "/ortu", label: "Beranda", ikon: "rumah", aktif: (p: string) => p === "/ortu" }, { href: "/ortu/rapor", label: "Rapor Anak", ikon: "nilai" }, { href: "/ortu/lencana", label: "Lencana Anak", ikon: "bintang" }, pesan] },
             { judul: "Akun", item: [password, panduan] },
         ];
     }
@@ -54,7 +55,7 @@ function menu(role: string, cat: boolean): Grup[] {
             { item: [beranda, { href: "/kelas/jadwal", label: "Jadwal", ikon: "jam" }, kalender, pesan] },
             {
                 judul: "Belajar", item: [
-                    { href: "/kelas/kehadiran", label: "Kehadiran", ikon: "centang" }, rapor,
+                    { href: "/kelas/kehadiran", label: "Kehadiran", ikon: "centang" }, rapor, { href: "/kelas/lencana", label: "Lencana", ikon: "bintang" },
                     ...(cat ? [{ href: "/dashboard", label: "Ujian Sekolah", ikon: "ujian" as const, aktif: (p: string) => p.startsWith("/dashboard") || p.startsWith("/ujian") }] : []),
                 ],
             },
@@ -67,7 +68,7 @@ function menu(role: string, cat: boolean): Grup[] {
     if (role === "GURU") {
         return [
             { item: [beranda, jadwal, kalender, pesan] },
-            { judul: "Mengajar", item: [jurnal, bankSoal, rapor] },
+            { judul: "Mengajar", item: [jurnal, bankSoal, rapor, { href: "/kelas/lencana", label: "Lencana Siswa", ikon: "bintang" }] },
             { judul: "Akun", item: [resetPw, password, panduan] },
         ];
     }
@@ -82,6 +83,7 @@ function menu(role: string, cat: boolean): Grup[] {
                 jurnal,
                 { ...bankSoal, label: "Bank Soal Guru" },
                 rapor,
+                { href: "/kelas/lencana", label: "Lencana Siswa", ikon: "bintang" },
             ],
         },
         {

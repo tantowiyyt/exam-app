@@ -79,6 +79,7 @@ export default function PortalOrtu() {
                         <div className="flex flex-wrap items-center gap-3">
                             <h2 className="text-lg font-black text-slate-800 flex-1">{tampil.siswa.nama} · {tampil.siswa.kelas} <span className="text-sm font-semibold text-slate-500">({tampil.semester.label})</span></h2>
                             <Link href={`/ortu/rapor?anak=${tampil.siswa.id}`} className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold">Lihat Rapor</Link>
+                            <Link href="/ortu/lencana" className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold">Lencana</Link>
                             {tampil.wali && <Link href={`/akun/pesan?dengan=${tampil.wali.id}`} className="px-4 py-2 rounded-lg bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-bold">Pesan ke Wali Kelas</Link>}
                         </div>
                         <div className="grid lg:grid-cols-2 gap-6">

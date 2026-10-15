@@ -776,3 +776,20 @@ model Pesan {
   @@index([keId, dibacaAt])
   @@index([dariId, keId])
 }
+
+// ---------- Phase 26: lencana ----------
+// Lencana dari guru untuk siswa (lencana otomatis dihitung dari data belajar, tidak disimpan: lib/lencana.ts)
+model LencanaSiswa {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  mapelId    Int
+  semesterId Int
+  jenis      String // teraktif | kreatif | membantu | disiplin | kemajuan | juara | lain
+  judul      String
+  catatan    String   @default("")
+  olehId     Int
+  createdAt  DateTime @default(now())
+
+  @@index([userId, semesterId])
+  @@index([mapelId])
+}

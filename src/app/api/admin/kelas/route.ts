@@ -187,7 +187,7 @@ export async function DELETE(request: Request) {
         return NextResponse.json({ message: 'Mapel ini sudah punya jurnal mengajar sehingga tidak dapat dihapus' }, { status: 400 });
       }
       await prisma.$transaction([
-        prisma.topik.deleteMany({ where: { mapelId: id } }), prisma.deskripsiRapor.deleteMany({ where: { mapelId: id } }),
+        prisma.topik.deleteMany({ where: { mapelId: id } }), prisma.deskripsiRapor.deleteMany({ where: { mapelId: id } }), prisma.lencanaSiswa.deleteMany({ where: { mapelId: id } }),
         prisma.jadwalPelajaran.deleteMany({ where: { mapelId: id } }), prisma.mapel.delete({ where: { id } }),
       ]);
       await createAuditLog({ action: 'DELETE_MAPEL', target: `Mapel #${id} ${mapel.nama}`, ipAddress: getAuditIP(request) });

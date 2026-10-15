@@ -27,7 +27,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 **Repo:** https://github.com/tantowiyyt/exam-app (branch `main`). Database, foto upload, dan `.env` sengaja tidak di-commit.
 
-**Kondisi:** fitur lengkap + LMS (Phase 16) + administrasi sekolah (Phase 20–23), build & lint bersih, `npm run test:e2e` 921 tes lulus, uji beban 150 peserta serentak 0 gagal (sebelum LMS).
+**Kondisi:** fitur lengkap + LMS (Phase 16) + administrasi sekolah (Phase 20–23), build & lint bersih, `npm run test:e2e` 945 tes lulus, uji beban 150 peserta serentak 0 gagal (sebelum LMS).
 Siap untuk **simulasi**, belum untuk ujian sungguhan — selesaikan daftar di bawah dulu.
 
 **Belum dilakukan (oleh pemilik proyek):**
@@ -39,7 +39,7 @@ Siap untuk **simulasi**, belum untuk ujian sungguhan — selesaikan daftar di ba
 6. Administrasi (Phase 20–23): tetapkan wali kelas, isi jadwal pelajaran, impor siswa dari Dapodik, (opsional) aktifkan WhatsApp/email di Notifikasi WA/Email
    (gateway WA berbayar, mis. Fonnte; server butuh akses internet keluar), cocokkan file Ekspor e-Rapor dengan template e-Rapor versi sekolah
 
-**Fitur LMS yang belum dibuat (prioritas rendah, hasil perbandingan dengan Moodle/EdLink):** lencana (badges), video conference terintegrasi (tautan Zoom/Meet sudah ada), koreksi/anotasi PDF langsung di file, video panduan (panduan tertulis per peran sudah ada di menu Panduan).
+**Fitur LMS yang belum dibuat (prioritas rendah, hasil perbandingan dengan Moodle/EdLink):** video conference terintegrasi (tautan Zoom/Meet sudah ada), koreksi/anotasi PDF langsung di file, video panduan (panduan tertulis per peran sudah ada di menu Panduan).
 
 **Keputusan yang sudah diambil:**
 - Penguncian perangkat ala Safe Exam Browser **tidak** dibangun di proyek ini. Pakai Safe Exam Browser resmi bila perlu;
@@ -63,7 +63,7 @@ Siap untuk **simulasi**, belum untuk ujian sungguhan — selesaikan daftar di ba
   lampiran yang tertaut hanya untuk anggota/pengelola mapelnya.
 
 **Backup DB lokal** (di-ignore git): `prisma/dev.db.bak-20261014063026`, `-065253`, `-071034`, `-090459` (sebelum skema LMS), `-115525` (sebelum fitur tugas lanjutan), `-132330` (sebelum kuis), `-134625` (sebelum presensi), `-135714` (sebelum topik & jadwal terbit), `-140714` (sebelum bobot nilai & rubrik) — boleh dihapus bila tidak diperlukan.
-**PERHATIAN:** backup `-115525` s/d `-164000` dibuat dengan menyalin `dev.db` saja padahal perubahan masih di `dev.db-wal`, sehingga isinya SAMA (kondisi 09:29, sebelum kelas/kuis/dst). Backup lengkap yang valid (via `VACUUM INTO`): `-164500` (63 akun, 21 kelas), `-170000` (sebelum 273 mapel), `-173000` (sebelum 630 siswa), `-174500` (sebelum skema ujian offline), `-190000` (sebelum skema semester & ujian CAT mapel), `-203000` (sebelum bank soal & tautan kelas virtual), `-213000` (sebelum deskripsi & catatan rapor), `-223000` (sebelum skema ujian sekolah per kelas), `-20261015100954` (sebelum skema administrasi Phase 20+), `-20261015105538` (sebelum kolom NISN), `-20261015113213` (sebelum orang tua & pesan).
+**PERHATIAN:** backup `-115525` s/d `-164000` dibuat dengan menyalin `dev.db` saja padahal perubahan masih di `dev.db-wal`, sehingga isinya SAMA (kondisi 09:29, sebelum kelas/kuis/dst). Backup lengkap yang valid (via `VACUUM INTO`): `-164500` (63 akun, 21 kelas), `-170000` (sebelum 273 mapel), `-173000` (sebelum 630 siswa), `-174500` (sebelum skema ujian offline), `-190000` (sebelum skema semester & ujian CAT mapel), `-203000` (sebelum bank soal & tautan kelas virtual), `-213000` (sebelum deskripsi & catatan rapor), `-223000` (sebelum skema ujian sekolah per kelas), `-20261015100954` (sebelum skema administrasi Phase 20+), `-20261015105538` (sebelum kolom NISN), `-20261015113213` (sebelum orang tua & pesan), `-20261015115433` (sebelum lencana).
 **Data contoh di dev.db (2026-10-14):** 21 kelas X–XII IPA/IPS/Bahasa, 273 mapel ber-guru, 25 guru + 25 pengawas (`storage/akun-guru-pengawas.csv`), 630 siswa 30/kelas (`storage/akun-siswa.csv`), pembagian mapel di `storage/pembagian-mapel.csv`. Ruang/sesi ujian siswa baru masih kosong.
 Backup berikutnya pakai `VACUUM INTO` / `sqlite3 .backup` (lihat `DEPLOY.md`), **jangan `cp dev.db`**.
 
@@ -196,6 +196,15 @@ Backup berikutnya pakai `VACUUM INTO` / `sqlite3 .backup` (lihat `DEPLOY.md`), *
 | Hapus soal yang sudah dijawab ditolak dengan pesan jelas (sebelumnya error FK) | ✅ | `src/app/api/admin/soal/route.ts` |
 
 **Durasi per bagian** kini diterapkan — lihat Phase 12.
+
+### Phase 26 — Lencana (2026-10-15)
+| Item | Files |
+|------|-------|
+| **Lencana otomatis** per semester, dihitung saat dibuka (tidak disimpan) + progres untuk yang belum didapat: Rajin Hadir (≥95% dari ≥8 pertemuan), Tepat Waktu (semua tugas bertenggat dikumpulkan sebelum tenggat, ≥5), Pembaca Setia (≥90% materi, ≥5), Nilai Sempurna (nilai penuh tugas/kuis/ujian diumumkan), Jago Kuis (≥5 kuis, rata-rata ≥85), Aktif Berdiskusi (≥10 komentar), Tuntas Semua (KKM di semua mapel ber-KKM, ≥3; tidak dihitung di tampilan guru agar ringan) | `src/lib/lencana.ts` |
+| **Lencana dari guru** (`LencanaSiswa`): guru pengampu/admin memberi ke banyak siswa sekaligus — Siswa Teraktif, Kreatif, Suka Membantu, Disiplin, Kemajuan Pesat, Juara Kelas, atau penghargaan bernama bebas + catatan; pemberi/admin bisa mencabut; siswa mendapat notifikasi lonceng | `src/app/api/lms/lencana/route.ts`, `src/app/api/lms/notifikasi/route.ts` |
+| Halaman **Lencana** (siswa: miliknya; guru/admin: per mapel dengan centang siswa) & **Lencana Anak** (orang tua) | `src/components/Lencana.tsx`, `src/app/kelas/lencana/page.tsx`, `src/app/ortu/lencana/page.tsx` |
+| Hapus akun/mapel ikut menghapus lencana; backup memuat `lencanaSiswa`; panduan diperbarui | `src/lib/lms.ts`, `src/app/api/admin/kelas/route.ts`, `src/app/api/admin/backup/route.ts` |
+| Tes E2E (24 tes) | `tests/e2e/21-lencana.mjs` |
 
 ### Phase 25 — Akun Orang Tua & Pesan Pribadi (2026-10-15)
 | Item | Files |
@@ -547,7 +556,7 @@ src/proxy.ts                          # Next.js 16 route protection (dipindah da
 
 ## Build Status
 - `npm run build` passes ✅
-- `npm run test:e2e` (butuh build): 921 tes lulus — lihat `tests/README.md`
+- `npm run test:e2e` (butuh build): 945 tes lulus — lihat `tests/README.md`
 - Deploy: lihat `DEPLOY.md`
 - ±60 routes (halaman statis + API dinamis)
 - `npx eslint src`: 0 error (sisa warning ringan, mis. `<img>`)

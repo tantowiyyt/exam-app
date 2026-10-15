@@ -56,6 +56,7 @@ Dibangun dengan Next.js 16, React 19, Prisma + SQLite, dan Tailwind CSS 4. Tidak
 - **Notifikasi WhatsApp & email** (opsional): tugas baru, pengumuman, pengingat tenggat H-1, jadwal ujian H-1.
 - **Akun orang tua**: memantau kehadiran, tugas, nilai, jadwal, dan rapor anak (bisa dibuat massal per kelas).
 - **Pesan pribadi** antara siswa/orang tua dan guru/wali kelas, antarguru, dan dengan admin.
+- **Lencana**: otomatis dari data belajar (rajin hadir, tepat waktu, pembaca setia, nilai sempurna, dll.) dan penghargaan dari guru.
 - **Panduan penggunaan** per peran di dalam aplikasi (bisa dicetak/PDF).
 
 ### Ujian CAT sekolah
@@ -189,7 +190,7 @@ Tes end-to-end menjalankan server produksi terhadap **salinan** database (data a
 
 ```bash
 npm run build
-npm run test:e2e      # ±921 tes fungsional
+npm run test:e2e      # ±945 tes fungsional
 npm run test:beban    # + uji beban 150 peserta serentak
 ```
 

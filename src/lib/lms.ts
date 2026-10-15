@@ -220,6 +220,7 @@ export function opsHapusDataLms(userId: number) {
     prisma.kodeReset.deleteMany({ where: { userId } }),
     prisma.jurnalMengajar.deleteMany({ where: { guruId: userId } }),
     prisma.kelas.updateMany({ where: { waliId: userId }, data: { waliId: null } }),
+    prisma.lencanaSiswa.deleteMany({ where: { userId } }),
     prisma.orangTuaSiswa.deleteMany({ where: { OR: [{ orangTuaId: userId }, { siswaId: userId }] } }),
     prisma.pesan.deleteMany({ where: { OR: [{ dariId: userId }, { keId: userId }] } }),
     prisma.pengumuman.updateMany({ where: { userId }, data: { userId: null } }),

@@ -5,7 +5,7 @@ import { verifyLmsSession, mapelPengguna, whereTugasSiswa, whereTerbit } from '@
 const HARI = 30; // notifikasi diambil dari aktivitas 30 hari terakhir
 const MAKS = 30;
 
-interface Notif { id: string; jenis: 'tugas' | 'materi' | 'pengumuman' | 'nilai' | 'revisi' | 'kumpul' | 'komentar' | 'kuis' | 'presensi'; judul: string; isi: string; waktu: Date; href: string }
+interface Notif { id: string; jenis: 'tugas' | 'materi' | 'pengumuman' | 'nilai' | 'revisi' | 'kumpul' | 'komentar' | 'kuis' | 'presensi' | 'lencana'; judul: string; isi: string; waktu: Date; href: string }
 
 /**
  * Notifikasi LMS — dihitung dari data yang ada (tidak disimpan terpisah).
@@ -57,6 +57,9 @@ export async function GET() {
         take: MAKS,
       });
       for (const n of nilaiUjian) out.push({ id: `u${n.id}`, jenis: 'nilai', judul: `Nilai ${n.ujian.judul}: ${n.nilai}/${n.ujian.nilaiMaks}`, isi: namaMapel.get(n.ujian.mapelId) ?? '', waktu: n.ujian.diumumkanAt!, href: `/kelas/${n.ujian.mapelId}?tab=ujian` });
+      // Lencana dari guru
+      const lencana = await prisma.lencanaSiswa.findMany({ where: { userId: user.id, createdAt: { gte: sejak } }, orderBy: { createdAt: 'desc' }, take: MAKS });
+      for (const l of lencana) out.push({ id: `b${l.id}`, jenis: 'lencana', judul: `Anda mendapat lencana: ${l.judul}`, isi: namaMapel.get(l.mapelId) ?? '', waktu: l.createdAt, href: '/kelas/lencana' });
       for (const p of presensi) out.push({ id: `a${p.id}`, jenis: 'presensi', judul: `Presensi dibuka: ${p.judul}`, isi: namaMapel.get(p.mapelId) ?? '', waktu: p.createdAt, href: `/kelas/${p.mapelId}?tab=presensi` });
       for (const k of kuis) out.push({ id: `q${k.id}`, jenis: 'kuis', judul: `${k.modeUjian ? 'Ujian' : 'Kuis'} dibuka: ${k.judul}`, isi: namaMapel.get(k.mapelId) ?? '', waktu: k.mulai ?? k.createdAt, href: `/kelas/${k.mapelId}/kuis/${k.id}` });
       for (const t of tugas) out.push({ id: `t${t.id}`, jenis: 'tugas', judul: `Tugas baru: ${t.judul}`, isi: namaMapel.get(t.mapelId) ?? '', waktu: t.terbitPada ?? t.createdAt, href: `/kelas/${t.mapelId}/tugas/${t.id}` });

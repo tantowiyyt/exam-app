@@ -11,6 +11,7 @@ const IKON: Record<string, { huruf: string; cls: string }> = {
     pengumuman: { huruf: "P", cls: "bg-sky-100 text-sky-700" },
     nilai: { huruf: "N", cls: "bg-emerald-100 text-emerald-700" },
     revisi: { huruf: "R", cls: "bg-orange-100 text-orange-700" },
+    lencana: { huruf: "★", cls: "bg-yellow-100 text-yellow-700" },
     kumpul: { huruf: "K", cls: "bg-violet-100 text-violet-700" },
     komentar: { huruf: "D", cls: "bg-slate-200 text-slate-700" },
     kuis: { huruf: "Q", cls: "bg-fuchsia-100 text-fuchsia-700" },
