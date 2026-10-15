@@ -1,53 +1,37 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAdminSession } from '@/lib/admin-auth';
-import { cache, CACHE_TTL, CACHE_KEYS } from '@/lib/cache';
+import { INCLUDE_TARGET, wherePeserta } from '@/lib/ujian-peserta';
 
+// Statistik dasbor ujian: gabungan semua ujian aktif (peserta = siswa kelas target tiap ujian).
 export async function GET() {
   const auth = await verifyAdminSession();
   if (!auth.ok) return NextResponse.json({ message: auth.message }, { status: auth.status });
 
   try {
-    // Check cache first
-    const cached = cache.get(CACHE_KEYS.STATS);
-    if (cached) {
-      return NextResponse.json(cached);
+    const aktif = await prisma.ujian.findMany({ where: { isActive: true }, include: INCLUDE_TARGET });
+    let totalPeserta = 0;
+    let sudahUjian = 0;
+    const nilai: number[] = [];
+    for (const u of aktif) {
+      const ids = (await prisma.user.findMany({ where: wherePeserta(u), select: { id: true } })).map((x) => x.id);
+      totalPeserta += ids.length;
+      const selesai = await prisma.sesiUjian.findMany({ where: { ujianId: u.id, selesai: true, userId: { in: ids } }, select: { userId: true }, distinct: ['userId'] });
+      sudahUjian += selesai.length;
+      // Nilai terakhir tiap peserta yang selesai
+      const histori = await prisma.historiUjian.findMany({ where: { ujianId: u.id, userId: { in: selesai.map((s) => s.userId) } }, orderBy: { id: 'asc' }, select: { userId: true, nilaiAkhir: true } });
+      nilai.push(...new Map(histori.map((h) => [h.userId, h.nilaiAkhir])).values());
     }
-
-    const totalPeserta = await prisma.user.count({
-      where: { role: 'PESERTA' },
-    });
-
-    const totalSoal = await prisma.soal.count();
-
-    const sudahUjian = await prisma.user.count({
-      where: { role: 'PESERTA', sudahUjian: true },
-    });
-
-    const belumUjian = totalPeserta - sudahUjian;
-
-    const rataNilai = await prisma.user.aggregate({
-      where: { role: 'PESERTA', sudahUjian: true },
-      _avg: { nilai: true },
-    });
-
-    const activeUjian = await prisma.ujian.findFirst({
-      where: { isActive: true },
-    });
-
-    const result = {
+    const totalSoal = await prisma.soal.count({ where: { ujianId: { in: aktif.map((u) => u.id) } } });
+    return NextResponse.json({
+      jumlahAktif: aktif.length,
       totalPeserta,
       totalSoal,
       sudahUjian,
-      belumUjian,
-      rataNilai: rataNilai._avg.nilai ? Math.round(rataNilai._avg.nilai) : 0,
-      durasiMenit: activeUjian?.durasiMenit || 60,
-    };
-
-    // Cache the result
-    cache.set(CACHE_KEYS.STATS, result, { ttl: CACHE_TTL.SHORT });
-
-    return NextResponse.json(result);
+      belumUjian: totalPeserta - sudahUjian,
+      rataNilai: nilai.length ? Math.round(nilai.reduce((a, b) => a + b, 0) / nilai.length) : 0,
+      durasiMenit: aktif[0]?.durasiMenit ?? 0,
+    });
   } catch (error) {
     console.error('ERROR PADA GET STATS:', error);
     return NextResponse.json({ message: 'Gagal mengambil statistik' }, { status: 500 });

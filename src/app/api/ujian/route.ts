@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/session';
 import { getSoalPeserta } from '@/lib/ujian-soal';
+import { ujianAktifUntuk } from '@/lib/ujian-peserta';
 import {
   susunTahap, hitungStatus, sinkronStatus, cariSesiAktif, parseJawaban, parseRagu, nilaiDanSimpan,
 } from '@/lib/sesi-ujian';
@@ -20,17 +21,17 @@ export async function GET(request: Request) {
     if (user.role === 'PENGAWAS' || user.role === 'GURU') {
       return NextResponse.json({ message: 'Akun pengawas/guru tidak dapat mengerjakan ujian' }, { status: 403 });
     }
-    if (user.sudahUjian && user.role !== 'ADMIN') {
+    const serverNow = Date.now();
+    // Ujian aktif yang menargetkan kelas siswa (beberapa ujian boleh aktif untuk kelas berbeda)
+    const { ujian, sudah, adaAktif, kelasLain } = await ujianAktifUntuk(user);
+    if (!ujian) {
+      if (adaAktif) return NextResponse.json({ status: 'bukan_kelas', kelas: kelasLain.join(', '), serverNow });
+      return NextResponse.json({ status: 'tidak_ada', serverNow });
+    }
+    if (sudah) {
       return NextResponse.json({ message: 'Anda sudah menyelesaikan ujian ini', sudahUjian: true }, { status: 409 });
     }
-
-    const serverNow = Date.now();
-    const ujian = await prisma.ujian.findFirst({ where: { isActive: true }, include: { mapel: { include: { kelas: true } } } });
-    // Ujian milik mapel (LMS) hanya untuk peserta di kelas mapel tersebut
-    if (ujian?.mapel && user.role !== 'ADMIN' && user.kelas !== ujian.mapel.kelas.nama) {
-      return NextResponse.json({ status: 'bukan_kelas', kelas: ujian.mapel.kelas.nama, serverNow: Date.now() });
-    }
-    let sesi = await cariSesiAktif(user.id, ujian?.id ?? null);
+    let sesi = await cariSesiAktif(user.id, ujian.id);
 
     // Soal tidak dikirim sebelum jadwal mulai
     if (!sesi && ujian?.jadwalMulai && serverNow < ujian.jadwalMulai.getTime()) {

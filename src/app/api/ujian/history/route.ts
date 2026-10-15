@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/session';
+import { ujianAktifUntuk } from '@/lib/ujian-peserta';
 
 export async function GET() {
   try {
@@ -11,21 +12,24 @@ export async function GET() {
 
     const user = await prisma.user.findUnique({
       where: { nomorPeserta: session.nomorPeserta },
-      select: { id: true, sudahUjian: true, nilai: true },
+      select: { id: true, role: true, kelas: true },
     });
 
     if (!user) {
       return NextResponse.json({ message: 'User tidak ditemukan' }, { status: 404 });
     }
 
-    if (!user.sudahUjian) {
+    // Status per ujian: ujian aktif untuk kelasnya yang belum dikerjakan = belum ada hasil
+    const { ujian, sudah } = await ujianAktifUntuk(user);
+    if (ujian && !sudah) {
       return NextResponse.json({ sudahUjian: false, histori: null });
     }
 
     const histori = await prisma.historiUjian.findFirst({
-      where: { userId: user.id },
+      where: { userId: user.id, ...(ujian ? { ujianId: ujian.id } : {}) },
       orderBy: { waktuSelesai: 'desc' },
     });
+    if (!ujian && !histori) return NextResponse.json({ sudahUjian: false, histori: null });
 
     if (!histori) {
       return NextResponse.json({ sudahUjian: true, histori: null });

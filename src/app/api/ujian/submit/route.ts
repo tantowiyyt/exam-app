@@ -23,10 +23,6 @@ export async function POST(request: Request) {
     }
     const { user, ujian, sesi, tahap, status } = ctx;
 
-    if (user.sudahUjian && user.role !== 'ADMIN') {
-      return NextResponse.json({ message: 'Ujian sudah pernah dikumpulkan' }, { status: 409 });
-    }
-
     // Waktu mulai & tenggat ditentukan server (sesi), bukan dari klien.
     // Jawaban kiriman terakhir hanya diterima bila masih dalam batas waktu (+ toleransi jaringan);
     // selebihnya dinilai dari jawaban yang sudah tersimpan otomatis.

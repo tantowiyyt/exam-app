@@ -12,6 +12,7 @@ import { FormKuis } from "@/components/lms/kuis";
 import { Presensi } from "@/components/lms/Presensi";
 import { TabTopik } from "@/components/lms/Topik";
 import { UjianManual } from "@/components/lms/UjianManual";
+import { DeskripsiRapor } from "@/components/lms/DeskripsiRapor";
 
 interface DataMapel {
     peran: "kelola" | "siswa";
@@ -358,6 +359,7 @@ export default function HalamanMapel() {
 
                 {/* NILAI */}
                 {tab === "nilai" && <RekapNilai key={d.semester.id} mapelId={d.mapel.id} semesterId={d.semester.id} />}
+                {tab === "nilai" && kelola && <DeskripsiRapor key={`d${d.semester.id}`} mapelId={d.mapel.id} semesterId={d.semester.id} />}
 
                 {/* ANGGOTA + progres belajar */}
                 {tab === "anggota" && kelola && (

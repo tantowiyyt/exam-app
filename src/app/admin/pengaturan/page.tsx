@@ -43,7 +43,7 @@ export default function PengaturanPage() {
         const res = await fetch("/api/admin/instansi", {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ namaAplikasi: d.namaAplikasi, modulCat: d.modulCat, namaInstansi: d.namaInstansi, alamat: d.alamat, kota: d.kota, logo: d.logo }),
+            body: JSON.stringify({ namaAplikasi: d.namaAplikasi, modulCat: d.modulCat, namaInstansi: d.namaInstansi, alamat: d.alamat, kota: d.kota, logo: d.logo, predikatA: d.predikatA, predikatB: d.predikatB, predikatC: d.predikatC }),
         });
         const data = await res.json().catch(() => ({}));
         setSimpan(false);
@@ -88,6 +88,18 @@ export default function PengaturanPage() {
                                     <input type="file" accept="image/png,image/jpeg,image/webp" onChange={uploadLogo} className="text-xs" aria-label="Unggah logo" />
                                     {d.logo && <button type="button" onClick={() => setD({ ...d, logo: "" })} className="text-red-600 text-xs font-bold">Hapus</button>}
                                 </div>
+                            </div>
+                        </section>
+
+                        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-3">
+                            <h2 className="text-lg font-bold text-slate-800">Predikat Rapor</h2>
+                            <p className="text-sm text-slate-500">Batas bawah nilai akhir untuk tiap predikat di rapor. Di bawah batas C = predikat D.</p>
+                            <div className="grid grid-cols-3 gap-3 max-w-md">
+                                {(["A", "B", "C"] as const).map((k) => (
+                                    <label key={k} className="block"><span className={labelClass}>Predikat {k} ≥</span>
+                                        <input type="number" min={0} max={100} value={d[`predikat${k}`] ?? ""} onChange={(e) => setD({ ...d, [`predikat${k}`]: e.target.value })} required className={inputClass} />
+                                    </label>
+                                ))}
                             </div>
                         </section>
 

@@ -44,7 +44,9 @@ interface SudahSelesai {
 }
 
 interface UjianInfo {
+  id: number;
   nama: string;
+  peserta: string;
   durasiMenit: number;
   jadwalMulai: string | null;
   jadwalSelesai: string | null;
@@ -71,13 +73,17 @@ export default function MonitoringPage() {
   const [countdown, setCountdown] = useState("");
   const [filterRuang, setFilterRuang] = useState("");
   const [tab, setTab] = useState<"aktif" | "selesai">("aktif");
+  // Beberapa ujian bisa aktif bersamaan (kelas berbeda): pilih yang dipantau
+  const [daftarUjian, setDaftarUjian] = useState<{ id: number; nama: string; peserta: string }[]>([]);
+  const [pilihUjian, setPilihUjian] = useState(0);
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch("/api/admin/monitoring");
+      const res = await fetch(`/api/admin/monitoring${pilihUjian ? `?ujian=${pilihUjian}` : ""}`);
       if (res.ok) {
         const data = await res.json();
         setUjian(data.ujian);
+        setDaftarUjian(data.daftarUjian || []);
         setPeserta(data.peserta || []);
         setSudahSelesai(data.sudahSelesai || []);
         setStats(data.stats);
@@ -86,7 +92,7 @@ export default function MonitoringPage() {
         setRuangSaya(data.ruangPengawas ?? null);
       }
     } catch {}
-  }, []);
+  }, [pilihUjian]);
 
   useEffect(() => {
     const first = setTimeout(fetchData, 0);
@@ -200,13 +206,21 @@ export default function MonitoringPage() {
           <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between items-center gap-3">
             <div>
               <h2 className="font-bold text-slate-800">{ujian.nama}</h2>
-              <p className="text-xs text-slate-500">{ujian.durasiMenit} menit | {ujian.jadwalMulai ? new Date(ujian.jadwalMulai).toLocaleDateString("id-ID") : "-"}</p>
+              <p className="text-xs text-slate-500">Peserta: {ujian.peserta} · {ujian.durasiMenit} menit | {ujian.jadwalMulai ? new Date(ujian.jadwalMulai).toLocaleDateString("id-ID") : "-"}</p>
             </div>
+            <div className="flex flex-wrap gap-2">
+            {daftarUjian.length > 1 && (
+              <select value={ujian.id} onChange={(e) => setPilihUjian(Number(e.target.value))} aria-label="Ujian yang dipantau"
+                className="px-3 py-1.5 text-sm rounded-lg border border-slate-300 outline-none focus:ring-2 focus:ring-blue-500 bg-white font-semibold">
+                {daftarUjian.map((u) => <option key={u.id} value={u.id}>{u.nama} — {u.peserta}</option>)}
+              </select>
+            )}
             <select value={filterRuang} onChange={(e) => setFilterRuang(e.target.value)}
               className="px-3 py-1.5 text-sm rounded-lg border border-slate-300 outline-none focus:ring-2 focus:ring-blue-500 bg-white">
               <option value="">Semua Ruang</option>
               {uniqueRuang.map(r => <option key={r} value={r}>{r}</option>)}
             </select>
+            </div>
           </div>
         )}
 

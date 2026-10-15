@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { verifyLmsSession } from '@/lib/lms';
+import { verifyLmsSession, teks } from '@/lib/lms';
 import { semesterDipilih, daftarSemester } from '@/lib/semester';
 import { hitungRekapMapel, type Komponen } from '@/lib/rekap';
 import { getInstansi } from '@/lib/pengaturan-aplikasi';
+import { batasPredikat, predikat } from '@/lib/rapor';
+import { createAuditLog, getAuditIP } from '@/lib/audit-log';
 
 // Rapor (laporan hasil belajar) per siswa lintas mapel dalam satu semester.
 // GET ?kelas=id&semester=id[&siswa=id]
@@ -69,6 +71,13 @@ export async function GET(request: Request) {
     });
 
     // Rekap tiap mapel untuk semua siswa sekaligus
+    const ids = siswa.map((x) => x.id);
+    const [i, deskripsi, catatan] = await Promise.all([
+      getInstansi(),
+      prisma.deskripsiRapor.findMany({ where: { semesterId: semester.id, userId: { in: ids }, mapelId: { in: mapel.map((m) => m.id) } } }),
+      prisma.catatanRapor.findMany({ where: { semesterId: semester.id, userId: { in: ids } } }),
+    ]);
+    const batas = batasPredikat(i);
     const hasil = await Promise.all(mapel.map(async (m) => ({ mapel: m, ...(await hitungRekapMapel(m, siswa, semester, { kelola: staf, userId: user.id })) })));
 
     // Komponen yang ditampilkan = yang dipakai (berbobot) atau punya nilai di salah satu mapel
@@ -86,7 +95,11 @@ export async function GET(request: Request) {
       }), { H: 0, I: 0, S: 0, A: 0, kosong: 0, pertemuan: 0 });
       return {
         siswa: { id: s.id, nomorPeserta: s.nomorPeserta, nama: s.nama, jenisKelamin: s.jenisKelamin },
-        nilai: nilai.map((n) => ({ mapelId: n.mapelId, komponen: n.komponen, nilaiAkhir: n.nilaiAkhir, tuntas: n.tuntas })),
+        nilai: nilai.map((n) => ({
+          mapelId: n.mapelId, komponen: n.komponen, nilaiAkhir: n.nilaiAkhir, tuntas: n.tuntas, predikat: predikat(n.nilaiAkhir, batas),
+          deskripsi: deskripsi.find((d) => d.userId === s.id && d.mapelId === n.mapelId)?.deskripsi ?? '',
+        })),
+        catatan: catatan.find((c) => c.userId === s.id)?.catatan ?? '',
         rataRata: akhir.length ? Math.round((akhir.reduce((a, b) => a + b, 0) / akhir.length) * 10) / 10 : null,
         jumlahTuntas: nilai.filter((n) => n.tuntas === true).length,
         jumlahBerKkm: nilai.filter((n) => n.tuntas !== null).length,
@@ -100,8 +113,8 @@ export async function GET(request: Request) {
       urut.forEach((r, i) => { r.peringkat = i > 0 && urut[i - 1].rataRata === r.rataRata ? urut[i - 1].peringkat : i + 1; });
     }
 
-    const i = await getInstansi();
     return NextResponse.json({
+      batasPredikat: batas,
       peran: staf ? 'staf' : 'siswa',
       semester: { id: semester.id, label: semester.label, tahunAjaran: semester.tahunAjaran, semester: semester.semester, aktif: semester.aktif },
       semesterList,
@@ -118,5 +131,29 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error('ERROR RAPOR:', error);
     return NextResponse.json({ message: 'Gagal memuat rapor' }, { status: 500 });
+  }
+}
+
+// Catatan wali kelas untuk satu siswa: { siswa, semester?, catatan } — staf yang boleh membuka kelas siswa itu
+export async function PUT(request: Request) {
+  const auth = await verifyLmsSession();
+  if (!auth.ok) return NextResponse.json({ message: auth.message }, { status: auth.status });
+  try {
+    const { user } = auth;
+    if (user.role === 'PESERTA') return NextResponse.json({ message: 'Tidak diizinkan' }, { status: 403 });
+    const body = await request.json();
+    const siswa = await prisma.user.findFirst({ where: { id: Number(body.siswa), role: 'PESERTA' }, select: { id: true, nama: true, kelas: true } });
+    const boleh = siswa && (await kelasBolehDibuka(user)).some((k) => k.nama === siswa.kelas);
+    if (!siswa || !boleh) return NextResponse.json({ message: 'Siswa tidak ditemukan atau bukan kelas Anda' }, { status: 404 });
+    const semester = await semesterDipilih(body.semester === undefined ? null : String(body.semester));
+    const catatan = teks(body.catatan, 1000);
+    const where = { userId_semesterId: { userId: siswa.id, semesterId: semester.id } };
+    if (catatan) await prisma.catatanRapor.upsert({ where, update: { catatan }, create: { userId: siswa.id, semesterId: semester.id, catatan } });
+    else await prisma.catatanRapor.deleteMany({ where: { userId: siswa.id, semesterId: semester.id } });
+    await createAuditLog({ action: 'CATATAN_RAPOR', target: `Siswa #${siswa.id} ${siswa.nama}`, details: { semester: semester.label }, ipAddress: getAuditIP(request) });
+    return NextResponse.json({ success: true, message: catatan ? 'Catatan wali kelas disimpan' : 'Catatan dihapus' });
+  } catch (error) {
+    console.error('ERROR CATATAN RAPOR:', error);
+    return NextResponse.json({ message: 'Gagal menyimpan catatan' }, { status: 500 });
   }
 }

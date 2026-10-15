@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyLmsSession, mapelPengguna, whereTugasSiswa } from '@/lib/lms';
 import { getIdentitas } from '@/lib/pengaturan-aplikasi';
+import { ujianAktifUntuk } from '@/lib/ujian-peserta';
 
 // Beranda LMS: daftar mapel yang bisa dibuka pengguna + ringkasan per role
 // (siswa: agenda & ujian CAT aktif; guru/admin: yang perlu dinilai; admin: ringkasan sekolah)
@@ -49,7 +50,7 @@ export async function GET() {
     }
 
     const saya = user.role === 'PESERTA'
-      ? await prisma.user.findUnique({ where: { id: user.id }, select: { kelas: true, sudahUjian: true } })
+      ? await prisma.user.findUnique({ where: { id: user.id }, select: { kelas: true } })
       : null;
     const kelasSaya = saya?.kelas ?? '';
     const { modulCat } = await getIdentitas();
@@ -57,13 +58,11 @@ export async function GET() {
     // Siswa: ujian CAT yang sedang aktif & berlaku untuk kelasnya (banner di beranda)
     let ujianCat = null;
     if (saya && modulCat) {
-      const u = await prisma.ujian.findFirst({
-        where: { isActive: true },
-        select: { nama: true, durasiMenit: true, jadwalMulai: true, jadwalSelesai: true, mapel: { select: { nama: true, kelas: { select: { nama: true } } } }, _count: { select: { soal: true } } },
-      });
+      const { ujian: u, sudah } = await ujianAktifUntuk({ id: user.id, role: user.role, kelas: kelasSaya });
+      const jumlahSoal = u ? await prisma.soal.count({ where: { ujianId: u.id } }) : 0;
       const lewat = u?.jadwalSelesai && u.jadwalSelesai < new Date();
-      if (u && u._count.soal > 0 && !lewat && (!u.mapel || u.mapel.kelas.nama === kelasSaya)) {
-        ujianCat = { nama: u.nama, durasiMenit: u.durasiMenit, jadwalMulai: u.jadwalMulai, jadwalSelesai: u.jadwalSelesai, mapel: u.mapel?.nama ?? null, sudahUjian: saya.sudahUjian };
+      if (u && jumlahSoal > 0 && !lewat) {
+        ujianCat = { nama: u.nama, durasiMenit: u.durasiMenit, jadwalMulai: u.jadwalMulai, jadwalSelesai: u.jadwalSelesai, mapel: u.mapel?.nama ?? null, sudahUjian: sudah };
       }
     }
 

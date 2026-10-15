@@ -3,32 +3,42 @@ import { prisma } from '@/lib/prisma';
 import { verifyStaffSession, ruangPengawas } from '@/lib/admin-auth';
 import { muatSoalUjian, getSoalPeserta } from '@/lib/ujian-soal';
 import { susunTahap, hitungStatus, parseJawaban } from '@/lib/sesi-ujian';
+import { INCLUDE_TARGET, labelPeserta, wherePeserta } from '@/lib/ujian-peserta';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+// Monitoring ujian CAT sekolah. ?ujian=id memilih ujian aktif (bawaan: ujian aktif pertama).
+// Peserta = siswa kelas target ujian (pengawas ruang: hanya ruangnya). Status per ujian dari sesi ujian.
+export async function GET(request: Request) {
   const auth = await verifyStaffSession();
   if (!auth.ok) return NextResponse.json({ message: auth.message }, { status: auth.status });
 
   try {
-    const activeExam = await prisma.ujian.findFirst({
-      where: { isActive: true },
-      orderBy: { createdAt: 'desc' },
-    });
+    const aktifList = await prisma.ujian.findMany({ where: { isActive: true }, include: INCLUDE_TARGET, orderBy: [{ jadwalMulai: 'asc' }, { id: 'asc' }] });
+    const dipilih = Number(new URL(request.url).searchParams.get('ujian'));
+    const activeExam = aktifList.find((u) => u.id === dipilih) ?? aktifList[0] ?? null;
+    const daftarUjian = aktifList.map((u) => ({ id: u.id, nama: u.nama, peserta: labelPeserta(u) }));
 
     // Pengawas ruang hanya melihat peserta di ruangnya
     const ruang = ruangPengawas(auth.user);
-    const filterRuang = ruang ? { ruang } : { ruang: { not: '' } };
+    if (!activeExam) {
+      return NextResponse.json({
+        ujian: null, daftarUjian, totalSoal: 0, serverNow: Date.now(), ruangPengawas: ruang, peserta: [], sudahSelesai: [],
+        stats: { totalPeserta: 0, sedangUjian: 0, sudahSelesai: 0, belumMulai: 0 },
+      });
+    }
 
-    const pesertaList = await prisma.user.findMany({
-      where: { role: 'PESERTA', sudahUjian: false, ...filterRuang },
-      select: {
-        id: true, nomorPeserta: true, nama: true, ruang: true, sesi: true,
-        tanggalUjian: true, foto: true,
-      },
+    const semuaPeserta = await prisma.user.findMany({
+      where: { ...wherePeserta(activeExam), ...(ruang ? { ruang } : {}) },
+      select: { id: true, nomorPeserta: true, nama: true, kelas: true, ruang: true, sesi: true, tanggalUjian: true, foto: true },
       orderBy: [{ ruang: 'asc' }, { sesi: 'asc' }, { nama: 'asc' }],
     });
-    const userIds = pesertaList.length > 0 ? pesertaList.map((p) => p.id) : [0];
+    const semuaIds = semuaPeserta.length ? semuaPeserta.map((p) => p.id) : [0];
+    const sesiList = await prisma.sesiUjian.findMany({ where: { userId: { in: semuaIds }, ujianId: activeExam.id } });
+    const selesaiIds = new Set(sesiList.filter((s) => s.selesai).map((s) => s.userId));
+    const pesertaList = semuaPeserta.filter((p) => !selesaiIds.has(p.id));
+    const sudahUjian = semuaPeserta.filter((p) => selesaiIds.has(p.id));
+    const userIds = pesertaList.length ? pesertaList.map((p) => p.id) : [0];
 
     // Awal percobaan saat ini = selesainya ujian terakhir (atau sejak awal bila belum pernah)
     const historiTerakhir = await prisma.historiUjian.groupBy({
@@ -43,15 +53,12 @@ export async function GET() {
     const semuaSoal = await muatSoalUjian(activeExam);
     const percobaanMap = new Map<number, number>();
     for (const h of await prisma.historiUjian.groupBy({
-      by: ['userId'], where: { userId: { in: userIds }, ujianId: activeExam?.id ?? null }, _count: { _all: true },
+      by: ['userId'], where: { userId: { in: userIds }, ujianId: activeExam.id }, _count: { _all: true },
     })) percobaanMap.set(h.userId, h._count._all);
 
-    const sesiList = await prisma.sesiUjian.findMany({
-      where: { userId: { in: userIds }, ujianId: activeExam?.id ?? null, selesai: false },
-    });
     const now = Date.now();
     const progresMap = new Map<number, { terjawab: number; total: number; tenggat: number; habis: boolean; bagian: string | null; tambahanMenit: number }>();
-    for (const sesi of sesiList) {
+    for (const sesi of sesiList.filter((s) => !s.selesai)) {
       const soal = await getSoalPeserta(sesi.userId, activeExam, { all: semuaSoal, percobaan: percobaanMap.get(sesi.userId) ?? 0 });
       const tahap = susunTahap(soal);
       const st = hitungStatus(sesi, activeExam, tahap, now);
@@ -74,31 +81,19 @@ export async function GET() {
       if (p.createdAt > sejak(p.userId)) pelanggaranMap.set(p.userId, (pelanggaranMap.get(p.userId) ?? 0) + 1);
     }
 
-    // Jumlah soal per peserta pada ujian aktif (mempertimbangkan pool)
+    // Jumlah soal per peserta pada ujian ini (mempertimbangkan pool)
     const jumlahSoalUjian = semuaSoal.length;
-    const totalSoal = activeExam?.poolSize && activeExam.poolSize > 0
-      ? Math.min(activeExam.poolSize, jumlahSoalUjian)
-      : jumlahSoalUjian;
+    const totalSoal = activeExam.poolSize && activeExam.poolSize > 0 ? Math.min(activeExam.poolSize, jumlahSoalUjian) : jumlahSoalUjian;
 
-    const sudahUjian = await prisma.user.findMany({
-      where: { role: 'PESERTA', sudahUjian: true, ...(ruang ? { ruang } : {}) },
-      select: {
-        id: true, nomorPeserta: true, nama: true, ruang: true, sesi: true,
-        nilai: true, foto: true,
-      },
-      orderBy: [{ ruang: 'asc' }, { nama: 'asc' }],
-    });
-
-    const historiMap = new Map<number, { waktuMulai: Date; waktuSelesai: Date | null }>();
+    // Hasil yang sudah selesai: histori terakhir ujian ini
+    const historiMap = new Map<number, { waktuMulai: Date; waktuSelesai: Date | null; nilaiAkhir: number }>();
     if (sudahUjian.length > 0) {
       const historiList = await prisma.historiUjian.findMany({
-        where: { userId: { in: sudahUjian.map((p) => p.id) } },
+        where: { userId: { in: sudahUjian.map((p) => p.id) }, ujianId: activeExam.id },
         orderBy: { waktuSelesai: 'desc' },
       });
       for (const h of historiList) {
-        if (!historiMap.has(h.userId)) {
-          historiMap.set(h.userId, { waktuMulai: h.waktuMulai, waktuSelesai: h.waktuSelesai });
-        }
+        if (!historiMap.has(h.userId)) historiMap.set(h.userId, { waktuMulai: h.waktuMulai, waktuSelesai: h.waktuSelesai, nilaiAkhir: h.nilaiAkhir });
       }
     }
 
@@ -119,23 +114,27 @@ export async function GET() {
     const sedang = peserta.filter((p) => p.sedangUjian).length;
 
     return NextResponse.json({
-      ujian: activeExam ? {
+      ujian: {
+        id: activeExam.id,
         nama: activeExam.nama,
+        peserta: labelPeserta(activeExam),
         durasiMenit: activeExam.durasiMenit,
         jadwalMulai: activeExam.jadwalMulai,
         jadwalSelesai: activeExam.jadwalSelesai,
-      } : null,
+      },
+      daftarUjian,
       totalSoal,
       serverNow: now,
       ruangPengawas: ruang,
       peserta,
       sudahSelesai: sudahUjian.map((p) => ({
         ...p,
+        nilai: historiMap.get(p.id)?.nilaiAkhir ?? null,
         waktuMulai: historiMap.get(p.id)?.waktuMulai || null,
         waktuSelesai: historiMap.get(p.id)?.waktuSelesai || null,
       })),
       stats: {
-        totalPeserta: pesertaList.length + sudahUjian.length,
+        totalPeserta: semuaPeserta.length,
         sedangUjian: sedang,
         sudahSelesai: sudahUjian.length,
         belumMulai: pesertaList.length - sedang,

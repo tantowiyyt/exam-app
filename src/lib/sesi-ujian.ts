@@ -1,6 +1,7 @@
 import type { SesiUjian, Ujian, User } from '@prisma/client';
 import { prisma } from './prisma';
 import { getSoalPeserta, groupName, type SoalWithBagian } from './ujian-soal';
+import { ujianAktifUntuk } from './ujian-peserta';
 
 /** Toleransi jaringan untuk penyimpanan/submit setelah tenggat. */
 export const GRACE_MS = 60 * 1000;
@@ -174,7 +175,8 @@ export async function nilaiDanSimpan(opts: {
   const skorPerBagian = Object.fromEntries(Object.entries(perBagian).map(([k, v]) => [k, persen(v)]));
 
   await prisma.$transaction([
-    prisma.jawabanUjian.deleteMany({ where: { userId: user.id } }),
+    // Jawaban per ujian: hasil ujian lain milik siswa ini tetap tersimpan
+    prisma.jawabanUjian.deleteMany({ where: { userId: user.id, OR: [{ ujianId: ujian?.id ?? null }, { soalId: { in: allSoal.map((x) => x.id) } }] } }),
     prisma.jawabanUjian.createMany({ data: jawabanRecords }),
     prisma.user.update({ where: { id: user.id }, data: { nilai: nilaiAkhir, sudahUjian: true } }),
     prisma.historiUjian.create({
@@ -200,7 +202,7 @@ export async function nilaiDanSimpan(opts: {
 export async function muatKonteks(nomorPeserta: string) {
   const user = await prisma.user.findUnique({ where: { nomorPeserta } });
   if (!user) return { error: 'User tidak ditemukan', httpStatus: 401 } as const;
-  const ujian = await prisma.ujian.findFirst({ where: { isActive: true } });
+  const { ujian } = await ujianAktifUntuk(user);
   const sesi = await cariSesiAktif(user.id, ujian?.id ?? null);
   if (!sesi) return { error: 'Sesi ujian tidak ditemukan. Muat ulang halaman ujian.', httpStatus: 409 } as const;
   const soal = await getSoalPeserta(user.id, ujian);

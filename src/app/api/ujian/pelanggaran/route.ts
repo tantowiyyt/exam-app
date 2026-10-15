@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/session';
+import { ujianAktifUntuk } from '@/lib/ujian-peserta';
 import { verifyStaffSession, ruangPengawas } from '@/lib/admin-auth';
 
 export async function POST(request: Request) {
@@ -17,7 +18,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'User tidak ditemukan' }, { status: 404 });
     }
 
-    if (user.sudahUjian && user.role !== 'ADMIN') {
+    if (user.role !== 'ADMIN' && (await ujianAktifUntuk(user)).sudah) {
       return NextResponse.json({ message: 'Ujian sudah selesai' }, { status: 409 });
     }
 

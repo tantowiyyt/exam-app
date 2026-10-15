@@ -18,7 +18,7 @@ export function semesterDariTanggal(d = new Date()) {
 }
 
 /** Data yang dicatat per semester (kolom semesterId). */
-const TABEL = ['tugas', 'kuis', 'sesiPresensi', 'ujianManual'] as const;
+const TABEL = ['tugas', 'kuis', 'sesiPresensi', 'ujianManual', 'ujian'] as const;
 
 /**
  * Semester aktif. Bila belum ada sama sekali, dibuat otomatis dari tanggal hari ini dan semua data lama

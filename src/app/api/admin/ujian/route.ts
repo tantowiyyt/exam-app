@@ -3,6 +3,26 @@ import { prisma } from '@/lib/prisma';
 import { verifyAdminSession } from '@/lib/admin-auth';
 import { cache, CACHE_KEYS } from '@/lib/cache';
 import { createAuditLog, getAuditIP, AUDIT_ACTIONS } from '@/lib/audit-log';
+import { INCLUDE_TARGET, beririsan, labelPeserta, tulisKelas, wherePeserta, type UjianTarget } from '@/lib/ujian-peserta';
+import { semesterAktif } from '@/lib/semester';
+
+const JENIS = ['UH', 'UTS', 'UAS', 'LAIN'];
+
+/** kelasTarget dari body: array nama kelas yang ada. undefined = tidak diubah. */
+async function parseKelasTarget(value: unknown): Promise<string | undefined | false> {
+  if (value === undefined) return undefined;
+  const list = Array.isArray(value) ? value.map(String) : String(value ?? '').split(',');
+  const nama = [...new Set(list.map((x) => x.trim()).filter(Boolean))];
+  if (!nama.length) return '';
+  const ada = await prisma.kelas.findMany({ where: { nama: { in: nama } }, select: { nama: true } });
+  return ada.length === nama.length ? tulisKelas(nama) : false;
+}
+
+/** Ujian aktif lain yang pesertanya beririsan dengan ujian ini (tidak boleh aktif bersamaan). */
+async function bentrokAktif(u: UjianTarget) {
+  const aktif = await prisma.ujian.findMany({ where: { isActive: true, id: { not: u.id } }, include: INCLUDE_TARGET });
+  return aktif.filter((x) => beririsan(x, u));
+}
 
 function parsePoolSize(value: unknown): number | null | undefined {
   if (value === undefined) return undefined;
@@ -28,10 +48,18 @@ export async function GET() {
       orderBy: { createdAt: 'desc' },
       include: {
         _count: { select: { soal: true, histori: true, bagian: true } },
-        mapel: { select: { id: true, nama: true, kelas: { select: { nama: true } } } },
+        ...INCLUDE_TARGET,
       },
     });
-    return NextResponse.json(ujianList);
+    // Ringkas status peserta per ujian: jumlah peserta & yang sudah selesai
+    const hasil = await Promise.all(ujianList.map(async (u) => {
+      const [peserta, selesai] = await Promise.all([
+        prisma.user.count({ where: wherePeserta(u) }),
+        prisma.sesiUjian.count({ where: { ujianId: u.id, selesai: true } }),
+      ]);
+      return { ...u, labelPeserta: labelPeserta(u), jumlahPeserta: peserta, jumlahSelesai: selesai };
+    }));
+    return NextResponse.json(hasil);
   } catch (error) {
     console.error('ERROR GET UJIAN:', error);
     return NextResponse.json({ message: 'Gagal mengambil data ujian' }, { status: 500 });
@@ -49,6 +77,9 @@ export async function POST(request: Request) {
     if (mapelId === false) {
       return NextResponse.json({ message: 'Mapel tidak ditemukan' }, { status: 400 });
     }
+    const kelasTarget = await parseKelasTarget(body.kelasTarget);
+    if (kelasTarget === false) return NextResponse.json({ message: 'Ada kelas peserta yang tidak dikenal' }, { status: 400 });
+    if (body.jenis !== undefined && !JENIS.includes(body.jenis)) return NextResponse.json({ message: 'Jenis ujian tidak dikenal' }, { status: 400 });
 
     if (!nama || !String(nama).trim()) {
       return NextResponse.json({ message: 'Nama ujian wajib diisi' }, { status: 400 });
@@ -65,6 +96,9 @@ export async function POST(request: Request) {
         jadwalSelesai: jadwalSelesai ? new Date(jadwalSelesai) : null,
         poolSize: parsePoolSize(poolSize) ?? null,
         mapelId: mapelId ?? null,
+        kelasTarget: kelasTarget ?? '',
+        jenis: body.jenis ?? 'LAIN',
+        semesterId: (await semesterAktif()).id,
       },
     });
 
@@ -104,12 +138,30 @@ export async function PUT(request: Request) {
       return NextResponse.json({ message: 'Mapel tidak ditemukan' }, { status: 400 });
     }
     if (mapelId !== undefined) updateData.mapelId = mapelId;
+    const kelasTarget = await parseKelasTarget(body.kelasTarget);
+    if (kelasTarget === false) return NextResponse.json({ message: 'Ada kelas peserta yang tidak dikenal' }, { status: 400 });
+    if (kelasTarget !== undefined) updateData.kelasTarget = kelasTarget;
+    if (body.jenis !== undefined) {
+      if (!JENIS.includes(body.jenis)) return NextResponse.json({ message: 'Jenis ujian tidak dikenal' }, { status: 400 });
+      updateData.jenis = body.jenis;
+    }
 
-    // Hanya satu ujian yang boleh aktif
-    const ujian = await prisma.$transaction(async (tx) => {
-      if (isActive) {
-        await tx.ujian.updateMany({ where: { id: { not: Number(id) } }, data: { isActive: false } });
+    // Beberapa ujian boleh aktif bersamaan asal kelas pesertanya tidak beririsan
+    const lama = await prisma.ujian.findUnique({ where: { id: Number(id) }, include: INCLUDE_TARGET });
+    if (!lama) return NextResponse.json({ message: 'Ujian tidak ditemukan' }, { status: 404 });
+    const akanAktif = isActive === undefined ? lama.isActive : !!isActive;
+    let bentrok: UjianTarget[] = [];
+    if (akanAktif) {
+      const calon = { ...lama, ...updateData } as UjianTarget;
+      if (updateData.mapelId !== undefined) {
+        calon.mapel = updateData.mapelId ? await prisma.mapel.findUnique({ where: { id: Number(updateData.mapelId) }, include: { kelas: { select: { nama: true } } } }) : null;
       }
+      bentrok = await bentrokAktif(calon);
+    }
+    // Ujian aktif lain yang pesertanya beririsan dinonaktifkan (satu siswa hanya punya satu ujian aktif);
+    // ujian untuk kelas lain tetap aktif.
+    const ujian = await prisma.$transaction(async (tx) => {
+      if (bentrok.length) await tx.ujian.updateMany({ where: { id: { in: bentrok.map((b) => b.id) } }, data: { isActive: false } });
       return tx.ujian.update({ where: { id: Number(id) }, data: updateData });
     });
 
@@ -120,7 +172,10 @@ export async function PUT(request: Request) {
       details: updateData,
       ipAddress: getAuditIP(request),
     });
-    return NextResponse.json({ success: true, data: ujian });
+    return NextResponse.json({
+      success: true, data: ujian, dinonaktifkan: bentrok.map((b) => b.nama),
+      message: bentrok.length ? `Ujian disimpan. Dinonaktifkan karena kelas pesertanya beririsan: ${bentrok.map((b) => `${b.nama} (${labelPeserta(b)})`).join('; ')}` : 'Ujian disimpan',
+    });
   } catch (error) {
     console.error('ERROR PUT UJIAN:', error);
     return NextResponse.json({ message: 'Gagal memperbarui ujian' }, { status: 500 });

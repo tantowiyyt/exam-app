@@ -212,6 +212,8 @@ export function opsHapusDataLms(userId: number) {
     prisma.presensi.deleteMany({ where: { userId } }),
     prisma.nilaiUjianManual.deleteMany({ where: { userId } }),
     prisma.bankSoal.deleteMany({ where: { pemilikId: userId } }),
+    prisma.deskripsiRapor.deleteMany({ where: { userId } }),
+    prisma.catatanRapor.deleteMany({ where: { userId } }),
     prisma.pengumuman.updateMany({ where: { userId }, data: { userId: null } }),
     prisma.mapel.updateMany({ where: { guruId: userId }, data: { guruId: null } }),
   ];

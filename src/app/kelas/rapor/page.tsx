@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { HeaderHalaman } from "@/components/AppShell";
+import { useToast } from "@/components/Toast";
 
 // Rapor (laporan hasil belajar) lintas mapel per semester. Siswa: rapornya sendiri.
 // Guru/admin: pilih kelas -> ringkasan kelas (rata-rata, ketuntasan, kehadiran, peringkat) -> rapor tiap siswa / cetak semua.
@@ -9,7 +10,8 @@ import { HeaderHalaman } from "@/components/AppShell";
 type Kunci = "tugas" | "kuis" | "uh" | "uts" | "uas" | "ujian" | "presensi";
 interface Rapor {
     siswa: { id: number; nomorPeserta: string; nama: string };
-    nilai: { mapelId: number; komponen: Record<Kunci, number | null>; nilaiAkhir: number | null; tuntas: boolean | null }[];
+    nilai: { mapelId: number; komponen: Record<Kunci, number | null>; nilaiAkhir: number | null; tuntas: boolean | null; predikat: string | null; deskripsi: string }[];
+    catatan: string;
     rataRata: number | null; jumlahTuntas: number; jumlahBerKkm: number; peringkat: number | null;
     kehadiran: { H: number; I: number; S: number; A: number; kosong: number; pertemuan: number; persen: number | null };
 }
@@ -23,7 +25,9 @@ interface Data {
     komponen?: Kunci[];
     mapel?: { id: number; nama: string; guru: string; kkm: number; berbobot: boolean }[];
     rapor?: Rapor[];
+    batasPredikat?: { A: number; B: number; C: number };
 }
+type Format = "merdeka" | "rinci";
 
 const LABEL: Record<Kunci, string> = { tugas: "Tugas", kuis: "Kuis", uh: "UH", uts: "UTS", uas: "UAS", ujian: "Ujian Lain", presensi: "Hadir %" };
 const angka = (v: number | null | undefined) => (v === null || v === undefined ? "–" : Number.isInteger(v) ? String(v) : v.toFixed(1));
@@ -45,6 +49,8 @@ export default function HalamanRapor() {
     const [error, setError] = useState("");
     // null = ringkasan kelas, "semua" = semua rapor (untuk dicetak), angka = rapor satu siswa
     const [tampil, setTampil] = useState<null | "semua" | number>(null);
+    const [pilihFormat, setPilihFormat] = useState<Format | null>(null);
+    const [versi, setVersi] = useState(0);
 
     useEffect(() => {
         let ignore = false;
@@ -57,10 +63,12 @@ export default function HalamanRapor() {
             setD(r.data);
         });
         return () => { ignore = true; };
-    }, [kelas, semester]);
+    }, [kelas, semester, versi]);
 
     const staf = d?.peran === "staf";
     const daftar = d?.rapor ?? [];
+    // Format bawaan: Kurikulum Merdeka bila sudah ada deskripsi capaian, selain itu rinci per komponen
+    const format: Format = pilihFormat ?? (daftar.some((r) => r.nilai.some((n) => n.deskripsi)) ? "merdeka" : "rinci");
     const dicetak = !staf ? daftar : tampil === "semua" ? daftar : typeof tampil === "number" ? daftar.filter((r) => r.siswa.id === tampil) : [];
 
     return (
@@ -78,6 +86,13 @@ export default function HalamanRapor() {
                         {d.kelasList.map((k) => <option key={k.id} value={k.id}>{k.nama}</option>)}
                     </select>
                 )}
+                {dicetak.length > 0 && (
+                    <select value={format} onChange={(e) => setPilihFormat(e.target.value as Format)} aria-label="Format rapor"
+                        className="px-3 py-2 text-sm rounded-lg border border-slate-300 bg-white font-semibold">
+                        <option value="merdeka">Format Kurikulum Merdeka</option>
+                        <option value="rinci">Format rinci per komponen</option>
+                    </select>
+                )}
                 {dicetak.length > 0 && <button onClick={() => window.print()} className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold">Cetak / PDF</button>}
             </HeaderHalaman>
 
@@ -92,7 +107,7 @@ export default function HalamanRapor() {
                     <button onClick={() => setTampil(null)} className="mb-4 text-sm font-bold text-indigo-600 hover:underline print:hidden">&larr; Ringkasan kelas {d.kelas?.nama}</button>
                 )}
                 <div className="space-y-8 print:space-y-0">
-                    {d && dicetak.map((r) => <KartuRapor key={r.siswa.id} d={d} r={r} staf={!!staf} />)}
+                    {d && dicetak.map((r) => <KartuRapor key={r.siswa.id} d={d} r={r} staf={!!staf} format={format} bisaCatat={!!staf && typeof tampil === "number"} onCatat={() => setVersi((v) => v + 1)} />)}
                 </div>
             </main>
         </div>
@@ -157,8 +172,36 @@ function RingkasanKelas({ d, onBuka }: { d: Data; onBuka: (v: "semua" | number) 
     );
 }
 
-function KartuRapor({ d, r, staf }: { d: Data; r: Rapor; staf: boolean }) {
-    const komponen = d.komponen ?? [];
+function CatatanWali({ d, r, bisaCatat, onCatat }: { d: Data; r: Rapor; bisaCatat: boolean; onCatat: () => void }) {
+    const { toast } = useToast();
+    const [teks, setTeks] = useState(r.catatan);
+    const [simpan, setSimpan] = useState(false);
+    const kirimCatatan = async () => {
+        setSimpan(true);
+        const res = await fetch("/api/lms/rapor", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ siswa: r.siswa.id, semester: d.semester.id, catatan: teks }) });
+        const data = await res.json().catch(() => ({}));
+        setSimpan(false);
+        toast(data.message || (res.ok ? "Tersimpan" : "Gagal"), res.ok ? "success" : "error");
+        if (res.ok) onCatat();
+    };
+    return (
+        <div className="border border-slate-400 mt-4 print:mt-2 break-inside-avoid">
+            <p className="bg-slate-100 border-b border-slate-400 px-2 py-1 text-[12px] font-bold">Catatan Wali Kelas</p>
+            {bisaCatat ? (
+                <div className="p-2 space-y-2 print:hidden">
+                    <textarea value={teks} onChange={(e) => setTeks(e.target.value)} rows={2} maxLength={1000} aria-label="Catatan wali kelas"
+                        placeholder="mis. Pertahankan semangat belajar. Tingkatkan kehadiran." className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-[12px]" />
+                    <button onClick={kirimCatatan} disabled={simpan || teks === r.catatan} className="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold disabled:opacity-50">{simpan ? "Menyimpan..." : "Simpan catatan"}</button>
+                </div>
+            ) : null}
+            <p className={`px-2 py-2 print:py-1 text-[12px] min-h-10 print:min-h-6 whitespace-pre-wrap ${bisaCatat ? "hidden print:block" : ""}`}>{r.catatan || "\u00a0"}</p>
+        </div>
+    );
+}
+
+function KartuRapor({ d, r, staf, format, bisaCatat, onCatat }: { d: Data; r: Rapor; staf: boolean; format: Format; bisaCatat: boolean; onCatat: () => void }) {
+    const merdeka = format === "merdeka";
+    const komponen = merdeka ? [] : d.komponen ?? [];
     const mapel = d.mapel ?? [];
     const s = d.sekolah!;
     const namaSekolah = s.nama && s.nama !== PLACEHOLDER ? s.nama : "";
@@ -178,10 +221,10 @@ function KartuRapor({ d, r, staf }: { d: Data; r: Rapor; staf: boolean }) {
                 </div>
                 <span className="w-16" />
             </header>
-            <h2 className="text-center font-black text-base tracking-widest mt-4">LAPORAN HASIL BELAJAR</h2>
-            <p className="text-center text-xs mb-4">Semester {d.semester.semester} · Tahun Ajaran {d.semester.tahunAjaran}</p>
+            <h2 className="text-center font-black text-base tracking-widest mt-4 print:mt-2">LAPORAN HASIL BELAJAR</h2>
+            <p className="text-center text-xs mb-4 print:mb-2">Semester {d.semester.semester} · Tahun Ajaran {d.semester.tahunAjaran}</p>
 
-            <dl className="grid grid-cols-[110px_1fr] sm:grid-cols-[110px_1fr_110px_1fr] gap-y-1 mb-4">
+            <dl className="grid grid-cols-[110px_1fr] sm:grid-cols-[110px_1fr_110px_1fr] gap-y-1 mb-4 print:mb-2">
                 <dt>Nama</dt><dd className="font-bold">: {r.siswa.nama}</dd>
                 <dt>Kelas</dt><dd>: {d.kelas?.nama}</dd>
                 <dt>NIS</dt><dd>: {r.siswa.nomorPeserta}</dd>
@@ -196,8 +239,11 @@ function KartuRapor({ d, r, staf }: { d: Data; r: Rapor; staf: boolean }) {
                             <th className={`${sel} text-left`}>Mata Pelajaran</th>
                             {komponen.map((k) => <th key={k} className={`${sel} w-14`}>{LABEL[k]}</th>)}
                             <th className={`${sel} w-16`}>Nilai Akhir</th>
-                            <th className={`${sel} w-12`}>KKM</th>
-                            <th className={`${sel} w-24`}>Keterangan</th>
+                            <th className={`${sel} w-14`}>Predikat</th>
+                            {merdeka ? <th className={`${sel} text-left`}>Capaian Kompetensi</th> : <>
+                                <th className={`${sel} w-12`}>KKM</th>
+                                <th className={`${sel} w-24`}>Keterangan</th>
+                            </>}
                         </tr>
                     </thead>
                     <tbody>
@@ -209,21 +255,24 @@ function KartuRapor({ d, r, staf }: { d: Data; r: Rapor; staf: boolean }) {
                                     <td className={sel}><span className="font-semibold">{m.nama}</span>{m.guru && <span className="block print:inline print:ml-1 text-[10px] text-slate-500">{m.guru}</span>}</td>
                                     {komponen.map((k) => <td key={k} className={`${sel} text-center`}>{angka(n?.komponen[k])}</td>)}
                                     <td className={`${sel} text-center font-bold`}>{angka(n?.nilaiAkhir)}</td>
-                                    <td className={`${sel} text-center`}>{m.kkm || "–"}</td>
-                                    <td className={`${sel} text-center text-[11px] ${n?.tuntas === false ? "font-bold" : ""}`}>{n?.tuntas === null || n?.tuntas === undefined ? "–" : n.tuntas ? "Tuntas" : "Belum tuntas"}</td>
+                                    <td className={`${sel} text-center font-bold`}>{n?.predikat ?? "–"}</td>
+                                    {merdeka ? <td className={`${sel} text-[11px] print:text-[10px] leading-snug`}>{n?.deskripsi || <span className="text-slate-400">–</span>}</td> : <>
+                                        <td className={`${sel} text-center`}>{m.kkm || "–"}</td>
+                                        <td className={`${sel} text-center text-[11px] ${n?.tuntas === false ? "font-bold" : ""}`}>{n?.tuntas === null || n?.tuntas === undefined ? "–" : n.tuntas ? "Tuntas" : "Belum tuntas"}</td>
+                                    </>}
                                 </tr>
                             );
                         })}
                         <tr className="bg-slate-50">
                             <td className={`${sel} text-right font-bold`} colSpan={2 + komponen.length}>Rata-rata</td>
                             <td className={`${sel} text-center font-black`}>{angka(r.rataRata)}</td>
-                            <td className={sel} colSpan={2}>{r.jumlahBerKkm ? `Tuntas ${r.jumlahTuntas} dari ${r.jumlahBerKkm} mapel` : ""}</td>
+                            <td className={sel} colSpan={merdeka ? 2 : 3}>{r.jumlahBerKkm ? `Tuntas ${r.jumlahTuntas} dari ${r.jumlahBerKkm} mapel` : ""}</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
 
-            <div className="flex flex-wrap items-start gap-4 mt-4">
+            <div className="flex flex-wrap items-start gap-4 mt-4 print:mt-2">
                 <table className="border-collapse text-[12px] flex-1 min-w-64">
                     <thead>
                         <tr><th colSpan={r.kehadiran.kosong > 0 ? 5 : 4} className={`${sel} bg-slate-100 text-left`}>Kehadiran (pertemuan, semua mapel)</th></tr>
@@ -241,22 +290,24 @@ function KartuRapor({ d, r, staf }: { d: Data; r: Rapor; staf: boolean }) {
                 )}
             </div>
 
+            <CatatanWali d={d} r={r} bisaCatat={bisaCatat} onCatat={onCatat} />
+
             {/* Tanda tangan */}
-            <div className="grid grid-cols-3 gap-4 mt-10 print:mt-6 text-center text-[12px] break-inside-avoid">
+            <div className="grid grid-cols-3 gap-4 mt-10 print:mt-3 text-center text-[12px] break-inside-avoid">
                 <div>
                     <p>&nbsp;</p>
                     <p>Orang Tua / Wali</p>
-                    <p className="mt-16 print:mt-12">( .............................. )</p>
+                    <p className="mt-16 print:mt-10">( .............................. )</p>
                 </div>
                 <div>
                     <p>&nbsp;</p>
                     <p>Wali Kelas</p>
-                    <p className="mt-16 print:mt-12 font-bold underline">{d.kelas?.wali || ".............................."}</p>
+                    <p className="mt-16 print:mt-10 font-bold underline">{d.kelas?.wali || ".............................."}</p>
                 </div>
                 <div>
                     <p>{s.kota ? `${s.kota}, ` : ""}{tanggal}</p>
                     <p>{s.penandatangan.jabatan || "Kepala Sekolah"}</p>
-                    <p className="mt-16 print:mt-12 font-bold underline">{s.penandatangan.nama || ".............................."}</p>
+                    <p className="mt-16 print:mt-10 font-bold underline">{s.penandatangan.nama || ".............................."}</p>
                     {s.penandatangan.nip && <p>NIP. {s.penandatangan.nip}</p>}
                 </div>
             </div>

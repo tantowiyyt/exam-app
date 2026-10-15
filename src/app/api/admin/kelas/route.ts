@@ -176,7 +176,7 @@ export async function DELETE(request: Request) {
           message: `Mapel masih berisi ${c.materi} materi, ${c.tugas} tugas, ${c.kuis} kuis, ${c.sesiPresensi} pertemuan presensi, ${c.pengumuman} pengumuman, ${c.ujian} ujian CAT, ${c.ujianManual} ujian offline. Hapus isinya dulu.`,
         }, { status: 400 });
       }
-      await prisma.$transaction([prisma.topik.deleteMany({ where: { mapelId: id } }), prisma.mapel.delete({ where: { id } })]);
+      await prisma.$transaction([prisma.topik.deleteMany({ where: { mapelId: id } }), prisma.deskripsiRapor.deleteMany({ where: { mapelId: id } }), prisma.mapel.delete({ where: { id } })]);
       await createAuditLog({ action: 'DELETE_MAPEL', target: `Mapel #${id} ${mapel.nama}`, ipAddress: getAuditIP(request) });
       return NextResponse.json({ success: true, message: 'Mapel dihapus' });
     }

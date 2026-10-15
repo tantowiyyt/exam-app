@@ -117,7 +117,12 @@ model Ujian {
   jadwalSelesai DateTime? // Waktu selesai ujian
   isActive      Boolean   @default(false) // Ujian yang aktif saat ini
   poolSize      Int? // Jumlah soal yang diambil dari pool (null = semua soal)
-  mapelId       Int? // null = ujian umum lintas kelas; ada = ujian milik mapel/kelas tertentu (LMS)
+  mapelId       Int? // ujian khusus satu mapel (nilai masuk rekap mapel itu); null = ujian sekolah lintas mapel
+  // Peserta: daftar kelas ",X IPA 1,X IPA 2," ("" = kelas mapel bila mapelId diisi, selain itu semua siswa).
+  // Beberapa ujian boleh aktif bersamaan asal kelas pesertanya tidak beririsan.
+  kelasTarget   String    @default("")
+  jenis         String    @default("LAIN") // UH | UTS | UAS | LAIN -> komponen rekap nilai mapel
+  semesterId    Int?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -571,6 +576,29 @@ model BankSoal {
 
   @@index([mapel])
   @@index([pemilikId])
+}
+
+// Rapor: deskripsi capaian per siswa per mapel per semester (ditulis guru pengampu) dan catatan wali kelas.
+model DeskripsiRapor {
+  id         Int      @id @default(autoincrement())
+  mapelId    Int
+  userId     Int
+  semesterId Int
+  deskripsi  String
+  updatedAt  DateTime @updatedAt
+
+  @@unique([mapelId, userId, semesterId])
+  @@index([userId])
+}
+
+model CatatanRapor {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  semesterId Int
+  catatan    String
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, semesterId])
 }
 
 model Topik {

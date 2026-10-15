@@ -9,16 +9,8 @@ export async function GET() {
   if (!auth.ok) return NextResponse.json({ message: auth.message }, { status: auth.status });
 
   try {
-    let ujian = await prisma.ujian.findFirst({
-      where: { isActive: true },
-    });
-
-    if (!ujian) {
-      ujian = await prisma.ujian.create({
-        data: { nama: 'Ujian Default', durasiMenit: 60, isActive: true },
-      });
-    }
-
+    // Ujian aktif pertama (tidak lagi membuat "Ujian Default" otomatis). Jadwal per ujian diatur di Kelola Ujian.
+    const ujian = await prisma.ujian.findFirst({ where: { isActive: true }, orderBy: { id: 'asc' } });
     return NextResponse.json(ujian);
   } catch (error) {
     console.error('ERROR PADA GET PENGATURAN ADMIN:', error);
@@ -34,12 +26,8 @@ export async function PUT(request: Request) {
     const body = await request.json();
     const { durasiMenit, jadwalMulai, jadwalSelesai, resetJadwal } = body;
 
-    let ujian = await prisma.ujian.findFirst({ where: { isActive: true } });
-    if (!ujian) {
-      ujian = await prisma.ujian.create({
-        data: { nama: 'Ujian Default', durasiMenit: 60, isActive: true },
-      });
-    }
+    const ujian = await prisma.ujian.findFirst({ where: { isActive: true }, orderBy: { id: 'asc' } });
+    if (!ujian) return NextResponse.json({ message: 'Tidak ada ujian aktif. Atur jadwal di Kelola Ujian.' }, { status: 404 });
 
     const updateData: Record<string, unknown> = {};
 

@@ -61,6 +61,7 @@ function menu(role: string, cat: boolean): Grup[] {
                 { href: "/admin", label: "Dasbor Ujian", ikon: "dasbor" as const, aktif: (p: string) => p === "/admin" },
                 { href: "/admin/ujian", label: "Kelola Ujian", ikon: "ujian" as const },
                 { href: "/admin/soal", label: "Bank Soal", ikon: "soal" as const },
+                { href: "/admin/peserta-ujian", label: "Peserta Ujian", ikon: "siswa" as const },
                 { href: "/admin/monitoring", label: "Monitoring", ikon: "monitor" as const },
                 { href: "/admin/kartu", label: "Kartu Ujian", ikon: "kartu" as const },
                 { href: "/admin/nilai", label: "Hasil Ujian", ikon: "nilai" as const },

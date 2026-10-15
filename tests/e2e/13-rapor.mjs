@@ -96,6 +96,37 @@ r = await req('a', `/api/lms/rapor?kelas=${kelasRow.id}&siswa=${sb}`);
 ok(r.body.rapor.length === 1 && r.body.rapor[0].siswa.id === sa, 'siswa tidak bisa membuka rapor siswa lain');
 ok(r.body.sekolah && typeof r.body.sekolah.namaAplikasi === 'string', 'rapor memuat identitas sekolah untuk kop');
 
+// ---------- Predikat, deskripsi capaian, catatan wali kelas ----------
+ok((await req('gb', `/api/lms/mapel/${m1}/deskripsi`)).status === 404, 'guru mapel lain tidak bisa membuka deskripsi rapor mapel ini');
+ok((await req('a', `/api/lms/mapel/${m1}/deskripsi`)).status === 404, 'siswa tidak bisa membuka deskripsi rapor');
+r = await req('ga', `/api/lms/mapel/${m1}/deskripsi`);
+const dA = r.body.siswa?.find((x) => x.siswa.id === sa);
+ok(r.status === 200 && dA.nilaiAkhir === 85 && dA.predikat === 'B' && dA.deskripsi === '', 'deskripsi: nilai akhir 85 = predikat B (bawaan A≥90, B≥80, C≥70)');
+ok(dA.saran.startsWith('Ani menunjukkan penguasaan yang baik') && dA.saran.includes('pada UTS') && !dA.saran.includes('Biologi'), 'saran deskripsi otomatis menyebut item terbaik (tanpa mengulang nama mapel)');
+const dB = r.body.siswa.find((x) => x.siswa.id === sb);
+ok(dB.predikat === 'D' && dB.saran.includes('Perlu peningkatan pada Laporan'), 'saran deskripsi siswa B menyebut yang perlu ditingkatkan');
+ok((await put('ga', `/api/lms/mapel/${m1}/deskripsi`, { data: [{ userId: 999999, deskripsi: 'x' }] })).status === 400, 'siswa di luar kelas ditolak');
+ok((await put('ga', `/api/lms/mapel/${m1}/deskripsi`, { data: [{ userId: sa, deskripsi: 'Ani menguasai sistem organ dengan baik.' }] })).status === 200, 'guru menyimpan deskripsi capaian');
+r = await req('admin', `/api/lms/rapor?kelas=${kelasRow.id}`);
+let nA = r.body.rapor.find((x) => x.siswa.id === sa).nilai.find((n) => n.mapelId === m1);
+ok(nA.predikat === 'B' && nA.deskripsi === 'Ani menguasai sistem organ dengan baik.' && r.body.batasPredikat.A === 90, 'rapor memuat predikat & deskripsi capaian');
+ok((await req('a', '/api/lms/rapor')).body.rapor[0].nilai.find((n) => n.mapelId === m1).deskripsi.startsWith('Ani menguasai'), 'siswa melihat deskripsi capaian di rapornya');
+await put('ga', `/api/lms/mapel/${m1}/deskripsi`, { data: [{ userId: sa, deskripsi: '' }] });
+ok((await req('ga', `/api/lms/mapel/${m1}/deskripsi`)).body.siswa.find((x) => x.siswa.id === sa).deskripsi === '', 'deskripsi kosong = dihapus');
+
+ok((await put('admin', '/api/admin/instansi', { predikatA: '70', predikatB: '80', predikatC: '60' })).status === 400, 'batas predikat harus menurun');
+ok((await put('admin', '/api/admin/instansi', { predikatA: '101', predikatB: '80', predikatC: '60' })).status === 400, 'batas predikat maksimal 100');
+ok((await put('admin', '/api/admin/instansi', { predikatA: '85', predikatB: '75', predikatC: '60' })).status === 200, 'admin mengubah batas predikat');
+r = await req('admin', `/api/lms/rapor?kelas=${kelasRow.id}`);
+ok(r.body.rapor.find((x) => x.siswa.id === sa).nilai.find((n) => n.mapelId === m1).predikat === 'A' && r.body.rapor.find((x) => x.siswa.id === sb).nilai.find((n) => n.mapelId === m1).predikat === 'C', 'predikat mengikuti batas baru (85 = A, 65 = C)');
+await put('admin', '/api/admin/instansi', { predikatA: '90', predikatB: '80', predikatC: '70' });
+
+ok((await put('a', '/api/lms/rapor', { siswa: sa, catatan: 'x' })).status === 403, 'siswa tidak bisa menulis catatan wali kelas');
+ok((await put('gc', '/api/lms/rapor', { siswa: sa, catatan: 'x' })).status === 404, 'guru yang tidak terkait kelas tidak bisa menulis catatan');
+ok((await put('gw', '/api/lms/rapor', { siswa: sa, catatan: 'Pertahankan semangat belajar.' })).status === 200, 'wali kelas menulis catatan rapor');
+r = await req('a', '/api/lms/rapor');
+ok(r.body.rapor[0].catatan === 'Pertahankan semangat belajar.', 'catatan wali kelas tampil di rapor siswa');
+
 // ---------- Semester ----------
 const TA = `${2080 + (t % 9)}/${2081 + (t % 9)}`;
 const semBaru = (await post('admin', '/api/admin/semester', { tahunAjaran: TA, semester: 'Genap' })).body.data.id;

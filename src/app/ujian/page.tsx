@@ -33,7 +33,7 @@ interface HasilUjian {
     skorPerBagian?: Record<string, number>;
 }
 
-type StatusHalaman = "loading" | "ok" | "belum" | "jadwal_selesai" | "kosong" | "sudah" | "bukan_kelas";
+type StatusHalaman = "loading" | "ok" | "belum" | "jadwal_selesai" | "kosong" | "sudah" | "bukan_kelas" | "tidak_ada";
 type StatusSimpan = "tersimpan" | "menyimpan" | "gagal";
 
 const GROUP_COLORS = [
@@ -113,6 +113,7 @@ export default function HalamanUjian() {
         if (data.status === "belum") { setJadwalMulai(data.jadwalMulai); setStatus("belum"); return; }
         if (data.status === "jadwal_selesai") { setStatus("jadwal_selesai"); return; }
         if (data.status === "kosong") { setStatus("kosong"); return; }
+        if (data.status === "tidak_ada") { setStatus("tidak_ada"); return; }
         if (data.status === "bukan_kelas") { setKelasUjian(data.kelas); setStatus("bukan_kelas"); return; }
         if (data.status === "selesai_otomatis") {
             setHasilUjian(data.hasil);
@@ -430,11 +431,20 @@ export default function HalamanUjian() {
             </div>
         );
     }
+    if (status === "tidak_ada") return (
+        <div className="min-h-screen flex items-center justify-center p-4">
+            <div className="bg-white max-w-md w-full rounded-3xl shadow-xl border border-slate-200 p-8 text-center space-y-4">
+                <h2 className="text-xl font-bold text-slate-800">Belum Ada Ujian</h2>
+                <p className="text-sm text-slate-500">Saat ini tidak ada ujian CAT yang aktif untuk kelas Anda.</p>
+                <button onClick={() => router.push("/kelas")} className="w-full py-3 bg-slate-800 text-white rounded-xl font-bold hover:bg-slate-700 transition-all">Kembali ke Beranda</button>
+            </div>
+        </div>
+    );
     if (status === "bukan_kelas") return (
         <div className="min-h-screen flex items-center justify-center p-4">
             <div className="bg-white max-w-md w-full rounded-3xl shadow-xl border border-slate-200 p-8 text-center space-y-4">
                 <h2 className="text-xl font-bold text-slate-800">Ujian Bukan untuk Kelas Anda</h2>
-                <p className="text-sm text-slate-500">Ujian yang sedang aktif khusus untuk kelas <b>{kelasUjian}</b>. Hubungi panitia bila data kelas Anda keliru.</p>
+                <p className="text-sm text-slate-500">Ujian yang sedang aktif khusus untuk kelas <b>{kelasUjian || "lain"}</b>. Hubungi panitia bila data kelas Anda keliru.</p>
                 <button onClick={() => router.push("/dashboard")} className="w-full py-3 bg-slate-800 text-white rounded-xl font-bold hover:bg-slate-700 transition-all">Kembali ke Dashboard</button>
             </div>
         </div>

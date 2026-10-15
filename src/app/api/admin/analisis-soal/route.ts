@@ -18,9 +18,8 @@ export async function GET() {
       },
     });
 
-    const totalPeserta = await prisma.user.count({
-      where: { sudahUjian: true },
-    });
+    // Status selesai per ujian ada di sesi ujian (User.sudahUjian sudah tidak dipakai)
+    const totalPeserta = (await prisma.sesiUjian.groupBy({ by: ['userId'], where: { selesai: true } })).length;
 
     const analisis = soalList.map((soal) => {
       const totalDijawab = soal.jawaban.length;

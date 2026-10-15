@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { verifyStaffSession, ruangPengawas } from '@/lib/admin-auth';
 import { createAuditLog, getAuditIP } from '@/lib/audit-log';
 import { getSoalPeserta } from '@/lib/ujian-soal';
+import { ujianAktifUntuk } from '@/lib/ujian-peserta';
 import { susunTahap, hitungStatus, sinkronStatus, cariSesiAktif, parseJawaban, nilaiDanSimpan } from '@/lib/sesi-ujian';
 
 // Aksi pengawas terhadap sesi ujian peserta yang sedang berjalan
@@ -19,7 +20,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: `Peserta ini bukan di ruang ${ruang}` }, { status: 403 });
     }
 
-    const ujian = await prisma.ujian.findFirst({ where: { isActive: true } });
+    const { ujian } = await ujianAktifUntuk(user);
     let sesi = await cariSesiAktif(user.id, ujian?.id ?? null);
     if (!sesi) return NextResponse.json({ message: 'Peserta tidak sedang mengerjakan ujian' }, { status: 400 });
 

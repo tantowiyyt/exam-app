@@ -192,7 +192,7 @@ await del('ga', `/api/lms/materi?id=${matLamp}`);
 await post('ga', '/api/lms/tugas', { mapelId: m1, judul: 'Lewat Tenggat', tenggat: new Date(Date.now() - 86400000).toISOString(), nilaiMaks: 50 });
 r = await req('ga', `/api/lms/mapel/${m1}/nilai`);
 const bS1 = r.body.baris?.find((b) => b.siswa.id === s1Id);
-ok(r.status === 200 && r.body.peran === 'kelola' && r.body.kolom.length === 2 && bS1?.nilai[`t${tg1}`] === 90, 'guru melihat rekap nilai mapel');
+ok(r.status === 200 && r.body.peran === 'kelola' && r.body.kolom.filter((k) => k.jenis === 'tugas').length === 2 && bS1?.nilai[`t${tg1}`] === 90, 'guru melihat rekap nilai mapel');
 ok(bS1?.rataRata === 45, 'rata-rata = persen nilai, tugas lewat tenggat tanpa kumpul dihitung 0');
 r = await req('s1', `/api/lms/mapel/${m1}/nilai`);
 ok(r.status === 200 && r.body.peran === 'siswa' && r.body.baris.length === 1 && r.body.baris[0].siswa.id === s1Id, 'siswa hanya melihat nilainya sendiri');

@@ -23,22 +23,41 @@ export async function hitungRekapMapel(mapel: Mapel, siswa: Siswa[], semester: S
   const ids = siswa.map((s) => s.id);
   const diSemester = { semesterId: semester.id };
 
-  const [tugas, ujian, kuis, ujianManual, sesiPresensi] = await Promise.all([
+  // Ujian CAT sekolah semester ini yang berlaku untuk mapel ini: khusus mapel ini, atau ujian lintas mapel
+  // yang pesertanya mencakup kelas ini (nilai diambil dari skor mata pelajaran yang namanya sama dengan mapel).
+  const kelas = (await prisma.kelas.findUnique({ where: { id: mapel.kelasId }, select: { nama: true } }))?.nama ?? '';
+  const ujianSekolah = await prisma.ujian.findMany({
+    where: {
+      OR: [{ semesterId: semester.id }, ...(semester.aktif ? [{ semesterId: null }] : [])],
+      AND: [{ OR: [{ mapelId: mapel.id }, { mapelId: null, OR: [{ kelasTarget: '' }, { kelasTarget: { contains: `,${kelas},` } }] }] }],
+    },
+    orderBy: { createdAt: 'asc' },
+    select: {
+      id: true, nama: true, mapelId: true, jenis: true,
+      histori: { where: { userId: { in: ids } }, select: { userId: true, nilaiAkhir: true, skorPerMapel: true }, orderBy: { id: 'asc' } },
+    },
+  });
+  // Ujian lintas mapel hanya dipakai bila punya soal mata pelajaran ini
+  const namaMapel = mapel.nama.trim().toLowerCase();
+  const lintas = ujianSekolah.filter((u) => u.mapelId === null).map((u) => u.id);
+  const mapelSoal = lintas.length ? await prisma.soal.findMany({ where: { ujianId: { in: lintas } }, select: { ujianId: true, mataPelajaran: true }, distinct: ['ujianId', 'mataPelajaran'] }) : [];
+  const ujian = ujianSekolah.filter((u) => u.mapelId === mapel.id || mapelSoal.some((m) => m.ujianId === u.id && m.mataPelajaran.trim().toLowerCase() === namaMapel));
+  const skorMapel = (h: { nilaiAkhir: number; skorPerMapel: string | null }, khusus: boolean) => {
+    if (khusus) return h.nilaiAkhir;
+    try {
+      const skor = JSON.parse(h.skorPerMapel ?? '{}') as Record<string, number>;
+      const k = Object.keys(skor).find((x) => x.trim().toLowerCase() === namaMapel);
+      return k === undefined ? null : Number(skor[k]);
+    } catch { return null; }
+  };
+
+  const [tugas, kuis, ujianManual, sesiPresensi] = await Promise.all([
     prisma.tugas.findMany({
       where: { mapelId: mapel.id, ...diSemester, ...(kelola ? {} : whereTugasSiswa(lihat.userId!)) },
       orderBy: [{ createdAt: 'asc' }],
       select: {
         id: true, judul: true, nilaiMaks: true, tenggat: true, terbit: true, terbitPada: true, untukSiswa: true,
         pengumpulan: { where: { userId: { in: ids } }, select: { userId: true, nilai: true, dikumpulkanAt: true, status: true } },
-      },
-    }),
-    // Ujian CAT sekolah (dikelola admin) belum bersemester: ditampilkan di semester aktif saja
-    prisma.ujian.findMany({
-      where: { mapelId: semester.aktif ? mapel.id : -1 },
-      orderBy: { createdAt: 'asc' },
-      select: {
-        id: true, nama: true,
-        histori: { where: { userId: { in: ids } }, select: { userId: true, nilaiAkhir: true }, orderBy: { id: 'asc' } },
       },
     }),
     prisma.kuis.findMany({
@@ -90,7 +109,7 @@ export async function hitungRekapMapel(mapel: Mapel, siswa: Siswa[], semester: S
   const kolom = [
     ...tugas.map((t) => ({ kunci: `t${t.id}`, jenis: 'tugas' as const, id: t.id, judul: t.judul, maks: t.nilaiMaks, terbit: t.terbit })),
     ...kuis.map((k) => ({ kunci: `k${k.id}`, jenis: 'kuis' as const, id: k.id, judul: k.judul, maks: 100, terbit: k.terbit })),
-    ...ujian.map((u) => ({ kunci: `u${u.id}`, jenis: 'ujian' as const, id: u.id, judul: u.nama, maks: 100, terbit: true })),
+    ...ujian.map((u) => ({ kunci: `u${u.id}`, jenis: 'ujian' as const, id: u.id, judul: u.nama, maks: 100, terbit: true, sekolah: true, jenisUjian: u.jenis, mode: 'cat' })),
     ...urutUjianManual(ujianManual).map((u) => ({
       kunci: `m${u.id}`, jenis: 'ujian' as const, id: u.id, judul: u.judul, maks: u.mode === 'cat' ? 100 : u.nilaiMaks, terbit: u.terbit,
       offline: u.mode !== 'cat', mapelUjian: true, jenisUjian: u.jenis, mode: u.mode,
@@ -125,10 +144,12 @@ export async function hitungRekapMapel(mapel: Mapel, siswa: Siswa[], semester: S
       }
     }
     for (const u of ujian) {
-      // Nilai terakhir (bila ujian diulang setelah reset)
+      // Nilai terakhir (bila ujian diulang setelah reset); ujian lintas mapel = skor mata pelajaran ini
       const h = u.histori.filter((x) => x.userId === s.id).pop();
-      nilai[`u${u.id}`] = h ? h.nilaiAkhir : null;
-      if (h) kat.ujian.push(h.nilaiAkhir);
+      const v = h ? skorMapel(h, u.mapelId === mapel.id) : null;
+      nilai[`u${u.id}`] = v;
+      const k = ({ UH: 'uh', UTS: 'uts', UAS: 'uas' } as const)[u.jenis as 'UH' | 'UTS' | 'UAS'] ?? 'ujian';
+      if (v !== null) kat[k].push(v);
     }
     for (const u of ujianManual) {
       // Siswa tanpa nilai (mis. belum ikut / susulan) tidak dihitung

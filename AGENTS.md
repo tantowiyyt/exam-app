@@ -23,11 +23,11 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ---
 
-## Status Terakhir (2026-10-14) — BACA INI DULU
+## Status Terakhir (2026-10-15) — BACA INI DULU
 
 **Repo:** https://github.com/tantowiyyt/exam-app (branch `main`). Database, foto upload, dan `.env` sengaja tidak di-commit.
 
-**Kondisi:** fitur lengkap + LMS (Phase 16), build & lint bersih, `npm run test:e2e` 610 tes lulus, uji beban 150 peserta serentak 0 gagal (sebelum LMS).
+**Kondisi:** fitur lengkap + LMS (Phase 16), build & lint bersih, `npm run test:e2e` 667 tes lulus, uji beban 150 peserta serentak 0 gagal (sebelum LMS).
 Siap untuk **simulasi**, belum untuk ujian sungguhan — selesaikan daftar di bawah dulu.
 
 **Belum dilakukan (oleh pemilik proyek):**
@@ -51,14 +51,14 @@ Siap untuk **simulasi**, belum untuk ujian sungguhan — selesaikan daftar di ba
 - Admin yang diturunkan role-nya masih melihat tampilan halaman admin (kosong, API menolak) sampai login ulang.
 - Durasi per bagian hanya berlaku bila SEMUA soal ujian berada di bagian yang punya durasi.
 - Sisa 18 warning lint ringan (`<img>`, unused vars) — tidak ada error.
-- Ujian CAT **sekolah** (menu admin, mesin lama) tetap hanya SATU aktif sekaligus (`User.sudahUjian` global) — dipakai untuk ujian lintas mapel/panitia.
+- Ujian CAT **sekolah** (menu admin): beberapa boleh aktif bersamaan asal **kelas pesertanya tidak beririsan** (Phase 19); mengaktifkan ujian yang beririsan menonaktifkan ujian lain itu. Status "sudah ujian" per ujian (`SesiUjian.selesai`); `User.sudahUjian`/`User.nilai` masih ditulis tetapi tidak lagi dipakai untuk logika.
   Ujian per mapel (UH/UTS/UAS) dikelola guru di tab Ujian dan bisa CAT bersamaan di banyak kelas (Phase 18, mesin Kuis mode ujian).
 - Ujian CAT mapel dipantau guru pengampu (bukan role Pengawas); layar penuh tidak tersedia di iPhone (hanya deteksi pindah tab).
 - LMS: lampiran yang belum/tidak lagi tertaut ke materi/tugas/jawaban bisa dibuka siapa pun yang login asal tahu URL acaknya (UUID);
   lampiran yang tertaut hanya untuk anggota/pengelola mapelnya.
 
 **Backup DB lokal** (di-ignore git): `prisma/dev.db.bak-20261014063026`, `-065253`, `-071034`, `-090459` (sebelum skema LMS), `-115525` (sebelum fitur tugas lanjutan), `-132330` (sebelum kuis), `-134625` (sebelum presensi), `-135714` (sebelum topik & jadwal terbit), `-140714` (sebelum bobot nilai & rubrik) — boleh dihapus bila tidak diperlukan.
-**PERHATIAN:** backup `-115525` s/d `-164000` dibuat dengan menyalin `dev.db` saja padahal perubahan masih di `dev.db-wal`, sehingga isinya SAMA (kondisi 09:29, sebelum kelas/kuis/dst). Backup lengkap yang valid (via `VACUUM INTO`): `-164500` (63 akun, 21 kelas), `-170000` (sebelum 273 mapel), `-173000` (sebelum 630 siswa), `-174500` (sebelum skema ujian offline), `-190000` (sebelum skema semester & ujian CAT mapel), `-203000` (sebelum bank soal & tautan kelas virtual).
+**PERHATIAN:** backup `-115525` s/d `-164000` dibuat dengan menyalin `dev.db` saja padahal perubahan masih di `dev.db-wal`, sehingga isinya SAMA (kondisi 09:29, sebelum kelas/kuis/dst). Backup lengkap yang valid (via `VACUUM INTO`): `-164500` (63 akun, 21 kelas), `-170000` (sebelum 273 mapel), `-173000` (sebelum 630 siswa), `-174500` (sebelum skema ujian offline), `-190000` (sebelum skema semester & ujian CAT mapel), `-203000` (sebelum bank soal & tautan kelas virtual), `-213000` (sebelum deskripsi & catatan rapor), `-223000` (sebelum skema ujian sekolah per kelas).
 **Data contoh di dev.db (2026-10-14):** 21 kelas X–XII IPA/IPS/Bahasa, 273 mapel ber-guru, 25 guru + 25 pengawas (`storage/akun-guru-pengawas.csv`), 630 siswa 30/kelas (`storage/akun-siswa.csv`), pembagian mapel di `storage/pembagian-mapel.csv`. Ruang/sesi ujian siswa baru masih kosong.
 Backup berikutnya pakai `VACUUM INTO` / `sqlite3 .backup` (lihat `DEPLOY.md`), **jangan `cp dev.db`**.
 
@@ -72,7 +72,7 @@ Backup berikutnya pakai `VACUUM INTO` / `sqlite3 .backup` (lihat `DEPLOY.md`), *
 | **User** | id, nomorPeserta (unique), nama, password, role (ADMIN/PENGAWAS/PESERTA), kelas, ruang, sesi, nilai, sudahUjian, createdAt, relations: jawaban[], histori[], pelanggaran[], activities[], auditLogs[] | Peserta & admin |
 | **Soal** | id, ujianId?, pertanyaan, opsiA-D, jawabanBenar, mataPelajaran, bobot, createdAt, relations: jawaban[] | Bank soal |
 | **JawabanUjian** | id, userId, soalId, ujianId?, jawabanPeserta, jawabanBenar, benar, mataPelajaran, createdAt, @@unique([userId, soalId]) | Jawaban per soal per user |
-| **Ujian** | id, nama, durasiMenit, jadwalMulai, jadwalSelesai, isActive, poolSize?, createdAt, updatedAt, relations: soal[], jawaban[], histori[] | Konfigurasi ujian |
+| **Ujian** | id, nama, durasiMenit, jadwalMulai, jadwalSelesai, isActive, poolSize?, mapelId?, kelasTarget, jenis, semesterId?, createdAt, updatedAt, relations: soal[], jawaban[], histori[] | Konfigurasi ujian |
 | **HistoriUjian** | id, userId, ujianId?, waktuMulai, waktuSelesai, totalSoal, jumlahBenar, jumlahSalah, nilaiAkhir, skorPerMapel (JSON string) | Log sesi ujian |
 | **Pelanggaran** | id, userId, jenis, keterangan, createdAt | Log pelanggaran anti-cheat |
 | **UserActivity** | id, userId, activity, details?, ipAddress?, userAgent?, createdAt | Tracking aktivitas user |
@@ -88,6 +88,7 @@ Backup berikutnya pakai `VACUUM INTO` / `sqlite3 .backup` (lihat `DEPLOY.md`), *
 | **SesiPresensi / Presensi** | Sesi: mapelId, judul, tanggal, kode (6 karakter), bukaSampai? (presensi mandiri), catatan / Presensi: sesiId+userId unique, status H/I/S/A, mandiri, keterangan, waktu | LMS presensi |
 | **Mapel.bobotTugas/Kuis/Ujian/Presensi, kkm**; `Tugas.rubrik` (JSON [{kriteria,deskripsi,maks}]); `PengumpulanTugas.nilaiRubrik` (JSON number[]) | Bobot semua 0 = rata-rata biasa; rubrik ada = nilaiMaks = jumlah maks | LMS nilai |
 | **UjianManual / NilaiUjianManual** | UjianManual: mapelId, judul, jenis (UH/UTS/UAS/LAIN), mode (offline/cat), kuisId?, semesterId, tanggal?, nilaiMaks, keterangan, terbit (nilai diumumkan), diumumkanAt / Nilai: ujianId+userId unique, nilai (Float), catatan | LMS ujian mapel |
+| **DeskripsiRapor** (mapelId+userId+semesterId unique, deskripsi) / **CatatanRapor** (userId+semesterId unique, catatan) | tanpa relasi FK; dihapus bersama akun / mapel | Rapor |
 | **BankSoal** (pemilikId, mapel = nama mapel, label, tipe, pertanyaan, opsi, kunci, pembahasan, bobot, bersama); `SesiPresensi.linkVirtual` | Bank soal guru & kelas virtual | Phase 18 |
 | **Semester** + `semesterId` di Tugas/Kuis/SesiPresensi/UjianManual; `Kuis.modeUjian/token/maksPelanggaran`; `PercobaanKuis.pelanggaran/tambahanMenit`; `Mapel.bobotUH/UTS/UAS` | Semester: tahunAjaran+semester unique, aktif | Phase 18 |
 | **Topik** + `Materi/Tugas/Kuis.topikId`, `Materi/Tugas.terbitPada` | Topik: mapelId, judul, deskripsi, urutan (topikId tanpa relasi FK; hapus topik = isi jadi tanpa topik). terbitPada = terbit terjadwal | LMS |
@@ -191,6 +192,18 @@ Backup berikutnya pakai `VACUUM INTO` / `sqlite3 .backup` (lihat `DEPLOY.md`), *
 
 **Durasi per bagian** kini diterapkan — lihat Phase 12.
 
+### Phase 19 — Ujian CAT Sekolah per Kelas (2026-10-15)
+| Item | Files |
+|------|-------|
+| `Ujian.kelasTarget` (",A,B,"; "" = kelas mapel bila `mapelId`, selain itu semua siswa), `Ujian.jenis` (UH/UTS/UAS/LAIN), `Ujian.semesterId` (ujian baru → semester aktif) | `prisma/schema.prisma`, `src/app/api/admin/ujian/route.ts`, `src/app/admin/ujian/page.tsx` |
+| Beberapa ujian aktif bersamaan untuk kelas berbeda; ujian aktif untuk siswa dicari dari kelasnya (`ujianAktifUntuk`) di ujian, submit, simpan, sesi pengawas, data diri, beranda, riwayat, review | `src/lib/ujian-peserta.ts`, `src/lib/sesi-ujian.ts`, `src/app/api/ujian/**`, `src/app/api/me/route.ts` |
+| Status sudah/mengerjakan/belum **per ujian** dari `SesiUjian` (bukan `User.sudahUjian` global); jawaban ujian lain tidak terhapus saat menilai | `src/lib/ujian-peserta.ts` (`statusPeserta`, `sudahMengerjakan`) |
+| Menu **Peserta Ujian** (admin): siswa kelas target per ujian + status & nilai, atur ruang/sesi per kelas atau per siswa, reset satu siswa / semua peserta satu ujian (riwayat nilai tetap) | `src/app/admin/peserta-ujian/page.tsx`, `src/app/api/admin/peserta-ujian/route.ts` |
+| Monitoring, rekap nilai admin, dasbor statistik per ujian aktif | `src/app/api/admin/{monitoring,nilai,stats}/route.ts` |
+| Rekap nilai mapel: ujian CAT sekolah khusus mapel atau lintas mapel (skor mata pelajaran bernama sama) untuk kelas itu, per semester, masuk komponen UH/UTS/UAS sesuai `jenis` | `src/lib/rekap.ts` |
+| Migrasi sekali jalan data lama (sudah dijalankan di dev.db; jalankan juga di server setelah `db push`): `node scripts/migrasi-status-ujian.mjs` | `scripts/migrasi-status-ujian.mjs` |
+| Tes E2E multi-ujian (39 tes) | `tests/e2e/15-multi-ujian.mjs` |
+
 ### Phase 18 — Ujian per Mapel (UH/UTS/UAS) & Semester (2026-10-14)
 Keputusan pemilik: tiap mapel punya ujian sendiri yang dikelola guru, dengan opsi pelaksanaan CAT; CAT dibangun dari mesin Kuis;
 semester aktif global; menu Ujian CAT admin tetap untuk ujian sekolah.
@@ -207,7 +220,9 @@ semester aktif global; menu Ujian CAT admin tetap untuk ujian sekolah.
 | Tes E2E semester & ujian CAT mapel (75 tes) | `tests/e2e/12-ujian-cat-semester.mjs` |
 | **Rapor** lintas mapel per semester (menu Rapor): kop sekolah, nilai per komponen (UH/UTS/UAS/tugas/kuis/hadir), nilai akhir & KKM per mapel, rata-rata, kehadiran H/I/S/A gabungan, peringkat (staf), tanda tangan orang tua / wali kelas / penandatangan (dari Pengaturan kartu), cetak A4 satu halaman per siswa. Admin: semua kelas; guru: kelas yang diajar atau diwalikan (keterangan kelas "Wali kelas: Nama"); siswa: rapornya sendiri tanpa nilai yang belum diumumkan | `src/app/api/lms/rapor/route.ts`, `src/app/kelas/rapor/page.tsx` |
 | Perhitungan rekap nilai mapel dipindah ke satu fungsi (dipakai tab Nilai & rapor) | `src/lib/rekap.ts` |
-| Tes E2E rapor (20 tes) | `tests/e2e/13-rapor.mjs` |
+| Tes E2E rapor (38 tes) | `tests/e2e/13-rapor.mjs` |
+| Rapor **format Kurikulum Merdeka** (nilai akhir, **predikat**, **capaian kompetensi**) atau rinci per komponen; **catatan wali kelas** per siswa (diisi di rapor satu siswa). Batas predikat A/B/C diatur admin (Pengaturan → Predikat Rapor, bawaan 90/80/70) | `src/lib/rapor.ts`, `src/app/api/lms/rapor/route.ts` (PUT catatan), `src/app/kelas/rapor/page.tsx` |
+| **Deskripsi capaian** per siswa per mapel per semester di tab Nilai (guru): saran otomatis dari nilai tertinggi/terendah (nama mapel tidak diulang), sunting, simpan | `src/app/api/lms/mapel/[id]/deskripsi/route.ts`, `src/components/lms/DeskripsiRapor.tsx` |
 | **Bank soal guru** (menu Bank Soal): soal per *nama* mapel (lintas kelas), label bab/topik, cari, bagikan ke guru lain (hanya pemilik yang mengubah/menghapus), tambah lewat editor/impor teks. Di editor soal kuis & ujian CAT: **Ambil dari Bank Soal** (disalin) dan **Simpan ke Bank Soal** | `src/app/api/lms/bank-soal/route.ts`, `src/app/kelas/bank-soal/page.tsx`, `src/components/lms/kuis.tsx` (`PilihBankSoal`, `EditorSoal` props `simpanKe`/`mapelNama`/`tunggal`) |
 | **Tautan kelas virtual** (Zoom/Meet) per pertemuan presensi: tombol Gabung di tab Presensi (sejak hari pertemuan) & kartu "Kelas Virtual Hari Ini" di beranda siswa/guru | `SesiPresensi.linkVirtual`, `src/app/api/lms/presensi/route.ts`, `src/components/lms/Presensi.tsx`, `src/app/api/lms/kelas/route.ts` |
 | Tes E2E bank soal & kelas virtual (31 tes) | `tests/e2e/14-bank-soal-virtual.mjs` |
@@ -469,7 +484,7 @@ src/proxy.ts                          # Next.js 16 route protection (dipindah da
 
 ## Build Status
 - `npm run build` passes ✅
-- `npm run test:e2e` (butuh build): 610 tes lulus — lihat `tests/README.md`
+- `npm run test:e2e` (butuh build): 667 tes lulus — lihat `tests/README.md`
 - Deploy: lihat `DEPLOY.md`
 - ±60 routes (halaman statis + API dinamis)
 - `npx eslint src`: 0 error (sisa warning ringan, mis. `<img>`)

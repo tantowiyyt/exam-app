@@ -96,9 +96,10 @@ export async function POST(request: Request) {
               nama: String(p.nama).trim(),
               password: hashedPassword,
               role: 'PESERTA',
-              ruang: p.ruang || 'LAB CAT-01',
-              sesi: p.sesi || '1',
+              ruang: p.ruang || '',
+              sesi: p.sesi || '',
               kelas: typeof p.kelas === 'string' ? p.kelas.trim() : '',
+              ...(p.jenisKelamin === 'L' || p.jenisKelamin === 'P' ? { jenisKelamin: p.jenisKelamin } : {}),
             },
           });
           successCount++;
@@ -140,8 +141,8 @@ export async function POST(request: Request) {
         nama,
         password: hashedPassword,
         role: 'PESERTA',
-        ruang: ruang || 'LAB CAT-01',
-        sesi: sesi || '1',
+        ruang: ruang || '',
+        sesi: sesi || '',
         kelas: typeof kelas === 'string' ? kelas.trim() : '',
         ...dataDiri.data,
       },
@@ -263,7 +264,8 @@ export async function PATCH(request: Request) {
 
       await prisma.$transaction([
         prisma.jawabanUjian.deleteMany({ where: { userId: Number(id) } }),
-        prisma.sesiUjian.deleteMany({ where: { userId: Number(id), selesai: false } }),
+        // Status per ujian ada di sesi ujian: hapus juga sesi yang sudah selesai agar bisa mengerjakan ulang
+        prisma.sesiUjian.deleteMany({ where: { userId: Number(id) } }),
         prisma.user.update({
           where: { id: Number(id) },
           data: { nilai: null, sudahUjian: false },
@@ -274,10 +276,23 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ success: true, message: 'Ujian peserta berhasil direset' });
     }
 
+    // Pindah / naik kelas massal: { action: 'pindahKelas', ids: number[], kelas: '' | nama kelas }
+    if (action === 'pindahKelas') {
+      const ids = Array.isArray(body.ids) ? body.ids.map(Number).filter((x: number) => Number.isInteger(x)) : [];
+      const kelas = typeof body.kelas === 'string' ? body.kelas.trim() : '';
+      if (!ids.length) return NextResponse.json({ message: 'Pilih siswa' }, { status: 400 });
+      if (kelas && !(await prisma.kelas.findUnique({ where: { nama: kelas } }))) {
+        return NextResponse.json({ message: 'Kelas tidak ditemukan' }, { status: 400 });
+      }
+      const n = await prisma.user.updateMany({ where: { id: { in: ids }, role: 'PESERTA' }, data: { kelas } });
+      await createAuditLog({ action: 'PINDAH_KELAS', target: kelas || '(tanpa kelas)', details: { jumlah: n.count }, ipAddress: getAuditIP(request) });
+      return NextResponse.json({ success: true, message: `${n.count} siswa dipindah ke ${kelas || 'tanpa kelas'}`, jumlah: n.count });
+    }
+
     if (action === 'resetAll') {
       await prisma.$transaction([
         prisma.jawabanUjian.deleteMany({}),
-        prisma.sesiUjian.deleteMany({ where: { selesai: false } }),
+        prisma.sesiUjian.deleteMany({}),
         prisma.user.updateMany({
           where: { role: 'PESERTA' },
           data: { sudahUjian: false, nilai: null },

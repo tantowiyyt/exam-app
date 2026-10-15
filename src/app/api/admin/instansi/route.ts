@@ -37,6 +37,13 @@ export async function PUT(request: Request) {
     if (body.namaAplikasi !== undefined && !String(body.namaAplikasi).trim()) {
       return NextResponse.json({ message: 'Nama aplikasi wajib diisi' }, { status: 400 });
     }
+    const angka = (v: unknown) => v === undefined || (/^\d{1,3}$/.test(String(v)) && Number(v) <= 100);
+    if (![body.predikatA, body.predikatB, body.predikatC].every(angka)) {
+      return NextResponse.json({ message: 'Batas predikat harus angka 0–100' }, { status: 400 });
+    }
+    if (body.predikatA !== undefined && !(Number(body.predikatA) > Number(body.predikatB) && Number(body.predikatB) > Number(body.predikatC))) {
+      return NextResponse.json({ message: 'Batas predikat harus menurun: A > B > C' }, { status: 400 });
+    }
     const data = await setInstansi(body);
     await createAuditLog({ action: AUDIT_ACTIONS.UPDATE_PENGATURAN, target: 'Identitas instansi', ipAddress: getAuditIP(request) });
     return NextResponse.json({ success: true, data });

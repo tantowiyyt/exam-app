@@ -6,6 +6,10 @@ export const DEFAULT_INSTANSI = {
   namaAplikasi: 'E-Learning',
   /** 'aktif' = menu & banner Ujian CAT ditampilkan; 'nonaktif' = disembunyikan */
   modulCat: 'aktif',
+  /** Batas bawah predikat rapor (nilai akhir 0–100): A >= predikatA, B >= predikatB, C >= predikatC, selain itu D */
+  predikatA: '90',
+  predikatB: '80',
+  predikatC: '70',
   namaInstansi: 'NAMA SEKOLAH / INSTANSI',
   subJudul: 'Panitia Ujian Berbasis Komputer (CAT)',
   alamat: 'Alamat instansi',

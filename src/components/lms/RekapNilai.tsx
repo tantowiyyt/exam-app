@@ -6,11 +6,13 @@ import { useToast } from "@/components/Toast";
 import { Modal, kirim, inputClass, labelClass } from "./ui";
 
 type Nilai = number | "kumpul" | "revisi" | "na" | null;
-interface Kolom { kunci: string; jenis: "tugas" | "kuis" | "ujian"; id: number; judul: string; maks: number; terbit: boolean; offline?: boolean; mapelUjian?: boolean; jenisUjian?: string; mode?: string }
+interface Kolom { kunci: string; jenis: "tugas" | "kuis" | "ujian"; id: number; judul: string; maks: number; terbit: boolean; offline?: boolean; mapelUjian?: boolean; sekolah?: boolean; jenisUjian?: string; mode?: string }
 
 const LABEL_JENIS_UJIAN: Record<string, string> = { UH: "UH", UTS: "UTS", UAS: "UAS", LAIN: "Ujian" };
 /** Label kolom ujian: jenis + cara pelaksanaan (mis. "UTS · CAT", "UH · offline", "Ujian CAT sekolah"). */
-const labelUjian = (k: Kolom) => (k.mapelUjian ? `${LABEL_JENIS_UJIAN[k.jenisUjian ?? "LAIN"] ?? "Ujian"} · ${k.mode === "cat" ? "CAT" : "offline"}` : "Ujian CAT sekolah");
+const labelUjian = (k: Kolom) => (k.mapelUjian
+    ? `${LABEL_JENIS_UJIAN[k.jenisUjian ?? "LAIN"] ?? "Ujian"} · ${k.mode === "cat" ? "CAT" : "offline"}`
+    : `${k.jenisUjian && k.jenisUjian !== "LAIN" ? `${k.jenisUjian} · ` : ""}Ujian CAT sekolah`);
 interface Data {
     peran: "kelola" | "siswa";
     mapel: { id: number; nama: string; kelas: string };

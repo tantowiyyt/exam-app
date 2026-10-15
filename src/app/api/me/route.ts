@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
+import { ujianAktifUntuk } from '@/lib/ujian-peserta';
 
 export async function GET() {
   try {
@@ -12,7 +13,7 @@ export async function GET() {
     const user = await prisma.user.findUnique({
       where: { nomorPeserta: session.nomorPeserta },
       select: {
-        nama: true, role: true, sudahUjian: true, ruang: true, sesi: true, tanggalUjian: true, kelas: true,
+        id: true, nama: true, role: true, ruang: true, sesi: true, tanggalUjian: true, kelas: true,
         foto: true, nik: true, tempatLahir: true, tanggalLahir: true,
         jenisKelamin: true, alamat: true, noHp: true,
       },
@@ -25,7 +26,8 @@ export async function GET() {
       nomorPeserta: session.nomorPeserta,
       nama: user?.nama ?? session.nama,
       role: user?.role ?? session.role,
-      sudahUjian: user?.sudahUjian ?? false,
+      // Status per ujian: sudah mengerjakan ujian CAT aktif untuk kelasnya
+      sudahUjian: user?.role === 'PESERTA' ? (await ujianAktifUntuk(user)).sudah : false,
       ruang: user?.ruang ?? '',
       sesi: user?.sesi ?? '',
       tanggalUjian: user?.tanggalUjian ?? '',
@@ -82,14 +84,14 @@ export async function PUT(request: Request) {
 
     const user = await prisma.user.findUnique({
       where: { nomorPeserta: session.nomorPeserta },
-      select: { id: true, ruang: true, sesi: true },
+      select: { id: true, role: true, kelas: true, ruang: true, sesi: true },
     });
 
     // Ruang/sesi ujian CAT dibagi otomatis bila ada jadwal ujian aktif; bila belum ada, data diri tetap
     // disimpan (aplikasi LMS) dan ruang diatur admin kemudian.
     let catatan = '';
-    if (!user?.ruang || !user?.sesi) {
-      const assigned = await autoAssignRoom();
+    if (user && (!user.ruang || !user.sesi)) {
+      const assigned = await autoAssignRoom(user);
       if (assigned) {
         updateData.ruang = assigned.ruang;
         updateData.sesi = assigned.sesi;
@@ -115,11 +117,8 @@ const KAPASITAS_RUANG = 20;
 const DAFTAR_RUANG = ['LAB CAT-01', 'LAB CAT-02', 'LAB CAT-03', 'LAB CAT-04', 'LAB CAT-05'];
 const DAFTAR_SESI = ['1', '2', '3', '4'];
 
-async function autoAssignRoom(): Promise<{ ruang: string; sesi: string; tanggal: string } | null> {
-  const activeExam = await prisma.ujian.findFirst({
-    where: { isActive: true },
-    orderBy: { createdAt: 'desc' },
-  });
+async function autoAssignRoom(user: { id: number; role: string; kelas: string }): Promise<{ ruang: string; sesi: string; tanggal: string } | null> {
+  const activeExam = (await ujianAktifUntuk(user)).ujian;
 
   if (!activeExam?.jadwalMulai) return null;
 
